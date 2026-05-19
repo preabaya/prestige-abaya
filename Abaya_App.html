@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" id="mainHtml">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="pageTitle">Prestige Abaya | نظام التحليل المالي والمخزوني</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-dark: #1e40af;
+            --primary-light: #eff6ff;
+            --secondary: #0d9488;
+            --secondary-dark: #0f766e;
+            --secondary-light: #f0fdfa;
+            --danger: #e11d48;
+            --danger-light: #fee2e2;
+            --success: #166534;
+            --success-light: #dcfce7;
+            --warning: #d97706;
+            --warning-light: #fef3c7;
+            --dark: #0f172a;
+            --slate-cbd: #cbd5e1;
+            --slate-ef: #f1f5f9;
+            --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8fafc;
+            margin: 0;
+            padding: 25px;
+            color: var(--dark);
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            padding: 35px;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.05);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--slate-ef);
+            padding-bottom: 24px;
+            margin-bottom: 30px;
+        }
+
+        .header h1 { color: var(--primary); margin: 0; font-size: 28px; font-weight: 700; }
+        .header p { color: #64748b; margin: 6px 0 0 0; font-size: 14px; }
+        .header-buttons { display: flex; gap: 12px; align-items: center; }
+
+        .save-status-badge {
+            background-color: var(--success-light);
+            color: var(--success);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+            border: 1px solid #bbf7d0;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .lang-btn {
+            background-color: #6366f1;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .rates-status {
+            font-size: 11px;
+            color: var(--secondary);
+            background: var(--secondary-light);
+            padding: 4px 8px;
+            border-radius: 6px;
+            margin-top: 4px;
+            display: inline-block;
+        }
+
+        .dashboard-widgets {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .widget-card {
+            background: white;
+            padding: 24px;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+            box-shadow: var(--card-shadow);
+            position: relative;
+            overflow: hidden;
+        }
+        .widget-card::before { content: ''; position: absolute; top: 0; right: 0; width: 5px; height: 100%; }
+        html[dir="ltr"] .widget-card::before { right: auto; left: 0; }
+        .widget-card.capital::before { background-color: var(--primary); }
+        .widget-card.avg-cost::before { background-color: #3b82f6; }
+        .widget-card.revenue::before { background-color: var(--warning); }
+        .widget-card.profit::before { background-color: var(--secondary); }
+        .widget-card.real-profit::before { background-color: #10b981; }
+
+        .widget-title { font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 10px; }
+        .widget-value { font-size: 24px; font-weight: 700; color: var(--dark); }
+        .widget-subtitle { font-size: 11px; color: #94a3b8; margin-top: 6px; }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 1.1fr;
+            gap: 25px;
+            margin-bottom: 35px;
+        }
+        
+        .chart-container { 
+            background: white; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 14px; 
+            padding: 24px; 
+            height: 380px; 
+            box-shadow: var(--card-shadow); 
+            position: relative;
+        }
+
+        .main-settings-row {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .config-block-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .card { background: #fff; padding: 20px; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); }
+        .card h3 { margin-top: 0; margin-bottom: 15px; font-size: 16px; color: var(--primary); border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
+        
+        .form-group { display: flex; flex-direction: column; margin-bottom: 12px; }
+        label { font-weight: 600; margin-bottom: 8px; color: #475569; font-size: 13px; }
+        input, select { padding: 10px 14px; border: 1px solid var(--slate-cbd); border-radius: 8px; font-size: 14px; background-color: white; }
+
+        .summary-wrapper { display: grid; grid-template-columns: 1fr; margin-bottom: 35px; }
+        .invoice-box { background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 25px; box-shadow: var(--card-shadow); }
+        .invoice-box h3 { margin-top: 0; color: var(--primary); font-size: 18px; margin-bottom: 15px; }
+        
+        .invoice-table-box { width: 100%; border-collapse: collapse; }
+        .invoice-table-box th { background-color: #f1f5f9; color: #475569; font-size: 13px; padding: 12px; text-align: center; border-bottom: 2px solid #e2e8f0; }
+        .invoice-table-box td { padding: 14px 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; text-align: center; }
+        .invoice-table-box tr.grand-total-row td { background-color: var(--primary-light); font-weight: 700; color: var(--primary); font-size: 16px; border-top: 2px solid #bfdbfe; border-bottom: 2px solid #bfdbfe; }
+
+        .table-responsive { width: 100%; overflow-x: auto; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; background: white; box-shadow: var(--card-shadow); }
+        table.data-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; min-width: 1500px; }
+        table.data-table th { background-color: var(--primary); color: white; font-weight: 600; padding: 14px 10px; white-space: nowrap; }
+        table.data-table td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; background-color: #fff; }
+        
+        .input-table { width: 100%; box-sizing: border-box; padding: 9px 12px; border-radius: 6px; border: 1px solid var(--slate-cbd); font-size: 13px; text-align: center; }
+        .input-table.model-name { text-align: inherit; font-weight: 600; font-size: 14px; }
+
+        .profit-positive { color: var(--success); background-color: var(--success-light); font-weight: 700; border-radius: 6px; padding: 6px 10px; display: inline-block; }
+        .profit-negative { color: var(--danger); background-color: var(--danger-light); font-weight: 700; border-radius: 6px; padding: 6px 10px; display: inline-block; }
+        .stock-badge { background-color: #e2e8f0; color: #334155; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+
+        .btn { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 10px 18px; border-radius: 8px; cursor: pointer; border: none; }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-secondary { background-color: var(--secondary); color: white; }
+        .btn-excel { background-color: #16a34a; color: white; }
+        .btn-delete { background-color: var(--danger-light); color: var(--danger); border: 1px solid #fecaca; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; }
+        .btn-delete:hover { background-color: var(--danger); color: white; }
+        
+        .summary-banner { background: #fff; border: 2px solid var(--secondary); padding: 24px; border-radius: 14px; font-size: 18px; font-weight: 700; color: #115e59; text-align: center; margin-top: 30px; box-shadow: var(--card-shadow); display: grid; grid-template-columns: 1fr 1fr; gap: 15px;}
+        .section-title { font-size: 18px; color: var(--dark); font-weight: 700; margin-top: 30px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div>
+            <h1 id="txt-main-title">✨ prestigeabaya | نظام التحليل والتحكم المالي للمخزون</h1>
+            <p id="txt-sub-title">منظومة محاسبية متكاملة ودقيقة (مشتريات السعودية، أستراليا، والشرق الأقصى)</p>
+            <div id="ratesStatusDisplay" class="rates-status">⏳ جاري جلب أسعار الصرف الحية من السوق...</div>
+        </div>
+        <div class="header-buttons">
+            <button class="lang-btn" onclick="toggleLanguage()" id="btn-lang">English 🇺🇸</button>
+            <div class="save-status-badge" id="txt-saved-badge">🟢 تم الحفظ تلقائياً</div>
+            <button class="btn btn-excel" onclick="exportToExcel()" id="btn-export">📥 استخراج إلى ملف Excel</button>
+            <button class="btn btn-primary" onclick="clearAllDataSaved()" style="background-color: #64748b;" id="btn-reset">🔄 مسح الذاكرة وإعادة الضبط</button>
+        </div>
+    </div>
+
+    <div class="dashboard-widgets">
+        <div class="widget-card capital">
+            <div class="widget-title" id="lbl-w-cap">💰 إجمالي رأس المال المنفق (SAR)</div>
+            <div class="widget-value" id="widget-capital">0.00 ر.س</div>
+            <div class="widget-subtitle" id="lbl-w-cap-sub">شامل السلع، الشحن، والضرائب الإجمالية كافة</div>
+        </div>
+        <div class="widget-card avg-cost">
+            <div class="widget-title" id="lbl-w-avg">📦 متوسط تكلفة القطعة الواصلة (AUD)</div>
+            <div class="widget-value" id="widget-avg-cost">0.00 AUD</div>
+            <div class="widget-subtitle" id="lbl-w-avg-sub">شامل الشراء، الشحن بالتساوي، والتوصيل الداخلي</div>
+        </div>
+        <div class="widget-card revenue">
+            <div class="widget-title" id="lbl-w-rev">📈 المبيعات والعوائد الفعلية الحالية (AUD)</div>
+            <div class="widget-value" id="widget-revenue">0.00 AUD</div>
+            <div class="widget-subtitle" id="lbl-w-rev-sub">إجمالي الكاش المستلم من القطع المباعة حالياً</div>
+        </div>
+        <div class="widget-card real-profit">
+            <div class="widget-title" id="lbl-w-real-prof">💵 صافي الأرباح المحققة في جيبكِ (AUD)</div>
+            <div class="widget-value" id="widget-real-profit" style="color: #16a34a;">0.00 AUD</div>
+            <div class="widget-subtitle" id="lbl-w-real-prof-sub">الأرباح الصافية الحقيقية من المبيعات الفعلية حتى اليوم</div>
+        </div>
+        <div class="widget-card profit">
+            <div class="widget-title" id="lbl-w-prof">🏆 الأرباح الكلية المتوقعة (AUD)</div>
+            <div class="widget-value" id="widget-profit">0.00 AUD</div>
+            <div class="widget-subtitle" id="lbl-w-prof-sub">صافي الأرباح التقديرية عند تصفية كامل الشحنة</div>
+        </div>
+    </div>
+
+    <div class="charts-grid">
+        <div class="chart-container">
+            <canvas id="barChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="doughnutChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="main-settings-row">
+        <div class="card">
+            <h3 id="lbl-sec1-title">⚙️ 1. الموائمات النقدية وأسعار الصرف الدولية والشحن</h3>
+            <div class="config-block-grid">
+                <div class="form-group">
+                    <label id="lbl-rate-sar">سعر الصرف (AUD/SAR):</label>
+                    <input type="number" id="rateSAR" value="2.55" step="0.01" oninput="calculate()">
+                </div>
+                <div class="form-group">
+                    <label id="lbl-rate-usd">سعر الصرف (AUD/USD):</label>
+                    <input type="number" id="rateUSD" value="1.52" step="0.01" oninput="calculate()">
+                </div>
+            </div>
+            <div class="config-block-grid" style="margin-top: 8px;">
+                <div class="form-group">
+                    <label id="lbl-rate-cny">سعر الصرف (AUD/CNY):</label>
+                    <input type="number" id="rateCNY" value="0.21" step="0.01" oninput="calculate()">
+                </div>
+                <div class="form-group">
+                    <label id="lbl-customs">رسوم الجمارك والاستيراد (AUD):</label>
+                    <input type="number" id="importAUD" value="0" oninput="calculate()">
+                </div>
+            </div>
+            <div class="form-group" style="margin-top: 12px;">
+                <label id="lbl-bulk-ship">فاتورة شحن الجملة لأستراليا شاملة الضريبة (SAR):</label>
+                <input type="number" id="shippingSAR" value="2200" oninput="calculate()">
+            </div>
+            <div class="form-group" style="margin-top: 12px;">
+                <label id="lbl-gst-sys">نظام ضريبة المبيعات الأسترالية (GST):</label>
+                <select id="gstToggle" onchange="calculate()">
+                    <option value="no" id="opt-gst-no">غير مسجل في الضريبة (مبيعات أقل من $75k في أستراليا)</option>
+                    <option value="yes" id="opt-gst-yes">مبيعات شاملة الضريبة (مسجل ويستقطع 10% للـ GST)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="card" style="display: flex; flex-direction: column;">
+            <h3 id="lbl-sec2-title">💸 2. النفقات التشغيلية والتأسيسية (مشتريات محلي ودولي)</h3>
+            <div class="table-responsive" style="max-height: 230px; flex-grow: 1; margin-bottom: 10px;">
+                <table style="min-width: 100%;">
+                    <thead>
+                        <tr style="background-color: #475569; color: white; font-size: 12px;">
+                            <th style="padding: 8px;" id="th-exp-item">بند المصروف</th>
+                            <th style="padding: 8px;" id="th-exp-val">القيمة بالإجمالي</th>
+                            <th style="padding: 8px; width: 85px;" id="th-exp-curr">العملة</th>
+                            <th style="padding: 8px; width: 140px;" id="th-exp-tax">نوع ونظام الضريبة</th>
+                            <th style="padding: 8px;" id="th-exp-eq">المكافئ (AUD)</th>
+                            <th style="padding: 8px; width: 35px;" id="th-exp-del">حذف</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expensesBody"></tbody>
+                </table>
+            </div>
+            <div>
+                <button class="btn btn-secondary" onclick="addExpenseRow()" style="padding: 6px 14px; font-size: 12px;" id="btn-add-exp">➕ إضافة بند مصروف</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="summary-wrapper">
+        <div class="invoice-box">
+            <h3 id="lbl-sec3-title">🧾 3. كشف التدفقات النقدية والكميات الإجمالية الشاملة للمشروع (SAR)</h3>
+            <table class="invoice-table-box">
+                <thead>
+                    <tr>
+                        <th style="text-align: right;" id="th-flow-title">بند التكلفة والمصروف الرئيسي</th>
+                        <th id="th-flow-net">المبلغ بدون الضريبة</th>
+                        <th id="th-flow-tax">الضرائب المدفوعة (15% بالسعودية)</th>
+                        <th id="th-flow-gross">الإجمالي شامل الضريبة المدفوعة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="text-align: right; font-weight: 600;" id="flow-lbl-items">🛒 قيمة شراء العبايات الإجمالية:</td>
+                        <td id="flow-items-net" style="color: #475569;">0.00 ر.س</td>
+                        <td id="flow-items-tax" style="color: #64748b;">0.00 ر.س</td>
+                        <td id="flow-items-gross" style="font-weight: 600;">0.00 ر.س</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: right; font-weight: 600;" id="flow-lbl-ship">✈️ فاتورة شحن الجملة الدولي:</td>
+                        <td id="flow-ship-net" style="color: #475569;">0.00 ر.س</td>
+                        <td id="flow-ship-tax" style="color: #64748b;">0.00 ر.س</td>
+                        <td id="flow-ship-gross" style="font-weight: 600;">0.00 ر.س</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: right; font-weight: 600;" id="flow-lbl-ops">🛠️ النفقات التشغيلية والتأسيسية الأخرى:</td>
+                        <td id="flow-ops-net" style="color: #475569;">0.00 ر.س</td>
+                        <td id="flow-ops-tax" style="color: #64748b;">0.00 ر.س</td>
+                        <td id="flow-ops-gross" style="font-weight: 600;">0.00 ر.س</td>
+                    </tr>
+                    <tr class="grand-total-row">
+                        <td style="text-align: right;" id="flow-lbl-all">💎 الـمـجـمـوع الـنـقـدي الـكـلـي لـلـشـحـنـة:</td>
+                        <td id="flow-all-net">0.00 ر.س</td>
+                        <td id="flow-all-tax">0.00 ر.س</td>
+                        <td id="flow-all-gross">0.00 ر.س</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div style="font-size: 13px; color: #475569; margin-top: 15px; font-weight: 700; text-align: center; background-color: var(--slate-ef); padding: 10px; border-radius: 8px; display: flex; justify-content: center; gap: 20px;">
+               <div><span id="lbl-total-count-text">📦 إجمالي المخزون المستورد:</span> <span id="totalUnitsCountDisplay" style="color:var(--primary); font-size:16px;">0</span> <span class="lbl-pcs">قطعة</span></div>
+               <div><span id="lbl-total-sold-text">🛒 إجمالي القطع المباعة:</span> <span id="totalSoldUnitsDisplay" style="color:#16a34a; font-size:16px;">0</span> <span class="lbl-pcs">قطعة</span></div>
+               <div><span id="lbl-total-remain-text">🏪 المخزون المتبقي بالرفوف:</span> <span id="totalRemainUnitsDisplay" style="color:var(--warning); font-size:16px;">0</span> <span class="lbl-pcs">قطعة</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-title" id="lbl-sec4-title">👗 4. جدول إدارة موديلات العبايات والمخزون والتسعير الدقيق الموزون لكل صنف</div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 45px; background-color: var(--danger);" id="th-m-del">حذف</th>
+                    <th id="th-m-name">اسم موديل العباية</th>
+                    <th style="width: 80px; background-color: #1e40af;" id="th-m-qty">المخزون الأصلي</th>
+                    <th style="width: 80px; background-color: #16a34a;" id="th-m-sold">الكمية المباعة</th>
+                    <th style="width: 80px; background-color: #d97706;" id="th-m-rem">المتبقي بالرف</th>
+                    <th id="th-m-buy">سعر الشراء (SAR)</th>
+                    <th id="th-m-total">الإجمالي بالضريبة (SAR)</th>
+                    <th style="background-color: #aa5b00;" id="th-m-ship">شحن الجملة (AUD)</th>
+                    <th style="background-color: #115e59;" id="th-m-cost">التكلفة الواصلة (AUD)</th>
+                    <th id="th-m-sell">سعر البيع للعميل (AUD)</th>
+                    <th style="background-color: #0284c7;" id="th-m-single-prof">ربح القطعة (AUD)</th>
+                    <th style="background-color: #166534;" id="th-m-real-prof">الأرباح المحققة فعلياً (AUD)</th>
+                    <th style="background-color: #475569;" id="th-m-total-prof">الأرباح الكلية المتوقعة (AUD)</th>
+                </tr>
+            </thead>
+            <tbody id="modelsBody"></tbody>
+        </table>
+    </div>
+    <button class="btn btn-secondary" onclick="addModelRow()" id="btn-add-model">➕ إضافة موديل عباية جديد</button>
+
+    <div class="summary-banner" id="projectSummaryBanner">
+        <div id="banner-real-profit">💵 صافي الأرباح الكاش المحققة حالياً: 0.00 AUD</div>
+        <div id="banner-projected-profit">🏆 الأرباح الصافية الإجمالية المتوقعة للمشروع: 0.00 AUD</div>
+    </div>
+</div>
+
+<script>
+let currentLang = 'ar';
+
+const translations = {
+    ar: {
+        pageTitle: "prestigeabaya | نظام التحليل المالي والمخزوني",
+        mainTitle: "✨ prestigeabaya | نظام التحليل والتحكم المالي للمخزون",
+        subTitle: "منظومة محاسبية متكاملة ودقيقة (مشتريات السعودية، أستراليا، والشرق الأقصى)",
+        savedBadge: "🟢 تم الحفظ تلقائياً",
+        exportBtn: "📥 استخراج إلى ملف Excel",
+        resetBtn: "🔄 مسح الذاكرة وإعادة الضبط",
+        wCap: "💰 إجمالي رأس المال المنفق (SAR)",
+        wCapSub: "شامل السلع، الشحن، والضرائب الإجمالية كافة",
+        wAvg: "📦 متوسط تكلفة القطعة الواصلة (AUD)",
+        wAvgSub: "شامل الشراء، الشحن بالتساوي، والتوصيل الداخلي",
+        wRev: "📈 المبيعات والعوائد الفعلية الحالية (AUD)",
+        wRevSub: "إجمالي الكاش المستلم من القطع المباعة حالياً",
+        wRealProf: "💵 صافي الأرباح المحققة في جيبكِ (AUD)",
+        wRealProfSub: "الأرباح الصافية الحقيقية من المبيعات الفعلية حتى اليوم",
+        wProf: "🏆 الأرباح الكلية المتوقعة (AUD)",
+        wProfSub: "صافي الأرباح التقديرية عند تصفية كامل الشحنة",
+        sec1Title: "⚙️ 1. الموائمات النقدية وأسعار الصرف الدولية والشحن",
+        rateSar: "سعر الصرف (AUD/SAR):",
+        rateUsd: "سعر الصرف (AUD/USD):",
+        rateCny: "سعر الصرف (AUD/CNY):",
+        customs: "رسوم الجمارك والاستيراد (AUD):",
+        bulkShip: "فاتورة شحن الجملة لأستراليا شاملة الضريبة (SAR):",
+        gstSys: "نظام ضريبة المبيعات الأسترالية (GST):",
+        gstNo: "غير مسجل في الضريبة (مبيعات أقل من $75k في أستراليا)",
+        gstYes: "مبيعات شاملة الضريبة (مسجل ويستقطع 10% للـ GST)",
+        sec2Title: "💸 2. النفقات التشغيلية والتأسيسية (مشتريات محلي ودولي)",
+        thExpItem: "بند المصروف", thExpVal: "القيمة بالإجمالي", thExpCurr: "العملة", thExpTax: "نوع ونظام الضريبة", thExpEq: "المكافئ (AUD)", thExpDel: "حذف",
+        btnAddExp: "➕ إضافة بند مصروف",
+        sec3Title: "🧾 3. كشف التدفقات النقدية والكميات الإجمالية الشاملة للمشروع (SAR)",
+        thFlowTitle: "بند التكلفة والمصروف الرئيسي", thFlowNet: "المبلغ بدون الضريبة", thFlowTax: "الضرائب المدفوعة (15%)", thFlowGross: "الإجمالي شامل الضريبة",
+        flowItems: "🛒 قيمة شراء العبايات الإجمالية:", flowShip: "✈️ فاتورة شحن الجملة الدولي:", flowOps: "🛠️ النفقات التشغيلية والتأسيسية الأخرى:", flowAll: "💎 الـمـجـمـوع الـنـقـدي الـكـلـي لـلـشـحـنـة:",
+        totalCountText: "📦 إجمالي المخزون المستورد:", totalSoldText: "🛒 إجمالي القطع المباعة:", totalRemainText: "🏪 المخزون المتبقي بالرفوف:", pcs: "قطعة",
+        sec4Title: "👗 4. جدول إدارة موديلات العبايات والمخزون والتسعير الدقيق الموزون لكل صنف",
+        thMDel: "حذف", thMName: "اسم موديل العباية", thMQty: "المخزون الأصلي", thMSold: "الكمية المباعة", thMRem: "المتبقي بالرف", thMBuy: "سعر الشراء (SAR)", thMTotal: "الإجمالي بالضريبة (SAR)", thMShip: "شحن الجملة (AUD)", thMCost: "التكلفة الواصلة (AUD)", thMSell: "سعر البيع (AUD)", thMSingleProf: "ربح القطعة (AUD)", thMRealProf: "الأرباح المحققة فعلياً (AUD)", thMTotalProf: "الأرباح الكلية المتوقعة (AUD)",
+        btnAddModel: "➕ إضافة موديل عباية جديد",
+        chartTitleBar: "مقارنة تكاليف العبايات والربح الفعلي مقابل المتوقع",
+        chartLabelCost: "التكلفة الواصلة للقطعة (AUD)", chartLabelProfit: "صافي أرباح الموديل المحققة فعلياً (AUD)",
+        chartTitlePie: "هيكلة وتوزيع النفقات الكلية للمشروع",
+        pieLabel1: "قيمة السلع والأصناف", pieLabel2: "فاتورة الشحن الدولي والمحلي", pieLabel3: "المصاريف والخدمات التشغيلية"
+    },
+    en: {
+        pageTitle: "prestigeabaya | Financial Control System",
+        mainTitle: "✨ prestigeabaya | Financial Control & Inventory Hub",
+        subTitle: "Integrated International Accounting (KSA, Australia, & Far East Mapped)",
+        savedBadge: "🟢 Auto-Saved to Local Storage",
+        exportBtn: "📥 Export to Excel (CSV)",
+        resetBtn: "🔄 Factory Reset Data",
+        wCap: "💰 Total Capital Invested (SAR)",
+        wCapSub: "Includes stock, international cargo, and global taxes",
+        wAvg: "📦 Average Landed Cost / Unit (AUD)",
+        wAvgSub: "Includes factory wholesale, item weight cargo, & local handling",
+        wRev: "📈 Current Actual Revenue (AUD)",
+        wRevSub: "Total cash received from actual sold pieces so far",
+        wRealProf: "💵 Realized Net Profit (AUD)",
+        wRealProfSub: "Actual cold cash profits sitting in your bank from sales",
+        wProf: "🏆 Expected Total Profit (AUD)",
+        wProfSub: "Estimated profits when 100% of stock is cleared",
+        sec1Title: "⚙️ 1. Currency Forex Adaptors & Bulk Cargo Settlement",
+        rateSar: "Forex Exchange Rate (AUD/SAR):",
+        rateUsd: "Forex Exchange Rate (AUD/USD):",
+        rateCny: "Forex Exchange Rate (AUD/CNY):",
+        customs: "Import Customs & Boarder Duties (AUD):",
+        bulkShip: "Bulk International Cargo Invoice Cost (SAR):",
+        gstSys: "Australian Sales Tax Framework (GST Status):",
+        gstNo: "Not Registered (Sales under $75k threshold in Australia)",
+        gstYes: "Registered / GST Inclusive Sales (10% standard cut)",
+        sec2Title: "💸 2. Secondary Operational Expenses & Business Setup Fees",
+        thExpItem: "Expense Category", thExpVal: "Gross Value", thExpCurr: "Currency", thExpTax: "Tax Domain", thExpEq: "Equivalent (AUD)", thExpDel: "Delete",
+        btnAddExp: "➕ Add Expense Entry",
+        sec3Title: "🧾 3. Consolidated Cash Flow & Bulk Volume Ledger (SAR)",
+        thFlowTitle: "Primary Cost Center Categories", thFlowNet: "Net Base Amount", thFlowTax: "Paid Tax (15% VAT KSA)", thFlowGross: "Gross Settled Amount",
+        flowItems: "🛒 Total Abaya Factory Purchasing Cost:", flowShip: "✈️ International Cargo Carriage Fees:", flowOps: "🛠️ Auxiliary Operating & Setup Costs:", flowAll: "💎 Cumulative Cash Outflow for Shipment:",
+        totalCountText: "📦 Total Imported Stock:", totalSoldText: "🛒 Total Sold Units:", totalRemainText: "🏪 Stock Left on Racks:", pcs: "pcs",
+        sec4Title: "👗 4. Model Pricing Grid & Balanced Weighted Cost Allocations",
+        thMDel: "Del", thMName: "Abaya Design Model Name", thMQty: "Original Stock", thMSold: "Sold Qty", thMRem: "In Stock", thMBuy: "Buy Price (SAR)", thMTotal: "Gross Total (SAR)", thMShip: "Cargo Weight (AUD)", thMCost: "Landed Cost (AUD)", thMSell: "Retail Tag (AUD)", thMSingleProf: "Profit/Unit (AUD)", thMRealProf: "Realized Profits (AUD)", thMTotalProf: "Expected Profit (AUD)",
+        btnAddModel: "➕ Insert New Abaya Model",
+        chartTitleBar: "Landed Unit Costs vs Realized Net Profits",
+        chartLabelCost: "Landed Cost Per Unit (AUD)", chartLabelProfit: "Realized Net Profit (AUD)",
+        chartTitlePie: "Cumulative Outflow & Capital Structural Distribution",
+        pieLabel1: "Abaya Wholesale Goods Value", pieLabel2: "Global & Domestic Carriage Costs", pieLabel3: "Auxiliary Expenses & Operations"
+    }
+};
+
+const defaultModels = [
+    { name: "عباية كلاسيك سوداء", qty: 10, sold: 4, buy: 125.00, sell: 160 },
+    { name: "عباية الحرير الفاخر Silk", qty: 15, sold: 8, buy: 90.00, sell: 185 },
+    { name: "عباية كريب ملكي شك", qty: 12, sold: 2, buy: 140.00, sell: 210 }
+];
+
+const defaultExpenses = [
+    { name: "أكياس البراند والستيكرات Bags", value: 25.50, currency: "SAR", taxType: "sar15" },
+    { name: "كراتين وتغليف محلي باستراليا", value: 169.00, currency: "AUD", taxType: "aud10" }
+];
+
+let myBarChart = null;
+let myDoughnutChart = null;
+
+async function fetchLiveForexRates() {
+    try {
+        const response = await fetch('https://open.er-api.com/v6/latest/AUD');
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        
+        if (data && data.rates) {
+            const liveSAR = data.rates.SAR;
+            const liveUSD = data.rates.USD;
+            const liveCNY = data.rates.CNY;
+
+            if (liveSAR) document.getElementById('rateSAR').value = (liveSAR).toFixed(2);
+            if (liveUSD) document.getElementById('rateUSD').value = (1 / liveUSD).toFixed(2);
+            if (liveCNY) document.getElementById('rateCNY').value = (1 / liveCNY).toFixed(2);
+
+            document.getElementById('ratesStatusDisplay').innerText = currentLang === 'ar' ? "🟢 تم تحديث أسعار الصرف مباشرة من السوق بنجاح!" : "🟢 Live forex rates fetched successfully!";
+            document.getElementById('ratesStatusDisplay').style.color = "var(--success)";
+            calculate();
+        }
+    } catch (error) {
+        document.getElementById('ratesStatusDisplay').innerText = currentLang === 'ar' ? "⚠️ يعمل الآن بالقيم الافتراضية المحفوظة." : "⚠️ Running on last saved settings.";
+    }
+}
+
+function toggleLanguage() {
+    currentLang = currentLang === 'ar' ? 'en' : 'ar';
+    const htmlEl = document.getElementById('mainHtml');
+    htmlEl.setAttribute('dir', currentLang === 'en' ? 'ltr' : 'rtl');
+    htmlEl.setAttribute('lang', currentLang);
+    document.getElementById('btn-lang').innerText = currentLang === 'en' ? "العربية 🇸🇦" : "English 🇺🇸";
+    applyLanguageTranslations();
+    calculate();
+}
+
+function applyLanguageTranslations() {
+    const t = translations[currentLang];
+    document.getElementById('pageTitle').innerText = t.pageTitle;
+    document.getElementById('txt-main-title').innerText = t.mainTitle;
+    document.getElementById('txt-sub-title').innerText = t.subTitle;
+    document.getElementById('txt-saved-badge').innerText = t.savedBadge;
+    document.getElementById('btn-export').innerText = t.exportBtn;
+    document.getElementById('btn-reset').innerText = t.resetBtn;
+    
+    document.getElementById('lbl-w-cap').innerText = t.wCap;
+    document.getElementById('lbl-w-cap-sub').innerText = t.wCapSub;
+    document.getElementById('lbl-w-avg').innerText = t.wAvg;
+    document.getElementById('lbl-w-avg-sub').innerText = t.wAvgSub;
+    document.getElementById('lbl-w-rev').innerText = t.wRev;
+    document.getElementById('lbl-w-rev-sub').innerText = t.wRevSub;
+    document.getElementById('lbl-w-real-prof').innerText = t.wRealProf;
+    document.getElementById('lbl-w-real-prof-sub').innerText = t.wRealProfSub;
+    document.getElementById('lbl-w-prof').innerText = t.wProf;
+    document.getElementById('lbl-w-prof-sub').innerText = t.wProfSub;
+    
+    document.getElementById('lbl-sec1-title').innerText = t.sec1Title;
+    document.getElementById('lbl-rate-sar').innerText = t.rateSar;
+    document.getElementById('lbl-rate-usd').innerText = t.rateUsd;
+    document.getElementById('lbl-rate-cny').innerText = t.rateCny;
+    document.getElementById('lbl-customs').innerText = t.customs;
+    document.getElementById('lbl-bulk-ship').innerText = t.bulkShip;
+    document.getElementById('lbl-gst-sys').innerText = t.gstSys;
+    document.getElementById('opt-gst-no').innerText = t.gstNo;
+    document.getElementById('opt-gst-yes').innerText = t.gstYes;
+    
+    document.getElementById('lbl-sec2-title').innerText = t.sec2Title;
+    document.getElementById('th-exp-item').innerText = t.thExpItem;
+    document.getElementById('th-exp-val').innerText = t.thExpVal;
+    document.getElementById('th-exp-curr').innerText = t.thExpCurr;
+    document.getElementById('th-exp-tax').innerText = t.thExpTax;
+    document.getElementById('th-exp-eq').innerText = t.thExpEq;
+    document.getElementById('th-exp-del').innerText = t.thExpDel;
+    document.getElementById('btn-add-exp').innerText = t.btnAddExp;
+    
+    document.getElementById('lbl-sec3-title').innerText = t.sec3Title;
+    document.getElementById('th-flow-title').innerText = t.thFlowTitle;
+    document.getElementById('th-flow-net').innerText = t.thFlowNet;
+    document.getElementById('th-flow-tax').innerText = t.thFlowTax;
+    document.getElementById('th-flow-gross').innerText = t.thFlowGross;
+    document.getElementById('flow-lbl-items').innerText = t.flowItems;
+    document.getElementById('flow-lbl-ship').innerText = t.flowShip;
+    document.getElementById('flow-lbl-ops').innerText = t.flowOps;
+    document.getElementById('flow-lbl-all').innerText = t.flowAll;
+    
+    document.getElementById('lbl-total-count-text').innerText = t.totalCountText;
+    document.getElementById('lbl-total-sold-text').innerText = t.totalSoldText;
+    document.getElementById('lbl-total-remain-text').innerText = t.totalRemainText;
+    document.querySelectorAll('.lbl-pcs').forEach(el => el.innerText = t.pcs);
+    
+    document.getElementById('lbl-sec4-title').innerText = t.sec4Title;
+    document.getElementById('th-m-del').innerText = t.thMDel;
+    document.getElementById('th-m-name').innerText = t.thMName;
+    document.getElementById('th-m-qty').innerText = t.thMQty;
+    document.getElementById('th-m-sold').innerText = t.thMSold;
+    document.getElementById('th-m-rem').innerText = t.thMRem;
+    document.getElementById('th-m-buy').innerText = t.thMBuy;
+    document.getElementById('th-m-total').innerText = t.thMTotal;
+    document.getElementById('th-m-ship').innerText = t.thMShip;
+    document.getElementById('th-m-cost').innerText = t.thMCost;
+    document.getElementById('th-m-sell').innerText = t.thMSell;
+    document.getElementById('th-m-single-prof').innerText = t.thMSingleProf;
+    document.getElementById('th-m-real-prof').innerText = t.thMRealProf;
+    document.getElementById('th-m-total-prof').innerText = t.thMTotalProf;
+    document.getElementById('btn-add-model').innerText = t.btnAddModel;
+}
+
+window.onload = function() {
+    initCharts();
+    loadDataFromLocalStorage();
+    fetchLiveForexRates();
+};
+
+function initCharts() {
+    const ctxBar = document.getElementById('barChart').getContext('2d');
+    myBarChart = new Chart(ctxBar, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [
+                { label: translations[currentLang].chartLabelCost, data: [], backgroundColor: '#3b82f6', borderRadius: 4 },
+                { label: translations[currentLang].chartLabelProfit, data: [], backgroundColor: '#10b981', borderRadius: 4 }
+            ]
+        },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { title: { display: true, text: translations[currentLang].chartTitleBar, font: { size: 14, weight: 'bold' } } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    const ctxPie = document.getElementById('doughnutChart').getContext('2d');
+    myDoughnutChart = new Chart(ctxPie, {
+        type: 'doughnut',
+        data: {
+            labels: [translations[currentLang].pieLabel1, translations[currentLang].pieLabel2, translations[currentLang].pieLabel3],
+            datasets: [{ data: [0, 0, 0], backgroundColor: ['#1e3a8a', '#f59e0b', '#10b981'] }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: translations[currentLang].chartTitlePie, font: { size: 14, weight: 'bold' } } } }
+    });
+}
+
+function saveDataToLocalStorage() {
+    const config = {
+        rateSAR: document.getElementById('rateSAR').value,
+        rateUSD: document.getElementById('rateUSD').value,
+        rateCNY: document.getElementById('rateCNY').value,
+        shippingSAR: document.getElementById('shippingSAR').value,
+        importAUD: document.getElementById('importAUD').value,
+        gstToggle: document.getElementById('gstToggle').value,
+        lang: currentLang
+    };
+    localStorage.setItem('prestige_config', JSON.stringify(config));
+
+    const expenses = [];
+    document.querySelectorAll('#expensesBody tr').forEach(row => {
+        expenses.push({
+            name: row.cells[0].querySelector('input').value,
+            value: row.cells[1].querySelector('input').value,
+            currency: row.cells[2].querySelector('select').value,
+            taxType: row.cells[3].querySelector('select').value
+        });
+    });
+    localStorage.setItem('prestige_expenses', JSON.stringify(expenses));
+
+    const models = [];
+    document.querySelectorAll('#modelsBody tr').forEach(row => {
+        models.push({
+            name: row.querySelector('.model-name').value,
+            qty: row.querySelector('.model-qty').value,
+            sold: row.querySelector('.model-sold').value,
+            buy: row.querySelector('.model-buy').value,
+            sell: row.querySelector('.model-sell').value
+        });
+    });
+    localStorage.setItem('prestige_models', JSON.stringify(models));
+}
+
+function loadDataFromLocalStorage() {
+    const savedConfig = localStorage.getItem('prestige_config');
+    if (savedConfig) {
+        const config = JSON.parse(savedConfig);
+        document.getElementById('rateSAR').value = config.rateSAR;
+        document.getElementById('rateUSD').value = config.rateUSD;
+        document.getElementById('rateCNY').value = config.rateCNY;
+        document.getElementById('shippingSAR').value = config.shippingSAR;
+        document.getElementById('importAUD').value = config.importAUD;
+        document.getElementById('gstToggle').value = config.gstToggle;
+        if(config.lang) currentLang = config.lang;
+    }
+    applyLanguageTranslations();
+
+    const savedExpenses = localStorage.getItem('prestige_expenses');
+    const expensesBody = document.getElementById('expensesBody');
+    expensesBody.innerHTML = '';
+    const activeExpenses = savedExpenses ? JSON.parse(savedExpenses) : defaultExpenses;
+    activeExpenses.forEach(exp => createExpenseRowHTML(exp.name, exp.value, exp.currency, exp.taxType));
+
+    const savedModels = localStorage.getItem('prestige_models');
+    const modelsBody = document.getElementById('modelsBody');
+    modelsBody.innerHTML = '';
+    const activeModels = savedModels ? JSON.parse(savedModels) : defaultModels;
+    activeModels.forEach(m => createModelRowHTML(m.name, m.qty, m.sold || 0, m.buy, m.sell));
+}
+
+function clearAllDataSaved() {
+    if (confirm(currentLang === 'ar' ? "هل تريد مسح جميع البيانات وتصفير المخزون؟" : "Reset all stock and configurations?")) {
+        localStorage.clear();
+        loadDataFromLocalStorage();
+        calculate();
+    }
+}
+
+function createModelRowHTML(name, qty, sold, buy, sell) {
+    const tbody = document.getElementById('modelsBody');
+    let row = document.createElement('tr');
+    row.innerHTML = `
+        <td><button class="btn-delete" onclick="this.closest('tr').remove(); calculate();">✕</button></td>
+        <td><input type="text" class="input-table model-name" value="${name}" oninput="saveDataToLocalStorage(); calculate();"></td>
+        <td><input type="number" class="input-table model-qty" value="${qty}" min="0" oninput="calculate()"></td>
+        <td><input type="number" class="input-table model-sold" value="${sold}" min="0" oninput="calculate()"></td>
+        <td><span class="stock-badge model-remain">0</span></td>
+        <td><input type="number" class="input-table model-buy" value="${buy}" min="0" step="0.01" oninput="calculate()"></td>
+        <td class="model-total-sar" style="font-weight:600;">0.00 ر.س</td>
+        <td class="model-shipping-share-aud" style="color:#aa5b00; font-weight:600;">0.00 $</td>
+        <td class="model-effective-aud" style="font-weight:700; color:var(--secondary);">0.00 $</td>
+        <td><input type="number" class="input-table model-sell" value="${sell}" min="0" oninput="calculate()"></td>
+        <td><span class="model-single-profit-aud profit-positive" style="background-color: #e0f2fe; color: #0369a1;">0.00 AUD</span></td>
+        <td><span class="model-real-profit-aud profit-positive" style="background-color:#dcfce7; color:#15803d;">0.00 AUD</span></td>
+        <td><span class="model-profit-aud profit-positive" style="background-color:#f1f5f9; color:#475569;">0.00 AUD</span></td>
+    `;
+    tbody.appendChild(row);
+}
+
+function addModelRow() {
+    createModelRowHTML(currentLang === 'ar' ? "موديل عباية جديد" : "New Abaya Design", 10, 0, 100, 200);
+    calculate();
+}
+
+function createExpenseRowHTML(name, value, currency, taxType) {
+    const tbody = document.getElementById('expensesBody');
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td><input type="text" class="input-table" value="${name}" oninput="saveDataToLocalStorage()"></td>
+        <td><input type="number" class="input-table expense-value" value="${value}" oninput="calculate()"></td>
+        <td>
+            <select class="input-table expense-currency" onchange="calculate()">
+                <option value="AUD" ${currency === 'AUD' ? 'selected' : ''}>AUD</option>
+                <option value="SAR" ${currency === 'SAR' ? 'selected' : ''}>SAR</option>
+                <option value="USD" ${currency === 'USD' ? 'selected' : ''}>USD</option>
+                <option value="CNY" ${currency === 'CNY' ? 'selected' : ''}>CNY</option>
+            </select>
+        </td>
+        <td>
+            <select class="input-table expense-tax-type" onchange="calculate()">
+                <option value="sar15" ${taxType === 'sar15' ? 'selected' : ''}>SAR (15%)</option>
+                <option value="aud10" ${taxType === 'aud10' ? 'selected' : ''}>AUD (10% GST)</option>
+                <option value="none" ${taxType === 'none' ? 'selected' : ''}>No Tax</option>
+            </select>
+        </td>
+        <td class="expense-converted-aud" style="font-weight:600;">0.00 $</td>
+        <td><button class="btn-delete" style="width:26px; height:26px; padding:0;" onclick="this.closest('tr').remove(); calculate();">✕</button></td>
+    `;
+    tbody.appendChild(row);
+}
+
+function addExpenseRow() {
+    createExpenseRowHTML(currentLang === 'ar' ? "مصروف جديد" : "New Expense", 0, "AUD", "none");
+    calculate();
+}
+
+function calculate() {
+    let rateSAR = parseFloat(document.getElementById('rateSAR').value) || 2.55;
+    let rateUSD = parseFloat(document.getElementById('rateUSD').value) || 1.52;
+    let rateCNY = parseFloat(document.getElementById('rateCNY').value) || 0.21;
+    let shippingSAR = parseFloat(document.getElementById('shippingSAR').value) || 0;
+    let importAUD = parseFloat(document.getElementById('importAUD').value) || 0;
+    let gstToggle = document.getElementById('gstToggle').value;
+
+    let totalUnits = 0;
+    let totalSoldUnits = 0;
+    let totalRemainUnits = 0;
+    let totalItemsNetSAR = 0;
+    let totalItemsGrossSAR = 0;
+
+    const modelRows = document.querySelectorAll('#modelsBody tr');
+    modelRows.forEach(row => {
+        let qty = parseInt(row.querySelector('.model-qty').value) || 0;
+        let sold = parseInt(row.querySelector('.model-sold').value) || 0;
+        if(sold > qty) { sold = qty; row.querySelector('.model-sold').value = qty; }
+        
+        let remain = qty - sold;
+        row.querySelector('.model-remain').innerText = remain;
+
+        totalUnits += qty;
+        totalSoldUnits += sold;
+        totalRemainUnits += remain;
+
+        let buyNet = parseFloat(row.querySelector('.model-buy').value) || 0;
+        let rowNetSAR = buyNet * qty;
+        let rowGrossSAR = rowNetSAR * 1.15;
+
+        totalItemsNetSAR += rowNetSAR;
+        totalItemsGrossSAR += rowGrossSAR;
+
+        row.querySelector('.model-total-sar').innerText = rowGrossSAR.toFixed(2) + " ر.س";
+    });
+
+    document.getElementById('totalUnitsCountDisplay').innerText = totalUnits;
+    document.getElementById('totalSoldUnitsDisplay').innerText = totalSoldUnits;
+    document.getElementById('totalRemainUnitsDisplay').innerText = totalRemainUnits;
+
+    let itemsTaxSAR = totalItemsGrossSAR - totalItemsNetSAR;
+    document.getElementById('flow-items-net').innerText = totalItemsNetSAR.toFixed(2) + " ر.س";
+    document.getElementById('flow-items-tax').innerText = itemsTaxSAR.toFixed(2) + " ر.س";
+    document.getElementById('flow-items-gross').innerText = totalItemsGrossSAR.toFixed(2) + " ر.س";
+
+    let shippingNetSAR = shippingSAR / 1.15;
+    let shippingTaxSAR = shippingSAR - shippingNetSAR;
+    document.getElementById('flow-ship-net').innerText = shippingNetSAR.toFixed(2) + " ر.س";
+    document.getElementById('flow-ship-tax').innerText = shippingTaxSAR.toFixed(2) + " ر.س";
+    document.getElementById('flow-ship-gross').innerText = shippingSAR.toFixed(2) + " ر.س";
+
+    let opsGrossSAR = 0;
+    let totalOtherExpensesAUD = 0;
+
+    document.querySelectorAll('#expensesBody tr').forEach(row => {
+        let valGross = parseFloat(row.querySelector('.expense-value').value) || 0;
+        let curr = row.querySelector('.expense-currency').value;
+        
+        let convertedAUD = 0;
+        if (curr === "AUD") convertedAUD = valGross;
+        else if (curr === "SAR") convertedAUD = valGross / rateSAR;
+        else if (curr === "USD") convertedAUD = valGross * rateUSD;
+        else if (curr === "CNY") convertedAUD = valGross * rateCNY;
+
+        opsGrossSAR += (convertedAUD * rateSAR);
+        totalOtherExpensesAUD += convertedAUD;
+        row.querySelector('.expense-converted-aud').innerText = convertedAUD.toFixed(2) + " $";
+    });
+
+    let opsNetSAR = opsGrossSAR / 1.15;
+    let opsTaxSAR = opsGrossSAR - opsNetSAR;
+    document.getElementById('flow-ops-net').innerText = opsNetSAR.toFixed(2) + " ر.س";
+    document.getElementById('flow-ops-tax').innerText = opsTaxSAR.toFixed(2) + " ر.س";
+    document.getElementById('flow-ops-gross').innerText = opsGrossSAR.toFixed(2) + " ر.س";
+
+    let allGrossSAR = totalItemsGrossSAR + shippingSAR + opsGrossSAR;
+    document.getElementById('flow-all-net').innerText = (totalItemsNetSAR + shippingNetSAR + opsNetSAR).toFixed(2) + " ر.س";
+    document.getElementById('flow-all-tax').innerText = (itemsTaxSAR + shippingTaxSAR + opsTaxSAR).toFixed(2) + " ر.س";
+    document.getElementById('flow-all-gross').innerText = allGrossSAR.toFixed(2) + " ر.س";
+    document.getElementById('widget-capital').innerText = allGrossSAR.toFixed(2) + " ر.س";
+
+    let totalShippingAUD = shippingSAR / rateSAR;
+    let shippingSharePerUnitAUD = totalUnits > 0 ? (totalShippingAUD / totalUnits) : 0;
+    let fixedOverheadPerUnitAUD = totalUnits > 0 ? ((importAUD + totalOtherExpensesAUD) / totalUnits) : 0;
+
+    let chartLabels = [];
+    let chartCosts = [];
+    let chartRealProfits = [];
+    
+    let totalActualRevenueAUD = 0;
+    let totalRealizedProfitAUD = 0;
+    let totalProjectedProfitAUD = 0;
+    let combinedWeightedCostAUD = 0;
+
+    modelRows.forEach(row => {
+        let name = row.querySelector('.model-name').value || "عباية";
+        let qty = parseInt(row.querySelector('.model-qty').value) || 0;
+        let sold = parseInt(row.querySelector('.model-sold').value) || 0;
+        let buyNet = parseFloat(row.querySelector('.model-buy').value) || 0;
+        let sell = parseFloat(row.querySelector('.model-sell').value) || 0;
+        
+        row.querySelector('.model-shipping-share-aud').innerText = shippingSharePerUnitAUD.toFixed(2) + " $";
+
+        let buyGrossAUD = (buyNet * 1.15) / rateSAR;
+        let effectiveCostAUD = buyGrossAUD + shippingSharePerUnitAUD + fixedOverheadPerUnitAUD + 12.00;
+        row.querySelector('.model-effective-aud').innerText = effectiveCostAUD.toFixed(2) + " $";
+
+        let gstAUD = (gstToggle === "yes") ? (sell / 11) : 0;
+        let netProfitPerUnitAUD = sell - effectiveCostAUD - gstAUD;
+        
+        row.querySelector('.model-single-profit-aud').innerText = netProfitPerUnitAUD.toFixed(2) + " AUD";
+
+        // الأرباح المحققة الكاش حالياً من الكمية المباعة
+        let rowRealizedProfit = netProfitPerUnitAUD * sold;
+        row.querySelector('.model-real-profit-aud').innerText = rowRealizedProfit.toFixed(2) + " AUD";
+
+        // الأرباح الكلية المتوقعة عند بيع كل الكمية
+        let rowProjectedProfit = netProfitPerUnitAUD * qty;
+        row.querySelector('.model-profit-aud').innerText = rowProjectedProfit.toFixed(2) + " AUD";
+
+        totalActualRevenueAUD += (sell * sold);
+        totalRealizedProfitAUD += rowRealizedProfit;
+        totalProjectedProfitAUD += rowProjectedProfit;
+        combinedWeightedCostAUD += (effectiveCostAUD * qty);
+        
+        chartLabels.push(name);
+        chartCosts.push(effectiveCostAUD.toFixed(2));
+        chartRealProfits.push(rowRealizedProfit.toFixed(2));
+    });
+
+    document.getElementById('widget-avg-cost').innerText = (totalUnits > 0 ? (combinedWeightedCostAUD / totalUnits) : 0).toFixed(2) + " AUD";
+    document.getElementById('widget-revenue').innerText = totalActualRevenueAUD.toFixed(2) + " AUD";
+    document.getElementById('widget-real-profit').innerText = totalRealizedProfitAUD.toFixed(2) + " AUD";
+    document.getElementById('widget-profit').innerText = totalProjectedProfitAUD.toFixed(2) + " AUD";
+
+    document.getElementById('banner-real-profit').innerText = (currentLang === 'ar' ? "💵 صافي الأرباح الكاش المحققة حالياً: " : "💵 Realized Net Profit: ") + totalRealizedProfitAUD.toFixed(2) + " AUD";
+    document.getElementById('banner-projected-profit').innerText = (currentLang === 'ar' ? "🏆 الأرباح الصافية الإجمالية المتوقعة للمشروع: " : "🏆 Projected Total Net Profit: ") + totalProjectedProfitAUD.toFixed(2) + " AUD";
+
+    saveDataToLocalStorage();
+    updateCharts(chartLabels, chartCosts, chartRealProfits, (totalItemsNetSAR / rateSAR), totalShippingAUD, totalOtherExpensesAUD);
+}
+
+function updateCharts(labels, costs, profits, goodsCostAUD, shippingAUD, otherExpensesAUD) {
+    if (myBarChart && myDoughnutChart) {
+        myBarChart.data.labels = labels.length ? labels : ['-'];
+        myBarChart.data.datasets[0].label = translations[currentLang].chartLabelCost;
+        myBarChart.data.datasets[1].label = translations[currentLang].chartLabelProfit;
+        myBarChart.data.datasets[0].data = costs;
+        myBarChart.data.datasets[1].data = profits;
+        myBarChart.options.plugins.title.text = translations[currentLang].chartTitleBar;
+        myBarChart.update();
+
+        myDoughnutChart.data.labels = [translations[currentLang].pieLabel1, translations[currentLang].pieLabel2, translations[currentLang].pieLabel3];
+        myDoughnutChart.data.datasets[0].data = [goodsCostAUD, shippingAUD, otherExpensesAUD];
+        myDoughnutChart.options.plugins.title.text = translations[currentLang].chartTitlePie;
+        myDoughnutChart.update();
+    }
+}
+
+function exportToExcel() {
+    let csvContent = "\uFEFF"; 
+    csvContent += "Prestige Abaya - Inventory & Financial Report\n";
+    csvContent += "Model Name,Original Stock,Sold Qty,Remaining,Buy Price (SAR),Landed Cost (AUD),Retail Tag (AUD),Realized Profit (AUD),Projected Profit (AUD)\n";
+    
+    document.querySelectorAll('#modelsBody tr').forEach(row => {
+        let name = row.querySelector('.model-name').value;
+        let qty = row.querySelector('.model-qty').value;
+        let sold = row.querySelector('.model-sold').value;
+        let remain = row.querySelector('.model-remain').innerText;
+        let buy = row.querySelector('.model-buy').value;
+        let cost = row.querySelector('.model-effective-aud').innerText.replace(" $", "");
+        let sell = row.querySelector('.model-sell').value;
+        let realProf = row.querySelector('.model-real-profit-aud').innerText.replace(" AUD", "");
+        let projProf = row.querySelector('.model-profit-aud').innerText.replace(" AUD", "");
+        
+        csvContent += `"${name}",${qty},${sold},${remain},${buy},${cost},${sell},${realProf},${projProf}\n`;
+    });
+    
+    let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    let link = document.createElement("a");
+    link.setAttribute("href", URL.createObjectURL(blob));
+    link.setAttribute("download", "Prestige_Abaya_Inventory_Report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>
+</body>
+</html>
