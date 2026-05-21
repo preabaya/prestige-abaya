@@ -5,6 +5,9 @@
 
 const BASE_CURRENCY = 'AUD';
 const STORAGE_KEY = 'prestige-abaya-v3';
+const AUTH_SESSION_KEY = 'prestige-abaya-auth-session';
+const SIMPLE_AUTH_KEY = 'loggedIn';
+const AUTH_BOOTSTRAP = { username: 'Louay', password: 'Louay2019@' };
 
 const APP_CONFIG = {
   vatRate: 0.15,
@@ -146,6 +149,66 @@ const TRANSLATIONS = {
     seasonBasePrice: 'السعر الأساسي المحفوظ',
     seasonAdjustedPrice: 'سعر السيناريو',
     seasonModeApplied: 'تم تطبيق وضع {mode}',
+    authLoginTab: 'تسجيل الدخول',
+    authRegisterTab: 'إنشاء حساب',
+    authSubtitle: 'نظام مالي ومخزوني آمن',
+    authUsername: 'اسم المستخدم',
+    authEmail: 'البريد الإلكتروني',
+    authPassword: 'كلمة المرور',
+    authLoginBtn: 'دخول',
+    authRegisterBtn: 'تسجيل',
+    authForgotPassword: 'نسيت كلمة المرور؟',
+    authForgotHint: 'محاكاة إرسال بريد: تم إرسال تذكير إلى {email}. تحقق من صندوق الوارد (تجريبي).',
+    authForgotNoEmail: 'أدخل بريدك الإلكتروني في نموذج الدخول أولاً.',
+    authLogout: 'تسجيل خروج',
+    authWelcome: 'مرحباً، {name}',
+    authRequired: 'يرجى تسجيل الدخول أولاً',
+    authInvalidCredentials: 'بيانات الدخول غير صحيحة',
+    authUserExists: 'اسم المستخدم أو البريد مستخدم مسبقاً',
+    authWeakPassword: 'كلمة المرور 6 أحرف على الأقل',
+    authInvalidEmail: 'بريد إلكتروني غير صالح',
+    authLoggedOut: 'تم تسجيل الخروج',
+    authRegisterSuccess: 'تم إنشاء الحساب — يمكنك الدخول الآن',
+    authLoginIdentifier: 'اسم المستخدم أو البريد الإلكتروني',
+    authLoginIdentifierPh: 'أدخل اسم المستخدم أو البريد',
+    authNoAccount: 'ليس لديك حساب؟',
+    authHasAccount: 'لديك حساب بالفعل؟',
+    authGoRegister: 'إنشاء حساب',
+    authGoLogin: 'تسجيل الدخول',
+    authUsernameShort: 'اسم المستخدم حرفان على الأقل',
+    authShowPassword: 'إظهار كلمة المرور',
+    authHidePassword: 'إخفاء كلمة المرور',
+    authForgotNoIdentifier: 'أدخل بريدك الإلكتروني في حقل الدخول أولاً.',
+    userCurrent: 'المستخدم الحالي',
+    activityFeedTitle: 'سجل النشاط الحي',
+    activityFeedEmpty: 'لا توجد عمليات حديثة',
+    activityFeedLine: 'تم إدخال {type} من قبل {user} قبل {time} بقيمة {amount}',
+    actTypeInvoice: 'فاتورة مورد',
+    actTypeProduct: 'منتج جديد',
+    actTypeProductUpdate: 'تحديث مخزون',
+    actTypeExpense: 'مصروف',
+    actTypeSale: 'بيع',
+    actTypePos: 'بيع نقطة البيع',
+    timeAgoMinutes: '{n} دقيقة',
+    timeAgoHours: '{n} ساعة',
+    timeAgoDays: '{n} يوم',
+    timeAgoNow: 'الآن',
+    invTxCreatedBy: 'المسؤول',
+    users: 'إدارة المستخدمين',
+    userManagement: 'إدارة المستخدمين',
+    userManagementDesc: 'أنشئ حسابات لزملائك — كل عملية تُسجَّل باسم المستخدم.',
+    addSystemUser: 'إضافة مستخدم',
+    usersList: 'قائمة المستخدمين',
+    userRoleAdmin: 'مدير',
+    userRoleUser: 'مستخدم',
+    userCreatedAt: 'تاريخ الإنشاء',
+    userCreatedByCol: 'أُنشئ بواسطة',
+    userDelete: 'حذف',
+    userAdded: 'تم إنشاء المستخدم',
+    userExists: 'اسم المستخدم موجود مسبقاً',
+    cannotDeleteSelf: 'لا يمكن حذف حسابك الحالي',
+    cannotDeleteAdmin: 'لا يمكن حذف حساب المدير الرئيسي',
+    confirmDeleteUser: 'حذف هذا المستخدم؟',
     week: 'أسبوع',
     piecesLeft: 'قطعة متبقية',
     reorder: 'إعادة طلب',
@@ -226,6 +289,11 @@ const TRANSLATIONS = {
     smartNotifications: 'تنبيهات ذكية',
     enableNotifications: 'تفعيل إشعارات الجوال',
     notificationsHint: 'إشعارات عند مبيعات قياسية، نفاد مخزون، أو موعد شحن دولي',
+    maintenanceMode: 'صيانة النظام',
+    maintenanceModeDesc: 'تصفير البيانات التشغيلية مع الإبقاء على حسابات المستخدمين وإعدادات النظام.',
+    resetDatabaseBtn: 'حذف جميع العمليات والبدء من جديد',
+    resetDbConfirm: 'تحذير: سيتم حذف جميع الفواتير والمبيعات وحركات المخزون، هل أنت متأكد؟',
+    resetDbSuccess: 'تم تصفير المخزون والعمليات. حسابات المستخدمين محفوظة.',
     notificationsOn: 'مفعّلة',
     notificationsOff: 'غير مفعّلة',
     notificationsDenied: 'تم رفض الإذن من المتصفح',
@@ -484,6 +552,66 @@ const TRANSLATIONS = {
     seasonBasePrice: 'Saved base price',
     seasonAdjustedPrice: 'Scenario price',
     seasonModeApplied: '{mode} mode applied',
+    authLoginTab: 'Sign in',
+    authRegisterTab: 'Register',
+    authSubtitle: 'Secure financial & inventory system',
+    authUsername: 'Username',
+    authEmail: 'Email',
+    authPassword: 'Password',
+    authLoginBtn: 'Sign in',
+    authRegisterBtn: 'Create account',
+    authForgotPassword: 'Forgot password?',
+    authForgotHint: 'Email simulation: reminder sent to {email}. Check your inbox (demo).',
+    authForgotNoEmail: 'Enter your email in the sign-in form first.',
+    authLogout: 'Sign out',
+    authWelcome: 'Welcome, {name}',
+    authRequired: 'Please sign in first',
+    authInvalidCredentials: 'Invalid username/email or password',
+    authUserExists: 'Username or email already registered',
+    authWeakPassword: 'Password must be at least 6 characters',
+    authInvalidEmail: 'Invalid email address',
+    authLoggedOut: 'Signed out',
+    authRegisterSuccess: 'Account created — you can sign in now',
+    authLoginIdentifier: 'Username or email',
+    authLoginIdentifierPh: 'Enter username or email',
+    authNoAccount: "Don't have an account?",
+    authHasAccount: 'Already have an account?',
+    authGoRegister: 'Create account',
+    authGoLogin: 'Sign in',
+    authUsernameShort: 'Username must be at least 2 characters',
+    authShowPassword: 'Show password',
+    authHidePassword: 'Hide password',
+    authForgotNoIdentifier: 'Enter your email in the sign-in field first.',
+    userCurrent: 'Current user',
+    activityFeedTitle: 'Live activity feed',
+    activityFeedEmpty: 'No recent activity',
+    activityFeedLine: '{type} entered by {user} {time} ago · {amount}',
+    actTypeInvoice: 'supplier invoice',
+    actTypeProduct: 'new product',
+    actTypeProductUpdate: 'inventory update',
+    actTypeExpense: 'expense',
+    actTypeSale: 'sale',
+    actTypePos: 'POS sale',
+    timeAgoMinutes: '{n} min',
+    timeAgoHours: '{n} hr',
+    timeAgoDays: '{n} days',
+    timeAgoNow: 'just now',
+    invTxCreatedBy: 'Responsible',
+    users: 'User management',
+    userManagement: 'User management',
+    userManagementDesc: 'Create accounts for your team — every action is tagged with the username.',
+    addSystemUser: 'Add user',
+    usersList: 'User list',
+    userRoleAdmin: 'Admin',
+    userRoleUser: 'User',
+    userCreatedAt: 'Created',
+    userCreatedByCol: 'Created by',
+    userDelete: 'Delete',
+    userAdded: 'User created',
+    userExists: 'Username already exists',
+    cannotDeleteSelf: 'You cannot delete your own account',
+    cannotDeleteAdmin: 'Cannot delete the primary admin account',
+    confirmDeleteUser: 'Delete this user?',
     week: 'Week',
     piecesLeft: 'units left',
     reorder: 'Reorder',
@@ -564,6 +692,11 @@ const TRANSLATIONS = {
     smartNotifications: 'Smart Notifications',
     enableNotifications: 'Enable mobile notifications',
     notificationsHint: 'Alerts for record sales, low stock, intl. shipping due',
+    maintenanceMode: 'System maintenance',
+    maintenanceModeDesc: 'Reset operational data while keeping user accounts and system settings.',
+    resetDatabaseBtn: 'Delete all operations and start fresh',
+    resetDbConfirm: 'Warning: All invoices, sales, and inventory movements will be deleted. Are you sure?',
+    resetDbSuccess: 'Inventory and operations cleared. User accounts were kept.',
     notificationsOn: 'Enabled',
     notificationsOff: 'Disabled',
     notificationsDenied: 'Permission denied by browser',
@@ -758,6 +891,8 @@ const state = {
   sales: [],
   returns: [],
   inventoryTransactions: [],
+  activityLog: [],
+  systemUsers: [],
   settings: {
     vatRate: APP_CONFIG.vatRate,
     logo: null,
@@ -773,6 +908,437 @@ const state = {
     invoiceFxHistory: [],
     /** وضع المواسم في لوحة الربحية: normal | holiday | clearance */
     inventorySeasonalMode: 'normal',
+    currentUser: '',
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  Auth — multi-user · session · activity feed
+// ═══════════════════════════════════════════════════════════════
+
+const AuthStore = {
+  loadUsers() {
+    return Array.isArray(state.systemUsers) ? state.systemUsers : [];
+  },
+
+  async saveUsers(users) {
+    state.systemUsers = users;
+    await DataStore.save();
+  },
+
+  loadSession() {
+    try {
+      const raw = localStorage.getItem(AUTH_SESSION_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  saveSession(session) {
+    if (!session) localStorage.removeItem(AUTH_SESSION_KEY);
+    else localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+  },
+
+  async hashPassword(password, salt) {
+    const data = new TextEncoder().encode(`${salt}:${password}`);
+    const buf = await crypto.subtle.digest('SHA-256', data);
+    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  async seedBootstrapAdmin() {
+    if (this.loadUsers().length) return;
+    const salt = uid();
+    const passwordHash = await this.hashPassword(AUTH_BOOTSTRAP.password, salt);
+    await this.saveUsers([{
+      id: uid(),
+      username: AUTH_BOOTSTRAP.username,
+      salt,
+      passwordHash,
+      role: 'admin',
+      createdAt: new Date().toISOString(),
+      createdBy: 'system',
+    }]);
+  },
+};
+
+const AuthSystem = {
+  session: null,
+
+  syncSession() {
+    this.session = AuthStore.loadSession();
+    if (this.session?.userId && this.session?.username) {
+      const user = AuthStore.loadUsers().find((u) => u.id === this.session.userId);
+      if (!user) {
+        this.session = null;
+        AuthStore.saveSession(null);
+        return;
+      }
+      this.session.role = user.role;
+      this.session.username = user.username;
+      state.settings.currentUser = user.username;
+    }
+  },
+
+  isLoggedIn() {
+    return localStorage.getItem(SIMPLE_AUTH_KEY) === 'true';
+  },
+
+  isAdmin() {
+    return this.isLoggedIn();
+  },
+
+  current() {
+    if (this.isLoggedIn()) return AUTH_BOOTSTRAP.username;
+    return (state.settings?.currentUser || '').trim();
+  },
+
+  createdBy() {
+    return this.current() || '—';
+  },
+
+  auditFields() {
+    return {
+      createdBy: this.createdBy(),
+      createdByUserId: this.isLoggedIn() ? 'louay' : null,
+    };
+  },
+
+  findUser(login) {
+    const q = (login || '').trim().toLowerCase();
+    return AuthStore.loadUsers().find((u) => u.username.toLowerCase() === q);
+  },
+
+  trySimpleLogin(username, password) {
+    const user = (username || '').trim();
+    const pass = password || '';
+    if (user === AUTH_BOOTSTRAP.username && pass === AUTH_BOOTSTRAP.password) {
+      localStorage.setItem(SIMPLE_AUTH_KEY, 'true');
+      state.settings.currentUser = AUTH_BOOTSTRAP.username;
+      return true;
+    }
+    return false;
+  },
+
+  logout() {
+    localStorage.removeItem(SIMPLE_AUTH_KEY);
+    location.reload();
+  },
+
+  showOverlay() {
+    const overlay = document.getElementById('auth-overlay');
+    if (!overlay) return;
+    overlay.hidden = false;
+    overlay.removeAttribute('aria-hidden');
+    document.body.classList.add('auth-locked');
+  },
+
+  hideOverlay() {
+    const overlay = document.getElementById('auth-overlay');
+    if (!overlay) return;
+    overlay.hidden = true;
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('auth-locked');
+  },
+
+  enterApp() {
+    this.hideOverlay();
+    if (typeof renderApp === 'function') renderApp();
+    navigateToTab('dashboard');
+    if (typeof renderAll === 'function') renderAll();
+    ActivityFeed.render();
+  },
+
+  ensure() {
+    resetAuthLoginFields();
+    this.updateHeaderUI();
+    if (!this.isLoggedIn()) {
+      this.showLogin();
+      if (typeof renderApp === 'function') renderApp();
+    } else {
+      state.settings.currentUser = AUTH_BOOTSTRAP.username;
+      this.hideOverlay();
+      if (typeof renderApp === 'function') renderApp();
+      if (typeof renderAll === 'function') renderAll();
+      navigateToTab('dashboard');
+    }
+  },
+
+  requireUser() {
+    if (this.isLoggedIn()) return true;
+    this.showLogin();
+    this.showAuthError('authRequired');
+    return false;
+  },
+
+  showLogin() {
+    this.closeUserMenu();
+    dismissAppOverlays();
+    this.showOverlay();
+    this.clearAuthErrors();
+    resetAuthLoginFields();
+    setTimeout(() => document.getElementById('auth-login-username')?.focus(), 50);
+  },
+
+  clearAuthErrors() {
+    const el = document.getElementById('auth-login-error');
+    if (!el) return;
+    el.textContent = '';
+    el.hidden = true;
+  },
+
+  showAuthError(messageKey) {
+    const el = document.getElementById('auth-login-error');
+    if (!el) return;
+    el.textContent = t(messageKey);
+    el.hidden = false;
+  },
+
+  togglePassword(btn) {
+    const input = document.getElementById(btn?.dataset?.authTogglePwd);
+    if (!input) return;
+    const visible = input.type === 'password';
+    input.type = visible ? 'text' : 'password';
+    btn.setAttribute('aria-pressed', visible ? 'true' : 'false');
+    btn.setAttribute('aria-label', t(visible ? 'authHidePassword' : 'authShowPassword'));
+    btn.classList.toggle('auth-password-toggle--visible', visible);
+  },
+
+  toggleUserMenu() {
+    const wrap = document.getElementById('user-menu-wrap');
+    const dd = document.getElementById('user-menu-dropdown');
+    const btn = document.getElementById('user-menu-btn');
+    if (!wrap || !dd) return;
+    const open = dd.hidden;
+    dd.hidden = !open;
+    wrap.classList.toggle('user-menu--open', open);
+    btn?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  },
+
+  closeUserMenu() {
+    const wrap = document.getElementById('user-menu-wrap');
+    const dd = document.getElementById('user-menu-dropdown');
+    const btn = document.getElementById('user-menu-btn');
+    if (dd) dd.hidden = true;
+    wrap?.classList.remove('user-menu--open');
+    btn?.setAttribute('aria-expanded', 'false');
+  },
+
+  updateHeaderUI() {
+    const user = this.current();
+    ['user-current-name', 'user-menu-display-name'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = user || '—';
+    });
+    const btn = document.getElementById('user-menu-btn');
+    if (btn) {
+      btn.title = user ? `${t('userCurrent')}: ${user}` : t('authLoginTab');
+      btn.setAttribute('aria-label', btn.title);
+    }
+    document.getElementById('user-menu-wrap')?.classList.toggle(
+      'user-menu--signed-in',
+      !!user
+    );
+  },
+
+  refreshAuthI18n() {
+    const lang = currentLang;
+    document.querySelectorAll('#auth-overlay [data-i18n], #user-menu-dropdown [data-i18n]').forEach((el) => {
+      const k = el.dataset.i18n;
+      if (TRANSLATIONS[lang]?.[k]) el.textContent = TRANSLATIONS[lang][k];
+    });
+    document.querySelectorAll('[data-auth-toggle-pwd]').forEach((btn) => {
+      const visible = btn.getAttribute('aria-pressed') === 'true';
+      btn.setAttribute('aria-label', t(visible ? 'authHidePassword' : 'authShowPassword'));
+    });
+    this.updateHeaderUI();
+  },
+
+  bindEvents() {
+    document.addEventListener('click', (e) => {
+      const toggle = e.target.closest('[data-auth-toggle-pwd]');
+      if (toggle) {
+        e.preventDefault();
+        this.togglePassword(toggle);
+      }
+    });
+
+    document.getElementById('auth-login-form')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.clearAuthErrors();
+      const username = document.getElementById('auth-login-username')?.value;
+      const password = document.getElementById('auth-login-password')?.value;
+      if (this.trySimpleLogin(username, password)) {
+        window.location.href = 'index.html';
+        return;
+      }
+      this.showAuthError('authInvalidCredentials');
+    });
+
+    document.getElementById('user-menu-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!this.isLoggedIn()) {
+        this.showLogin();
+        return;
+      }
+      this.toggleUserMenu();
+    });
+
+    document.getElementById('user-logout-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.logout();
+    });
+
+    document.addEventListener('click', (e) => {
+      const wrap = document.getElementById('user-menu-wrap');
+      if (wrap && !wrap.contains(e.target)) this.closeUserMenu();
+    });
+  },
+};
+
+const UserAdmin = {
+  async createUser({ username, password }) {
+    if (!AuthSystem.isAdmin()) return { ok: false, error: 'authRequired' };
+    const uname = (username || '').trim();
+    const pw = password || '';
+    if (uname.length < 2) return { ok: false, error: 'authUsernameShort' };
+    if (pw.length < 6) return { ok: false, error: 'authWeakPassword' };
+
+    const users = AuthStore.loadUsers();
+    if (users.some((u) => u.username.toLowerCase() === uname.toLowerCase())) {
+      return { ok: false, error: 'userExists' };
+    }
+
+    const salt = uid();
+    const passwordHash = await AuthStore.hashPassword(pw, salt);
+    users.push({
+      id: uid(),
+      username: uname,
+      salt,
+      passwordHash,
+      role: 'user',
+      createdAt: new Date().toISOString(),
+      createdBy: AuthSystem.createdBy(),
+    });
+    await AuthStore.saveUsers(users);
+    return { ok: true };
+  },
+
+  async deleteUser(userId) {
+    if (!AuthSystem.isAdmin()) return { ok: false, error: 'authRequired' };
+    const users = AuthStore.loadUsers();
+    const target = users.find((u) => u.id === userId);
+    if (!target) return { ok: false, error: 'authInvalidCredentials' };
+    if (target.id === AuthSystem.session?.userId) return { ok: false, error: 'cannotDeleteSelf' };
+    if (target.username === AUTH_BOOTSTRAP.username) return { ok: false, error: 'cannotDeleteAdmin' };
+
+    await AuthStore.saveUsers(users.filter((u) => u.id !== userId));
+    return { ok: true };
+  },
+
+  renderPanel() {
+    const tbody = document.getElementById('users-tbody');
+    if (!tbody) return;
+
+    const users = AuthStore.loadUsers();
+    if (!users.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="empty">${t('noData')}</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = users.map((u) => `
+      <tr>
+        <td><strong>${escapeHtml(u.username)}</strong></td>
+        <td><span class="badge ${u.role === 'admin' ? 'badge--ok' : ''}">${u.role === 'admin' ? t('userRoleAdmin') : t('userRoleUser')}</span></td>
+        <td>${formatDate(u.createdAt)}</td>
+        <td>${escapeHtml(u.createdBy || '—')}</td>
+        <td class="actions">
+          ${u.username === AUTH_BOOTSTRAP.username || u.id === AuthSystem.session?.userId
+    ? '—'
+    : `<button type="button" class="btn btn--sm btn--danger" data-del-user="${u.id}">${t('userDelete')}</button>`}
+        </td>
+      </tr>`).join('');
+  },
+};
+
+/** @deprecated alias */
+const UserSession = AuthSystem;
+
+function formatRelativeTime(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 45000) return t('timeAgoNow');
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return t('timeAgoMinutes').replace('{n}', String(mins));
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return t('timeAgoHours').replace('{n}', String(hours));
+  return t('timeAgoDays').replace('{n}', String(Math.floor(hours / 24)));
+}
+
+const ActivityFeed = {
+  typeKeys: {
+    invoice_import: 'actTypeInvoice',
+    product_add: 'actTypeProduct',
+    product_update: 'actTypeProductUpdate',
+    expense: 'actTypeExpense',
+    sale: 'actTypeSale',
+    pos_sale: 'actTypePos',
+  },
+
+  log({ type, amountAud = 0, label = '' }) {
+    if (!AuthSystem.isLoggedIn()) return;
+    const entry = {
+      id: uid(),
+      type,
+      username: AuthSystem.createdBy(),
+      userId: AuthSystem.session?.userId || null,
+      amountAud: CurrencyEngine.round(amountAud),
+      label: label || '',
+      createdAt: new Date().toISOString(),
+    };
+    if (!state.activityLog) state.activityLog = [];
+    state.activityLog.unshift(entry);
+    state.activityLog = state.activityLog.slice(0, 200);
+    DataStore.save();
+    this.render(true);
+  },
+
+  formatLine(entry) {
+    const typeKey = this.typeKeys[entry.type] || 'actTypeProduct';
+    const typeLabel = t(typeKey);
+    const time = formatRelativeTime(entry.createdAt);
+    const amount = formatAUD(entry.amountAud || 0);
+    if (currentLang === 'ar') {
+      return t('activityFeedLine')
+        .replace('{type}', typeLabel + (entry.label ? ` (${entry.label})` : ''))
+        .replace('{user}', entry.username || '—')
+        .replace('{time}', time)
+        .replace('{amount}', amount);
+    }
+    return t('activityFeedLine')
+      .replace('{type}', typeLabel + (entry.label ? ` (${entry.label})` : ''))
+      .replace('{user}', entry.username || '—')
+      .replace('{time}', time)
+      .replace('{amount}', amount);
+  },
+
+  render(animate = false) {
+    const list = document.getElementById('activity-feed-list');
+    if (!list) return;
+    const items = (state.activityLog || []).slice(0, 5);
+    if (!items.length) {
+      list.innerHTML = `<li class="activity-feed__empty">${t('activityFeedEmpty')}</li>`;
+      return;
+    }
+    list.innerHTML = items.map((entry) => `
+      <li class="activity-feed__item${animate ? ' activity-feed__item--new' : ''}">
+        <span class="activity-feed__dot" aria-hidden="true"></span>
+        <span class="activity-feed__text">${escapeHtml(this.formatLine(entry))}</span>
+      </li>`).join('');
+    if (animate) {
+      list.querySelectorAll('.activity-feed__item--new').forEach((el) => {
+        el.addEventListener('animationend', () => el.classList.remove('activity-feed__item--new'), { once: true });
+      });
+    }
   },
 };
 
@@ -1809,6 +2375,9 @@ function migrateData() {
   if (!state.settings.notifiedKeys) state.settings.notifiedKeys = {};
   if (!state.returns) state.returns = [];
   if (!state.inventoryTransactions) state.inventoryTransactions = [];
+  if (!state.activityLog) state.activityLog = [];
+  if (!state.systemUsers) state.systemUsers = [];
+  AuthSystem.syncSession();
   const nextFromSales = InvoiceNumberEngine.inferMaxSeq() + 1;
   if (!state.settings.nextInvoiceSeq || state.settings.nextInvoiceSeq < INVOICE_START_SEQ) {
     state.settings.nextInvoiceSeq = Math.max(nextFromSales, INVOICE_START_SEQ);
@@ -2128,6 +2697,46 @@ function renderReturnsLog() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  Maintenance — reset operational data (keep users)
+// ═══════════════════════════════════════════════════════════════
+
+const MaintenanceMode = {
+  async resetDatabase() {
+    if (!AuthSystem.isAdmin()) {
+      showToast(t('authRequired'), 'error');
+      return false;
+    }
+
+    state.products = [];
+    state.sales = [];
+    state.returns = [];
+    state.inventoryTransactions = [];
+    state.activityLog = [];
+
+    state.settings.nextInvoiceSeq = INVOICE_START_SEQ;
+    state.settings.notifiedKeys = {};
+    state.settings.invoiceFxHistory = [];
+
+    if (typeof PosEngine !== 'undefined') PosEngine.cart = [];
+
+    await DataStore.save();
+    renderAll();
+    showToast(t('resetDbSuccess'));
+    return true;
+  },
+
+  async requestReset() {
+    if (!UserSession.requireUser()) return;
+    if (!AuthSystem.isAdmin()) {
+      showToast(t('authRequired'), 'error');
+      return;
+    }
+    if (!confirm(t('resetDbConfirm'))) return;
+    await this.resetDatabase();
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
 //  DataStore — Supabase-ready
 // ═══════════════════════════════════════════════════════════════
 
@@ -2145,6 +2754,8 @@ const DataStore = {
       state.sales = d.sales || [];
       state.returns = d.returns || [];
       state.inventoryTransactions = d.inventoryTransactions || [];
+      state.activityLog = d.activityLog || [];
+      state.systemUsers = d.systemUsers || [];
       state.settings = { ...state.settings, ...d.settings };
       migrateData();
       // migrate old purchases → expenses if present
@@ -2182,6 +2793,8 @@ const DataStore = {
         sales: state.sales,
         returns: state.returns,
         inventoryTransactions: state.inventoryTransactions,
+        activityLog: state.activityLog,
+        systemUsers: state.systemUsers,
         settings: state.settings,
       })
     );
@@ -2214,14 +2827,72 @@ function getProduct(id) {
   return state.products.find((p) => p.id === id);
 }
 
-function formatSAR(n) {
+const NUM_LOCALE = 'en-US';
+
+function formatNum(n, { minimumFractionDigits = 0, maximumFractionDigits = 2 } = {}) {
   const v = CurrencyEngine.round(parseFloat(n) || 0);
-  return `${v.toLocaleString(currentLang === 'ar' ? 'ar-SA' : 'en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR`;
+  return v.toLocaleString(NUM_LOCALE, { minimumFractionDigits, maximumFractionDigits });
+}
+
+function formatSAR(n) {
+  return `${formatNum(n, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR`;
 }
 
 function formatAUD(n) {
-  const loc = currentLang === 'ar' ? 'ar-SA' : 'en-AU';
-  return `${Number(n).toLocaleString(loc, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AUD`;
+  return `${formatNum(n, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AUD`;
+}
+
+function resetAuthLoginFields() {
+  const user = document.getElementById('auth-login-username');
+  const pass = document.getElementById('auth-login-password');
+  [user, pass].forEach((el) => {
+    if (!el) return;
+    el.removeAttribute('readonly');
+    el.removeAttribute('disabled');
+    el.disabled = false;
+    el.setAttribute('autocomplete', 'off');
+  });
+}
+
+function dismissAppOverlays() {
+  document.getElementById('user-menu-dropdown')?.setAttribute('hidden', '');
+  document.body.classList.remove('user-modal-open');
+
+  const fabMenu = document.getElementById('fab-menu');
+  const fabToggle = document.getElementById('fab-toggle');
+  if (fabMenu) fabMenu.hidden = true;
+  if (fabToggle) fabToggle.setAttribute('aria-expanded', 'false');
+
+  document.getElementById('pos-drawer')?.classList.remove('pos-drawer--open');
+  document.querySelectorAll('.pos-drawer-backdrop--show').forEach((el) => {
+    el.classList.remove('pos-drawer-backdrop--show');
+  });
+
+  document.querySelectorAll(
+    '.pos-modal, .invoice-ocr-modal, .sip-modal, .user-modal, #pos-payment-modal, #pos-line-edit-modal, #pos-discount-modal'
+  ).forEach((el) => {
+    el.hidden = true;
+  });
+
+  if (typeof PosUI !== 'undefined') {
+    PosUI.closeLineEdit?.();
+    PosUI.closeLineDiscount?.();
+    PosUI.closePaymentModal?.();
+  }
+}
+
+function enforceAutocompleteOff(root = document) {
+  root.querySelectorAll('form').forEach((f) => {
+    if (f.id === 'auth-login-form') return;
+    f.setAttribute('autocomplete', 'off');
+    f.setAttribute('data-form-type', 'other');
+  });
+  root.querySelectorAll('input, select, textarea').forEach((el) => {
+    if (el.type === 'hidden' || el.type === 'file') return;
+    if (el.id === 'auth-login-username' || el.id === 'auth-login-password') return;
+    if (el.closest('#auth-overlay')) return;
+    el.setAttribute('autocomplete', 'off');
+  });
 }
 
 function formatDate(iso) {
@@ -2723,6 +3394,7 @@ async function persistInvInlinePrice(productId, price) {
 // ═══════════════════════════════════════════════════════════════
 
 async function saveProduct(data) {
+  if (!UserSession.requireUser()) return;
   if (state.products.some((p) => p.code === data.code && p.id !== data.id)) {
     showToast('Code exists', 'error');
     return;
@@ -2731,9 +3403,19 @@ async function saveProduct(data) {
     const i = state.products.findIndex((p) => p.id === data.id);
     if (i >= 0) state.products[i] = { ...state.products[i], ...data };
   } else {
-    state.products.push({ ...data, id: uid(), createdAt: new Date().toISOString() });
+    state.products.push({
+      ...data,
+      id: uid(),
+      createdAt: new Date().toISOString(),
+      ...UserSession.auditFields(),
+    });
   }
   await DataStore.save();
+  ActivityFeed.log({
+    type: data.id ? 'product_update' : 'product_add',
+    amountAud: CurrencyEngine.round((parseFloat(data.cost) || 0) * (parseInt(data.quantity, 10) || 0)),
+    label: data.name || data.code,
+  });
   showToast(t('saved'));
   renderAll();
 }
@@ -2769,6 +3451,7 @@ function logInventoryTransaction(entry) {
     costBefore: entry.costBefore != null ? CurrencyEngine.round(entry.costBefore) : null,
     costAfter: entry.costAfter != null ? CurrencyEngine.round(entry.costAfter) : null,
     lineAud: entry.lineAud != null ? CurrencyEngine.round(entry.lineAud) : null,
+    createdBy: entry.createdBy || UserSession.createdBy(),
   });
   state.inventoryTransactions = state.inventoryTransactions.slice(0, 500);
 }
@@ -2879,6 +3562,7 @@ function integrateReviewRowInventory(row, meta, usedCodes) {
     image: row.image || null,
     importInvoiceRef: importNote || null,
     createdAt: processedAt,
+    ...UserSession.auditFields(),
   });
   usedCodes.add(code);
 
@@ -3095,6 +3779,7 @@ function recordInvoiceFxHistory({ rate, invoiceNumber, totalSar, totalAud, itemC
     totalAud: CurrencyEngine.round(totalAud),
     itemCount: itemCount || 0,
     savedAt: new Date().toISOString(),
+    createdBy: UserSession.createdBy(),
   });
   state.settings.invoiceFxHistory = state.settings.invoiceFxHistory.slice(0, 100);
   state.settings.sarToAudRate = CurrencyEngine.round(rate);
@@ -3771,6 +4456,7 @@ const InvoiceOcrUI = {
         <td>${escapeHtml(tx.productName || '—')}</td>
         <td>+${tx.qtyAdded ?? 0}</td>
         <td>${formatAUD(tx.unitCostAud ?? tx.costAud)}</td>
+        <td><span class="user-audit-badge">${escapeHtml(tx.createdBy || '—')}</span></td>
       </tr>`).join('');
   },
 
@@ -4206,6 +4892,7 @@ const InvoiceOcrUI = {
    */
   async confirmAndSaveToInventory() {
     if (this.isSaving) return;
+    if (!UserSession.requireUser()) return;
 
     const validation = this.validateBeforeSave();
     if (!validation.ok) {
@@ -4272,6 +4959,12 @@ const InvoiceOcrUI = {
         'success',
         5500
       );
+
+      ActivityFeed.log({
+        type: 'invoice_import',
+        amountAud: totalAud,
+        label: this.invoiceNumber || '',
+      });
 
       this.resetInvoiceForm();
       this.renderTransactionLog();
@@ -4426,6 +5119,7 @@ function renderSupplierInvoiceProcessorHTML() {
               <th>${t('invTxProduct')}</th>
               <th>${t('invTxQtyAdded')}</th>
               <th>${t('invTxCostAud')}</th>
+              <th>${t('invTxCreatedBy')}</th>
             </tr></thead>
             <tbody id="sip-transaction-log-tbody"></tbody>
           </table>
@@ -4476,6 +5170,7 @@ function updateProductImagePreview(src) {
 }
 
 async function saveExpense(data) {
+  if (!UserSession.requireUser()) return;
   const financials = CurrencyEngine.calcExpense({
     amountOriginal: data.amountOriginal,
     currency: data.currency,
@@ -4498,9 +5193,12 @@ async function saveExpense(data) {
 
   if (data.id) {
     const i = state.expenses.findIndex((e) => e.id === data.id);
-    if (i >= 0) state.expenses[i] = record;
+    if (i >= 0) {
+      const prev = state.expenses[i];
+      state.expenses[i] = { ...record, createdBy: prev.createdBy || UserSession.createdBy() };
+    }
   } else {
-    state.expenses.unshift(record);
+    state.expenses.unshift({ ...record, ...UserSession.auditFields() });
   }
 
   if (data.category === 'import' && data.addStock && data.productId) {
@@ -4512,6 +5210,11 @@ async function saveExpense(data) {
   }
 
   await DataStore.save();
+  ActivityFeed.log({
+    type: 'expense',
+    amountAud: financials.audTotal,
+    label: record.name,
+  });
   showToast(t('saved'));
   renderAll();
 }
@@ -4529,6 +5232,7 @@ function saleSourceLabel(source) {
 }
 
 async function saveSale(data, options = {}) {
+  if (!UserSession.requireUser()) return;
   const p = getProduct(data.productId);
   if (!p) return showToast('No product', 'error');
   if (data.quantity > p.quantity) return showToast(`Stock: ${p.quantity}`, 'error');
@@ -4560,11 +5264,17 @@ async function saveSale(data, options = {}) {
     invoiceNumber: data.invoiceNumber || InvoiceNumberEngine.next(),
     notes: data.notes || '',
     createdAt: new Date().toISOString(),
+    ...UserSession.auditFields(),
   };
 
   state.sales.unshift(sale);
   p.quantity -= qty;
   await DataStore.save();
+  ActivityFeed.log({
+    type: 'sale',
+    amountAud: lineTotalAud,
+    label: p.name,
+  });
 
   if (options.lightRefresh) {
     PosEngine.syncCacheFromState();
@@ -4747,6 +5457,7 @@ const PosEngine = {
 /** POS checkout — stock is deducted here only (not while items sit in cart). */
 async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null) {
   if (!lines.length) return false;
+  if (!UserSession.requireUser()) return false;
 
   for (const line of lines) {
     const p = getProduct(line.productId);
@@ -4791,6 +5502,7 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
       returned: false,
       notes: `سلة POS · ${invoiceNumber}`,
       createdAt: new Date().toISOString(),
+      ...UserSession.auditFields(),
     };
     state.sales.unshift(sale);
     p.quantity -= line.qty;
@@ -4798,6 +5510,11 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
   });
 
   await DataStore.save();
+  ActivityFeed.log({
+    type: 'pos_sale',
+    amountAud: totals.total,
+    label: invoiceNumber,
+  });
   PosEngine.syncCacheFromState();
   refreshDashboardMetrics();
   NotificationEngine.evaluate();
@@ -5081,31 +5798,40 @@ const PosUI = {
       const hasDisc = line.lineDiscount > 0;
       return `
       <article class="pos-cart-card pos-cart-card--clickable" data-cart-line="${line.cartLineId}" data-pos-open-line="${line.cartLineId}" role="button" tabindex="0" aria-label="${escapeHtml(line.name)} — ${t('edit')}">
-        <div class="pos-cart-card__media">
-          ${renderProductImageMarkup(getLineImage(line), line.name)}
-        </div>
-        <div class="pos-cart-card__body">
-          <h4 class="pos-cart-card__name">${escapeHtml(line.name)}</h4>
-          <div class="pos-cart-card__chips">
-            <span class="pos-cart-card__chip"><span class="pos-cart-card__chip-lbl">${t('size')}</span> ${escapeHtml(String(line.size))}</span>
-            <span class="pos-cart-card__chip pos-cart-card__chip--qty"><span class="pos-cart-card__chip-lbl">${t('qty')}</span> ×${line.qty}</span>
+        <header class="pos-cart-card__header">
+          <div class="pos-cart-card__media">
+            ${renderProductImageMarkup(getLineImage(line), line.name)}
           </div>
-          <p class="pos-cart-card__price-line">
-            <span class="pos-cart-card__price-lbl">${t('posPriceAfterDisc')}</span>
-            <strong class="pos-cart-card__price-val">${formatAUD(unitAfter)}</strong>
-            ${hasDisc ? `<em class="pos-cart-card__was">${formatAUD(line.unitPrice)}</em>` : ''}
-          </p>
-          ${hasDisc ? `<p class="pos-cart-card__disc-tag">−${formatAUD(line.lineDiscount)}</p>` : ''}
+          <div class="pos-cart-card__head-text">
+            <h4 class="pos-cart-card__name">${escapeHtml(line.name)}</h4>
+            <span class="pos-cart-card__size">${t('size')}: ${escapeHtml(String(line.size))}</span>
+          </div>
+          <button type="button" class="pos-cart-card__remove" data-pos-cart-remove="${line.cartLineId}" data-pos-stop aria-label="${t('posRemove')}">×</button>
+        </header>
+        <div class="pos-cart-card__stack">
+          <div class="pos-cart-card__row">
+            <span class="pos-cart-card__lbl">${t('posPriceAfterDisc')}</span>
+            <div class="pos-cart-card__vals">
+              <strong class="pos-cart-card__price-val num-digits">${formatAUD(unitAfter)}</strong>
+              ${hasDisc ? `<em class="pos-cart-card__was num-digits">${formatAUD(line.unitPrice)}</em>` : ''}
+              ${hasDisc ? `<span class="pos-cart-card__disc-tag num-digits">−${formatAUD(line.lineDiscount)}</span>` : ''}
+            </div>
+          </div>
+          <div class="pos-cart-card__row" data-pos-stop>
+            <span class="pos-cart-card__lbl">${t('qty')}</span>
+            <div class="pos-cart-card__qty">
+              <button type="button" class="pos-cart__qty-btn" data-pos-cart-minus="${line.cartLineId}" aria-label="−">−</button>
+              <span class="pos-cart__qty-val num-digits">${line.qty}</span>
+              <button type="button" class="pos-cart__qty-btn" data-pos-cart-plus="${line.cartLineId}" aria-label="+">+</button>
+            </div>
+          </div>
+          <div class="pos-cart-card__row pos-cart-card__row--total">
+            <span class="pos-cart-card__lbl">${t('posCartTotal')}</span>
+            <strong class="pos-cart-card__line-total num-digits">${formatAUD(line.lineTotal)}</strong>
+          </div>
         </div>
-        <div class="pos-cart-card__rail" data-pos-stop>
+        <div class="pos-cart-card__actions" data-pos-stop>
           <button type="button" class="pos-cart-card__disc-btn${hasDisc ? ' pos-cart-card__disc-btn--active' : ''}" data-pos-discount-line="${line.cartLineId}" aria-label="${t('posDiscountLine')} — ${escapeHtml(line.name)}">${UI_ICONS.discount}</button>
-          <div class="pos-cart-card__qty">
-            <button type="button" class="pos-cart__qty-btn" data-pos-cart-minus="${line.cartLineId}" aria-label="−">−</button>
-            <span class="pos-cart__qty-val">${line.qty}</span>
-            <button type="button" class="pos-cart__qty-btn" data-pos-cart-plus="${line.cartLineId}" aria-label="+">+</button>
-          </div>
-          <div class="pos-cart-card__line-total">${formatAUD(line.lineTotal)}</div>
-          <button type="button" class="pos-cart-card__remove" data-pos-cart-remove="${line.cartLineId}" aria-label="${t('posRemove')}">×</button>
         </div>
       </article>`;
     }).join('');
@@ -5198,11 +5924,13 @@ const PosUI = {
 
     box.innerHTML = matches.map((p) => `
       <button type="button" class="pos-results__item" data-pos-add="${p.id}">
-        <span class="pos-results__name">${p.name}</span>
-        <span class="pos-results__meta">${p.code} · ${p.color}</span>
+        <span class="pos-results__left">
+          <span class="pos-results__name">${escapeHtml(p.name)}</span>
+          <span class="pos-results__meta">${escapeHtml(p.code)} · ${escapeHtml(p.color)}</span>
+        </span>
         <span class="pos-results__right">
-          <strong>${formatAUD(p.price)}</strong>
-          <em>${PosEngine.stockAvailable(p.id)} ${t('posInStock')}</em>
+          <strong class="num-digits">${formatAUD(p.price)}</strong>
+          <em class="num-digits">${formatNum(PosEngine.stockAvailable(p.id), { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${t('posInStock')}</em>
         </span>
       </button>`).join('');
     box.classList.add('pos-results--open');
@@ -5291,12 +6019,17 @@ async function deleteSale(id) {
 //  Render — App Shell (cached template parts)
 // ═══════════════════════════════════════════════════════════════
 
-const NAV_TABS = ['dashboard', 'pos', 'expenses', 'inventory', 'sales', 'returns', 'analytics', 'settings'];
+const NAV_TABS = ['dashboard', 'pos', 'expenses', 'inventory', 'sales', 'returns', 'analytics', 'users', 'settings'];
+
+function navTabsForUser() {
+  return AuthSystem.isAdmin() ? NAV_TABS : NAV_TABS.filter((tab) => tab !== 'users');
+}
 
 function renderSiteNav(activeTab = 'dashboard') {
   const nav = document.getElementById('site-nav');
   if (!nav) return;
-  nav.innerHTML = NAV_TABS.map((tab) =>
+  const tabs = AuthSystem.isLoggedIn() ? navTabsForUser() : ['dashboard'];
+  nav.innerHTML = tabs.map((tab) =>
     `<button type="button" class="site-nav__btn${tab === activeTab ? ' site-nav__btn--active' : ''}"
       id="nav-${tab}"
       data-tab="${tab}"
@@ -5317,11 +6050,19 @@ function renderApp() {
   const app = document.getElementById('app');
   if (!app) return;
 
+  if (!AuthSystem.isLoggedIn()) {
+    app.innerHTML = '<main class="app-main app-main--locked" aria-hidden="true"></main>';
+    renderSiteNav('dashboard');
+    return;
+  }
+
   const activeTab = getActiveTab();
-  renderSiteNav(activeTab);
+  const allowed = navTabsForUser();
+  const tab = allowed.includes(activeTab) ? activeTab : 'dashboard';
+  renderSiteNav(tab);
 
   const panel = (id, html) =>
-    `<section id="${id}" class="panel${activeTab === id ? ' panel--active' : ''}">${html}</section>`;
+    `<section id="${id}" class="panel${tab === id ? ' panel--active' : ''}">${html}</section>`;
 
   app.innerHTML = `
     <main class="app-main">
@@ -5332,12 +6073,69 @@ function renderApp() {
       ${panel('sales', renderSalesHTML())}
       ${panel('returns', renderReturnsHTML())}
       ${panel('analytics', renderAnalyticsHTML())}
+      ${panel('users', renderUsersHTML())}
       ${panel('settings', renderSettingsHTML())}
     </main>`;
+  enforceAutocompleteOff(app);
+}
+
+function renderUsersHTML() {
+  if (!AuthSystem.isAdmin()) {
+    return `<div class="card"><p class="empty">${t('authRequired')}</p></div>`;
+  }
+  return `
+    <div class="card card--users-admin">
+      <h2 class="card__title">${t('userManagement')}</h2>
+      <p class="form-hint">${t('userManagementDesc')}</p>
+      <form id="user-add-form" class="auth-form user-add-form">
+        <div id="user-add-error" class="auth-form__error" hidden role="alert"></div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="user-add-username">${t('authUsername')}</label>
+            <input type="text" id="user-add-username" required maxlength="48" autocomplete="off">
+          </div>
+          <div class="form-field">
+            <label for="user-add-password">${t('authPassword')}</label>
+            <div class="auth-password-wrap">
+              <input type="password" id="user-add-password" required minlength="6" autocomplete="off">
+              <button type="button" class="auth-password-toggle" data-auth-toggle-pwd="user-add-password" aria-pressed="false">
+                <span class="auth-password-toggle__icon auth-password-toggle__icon--show" aria-hidden="true">👁</span>
+                <span class="auth-password-toggle__icon auth-password-toggle__icon--hide" aria-hidden="true">🙈</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary">${t('addSystemUser')}</button>
+        </div>
+      </form>
+    </div>
+    <div class="card">
+      <h3 class="card__title">${t('usersList')}</h3>
+      <div class="table-wrap">
+        <table class="table table--compact">
+          <thead><tr>
+            <th>${t('authUsername')}</th>
+            <th>${t('status')}</th>
+            <th>${t('userCreatedAt')}</th>
+            <th>${t('userCreatedByCol')}</th>
+            <th>${t('actions')}</th>
+          </tr></thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
 function renderDashboardHTML() {
   return `
+    <section class="activity-feed card" id="activity-feed-panel" aria-live="polite">
+      <div class="activity-feed__head">
+        <h2 class="card__title activity-feed__title">📡 ${t('activityFeedTitle')}</h2>
+        <span class="activity-feed__pulse" aria-hidden="true"></span>
+      </div>
+      <ul class="activity-feed__list" id="activity-feed-list"></ul>
+    </section>
     <div class="export-bar card">
       <div class="export-bar__info">
         <strong>${t('exportFull')}</strong>
@@ -5408,8 +6206,9 @@ function renderPosHTML() {
       </header>
       <div class="pos-layout">
         <div class="pos-main">
-          <div class="pos-search-wrap card">
-            <input type="search" id="pos-search" class="pos-search" placeholder="${t('posSearchPlaceholder')}" autocomplete="off" enterkeyhint="search" aria-autocomplete="list" aria-controls="pos-search-results">
+          <div class="pos-search-wrap">
+            <svg class="pos-search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+            <input type="search" id="pos-search" class="pos-search" placeholder="${t('posSearchPlaceholder')}" autocomplete="off" enterkeyhint="search" aria-autocomplete="list" aria-controls="pos-search-results" data-lpignore="true" data-form-type="other">
             <div id="pos-search-results" class="pos-results" role="listbox"></div>
           </div>
           <div id="pos-quick-add" class="pos-quick-add"></div>
@@ -5457,11 +6256,11 @@ function renderPosHTML() {
           <div class="form-grid form-grid--compact">
             <div class="form-field">
               <label>${t('qty')}</label>
-              <input type="number" id="pos-edit-qty" min="1" step="1" value="1">
+              <input type="number" id="pos-edit-qty" min="1" step="1" value="1" autocomplete="off">
             </div>
             <div class="form-field">
               <label>${t('posExtraShipping')}</label>
-              <input type="number" id="pos-edit-shipping" min="0" step="0.01" value="0">
+              <input type="number" id="pos-edit-shipping" min="0" step="0.01" value="0" autocomplete="off">
             </div>
           </div>
           <p class="pos-edit-stock" id="pos-edit-stock-hint"></p>
@@ -5862,7 +6661,14 @@ function renderSalesHTML() {
       <h2 class="card__title">${t('recordSale')}</h2>
       <form id="sale-form">
         <div class="form-grid">
-          <div class="form-field form-field--wide"><label>${t('product')}</label><select id="sale-product" required></select></div>
+          <div class="form-field form-field--wide product-picker-wrap">
+            <label>${t('product')}</label>
+            <input type="hidden" id="sale-product" value="">
+            <button type="button" id="sale-product-trigger" class="product-picker__trigger" aria-haspopup="listbox" aria-expanded="false">
+              <span class="product-picker__placeholder">${t('product')}</span>
+            </button>
+            <ul id="sale-product-menu" class="product-picker__menu" role="listbox" hidden></ul>
+          </div>
           <div class="form-field"><label>${t('qty')}</label><input type="number" id="sale-qty" min="1" value="1" required></div>
           <div class="form-field"><label>${t('priceAud')}</label><input type="number" id="sale-price" min="0" step="0.01" required></div>
           <div class="form-field"><label>${t('customer')}</label><input id="sale-customer"></div>
@@ -5937,6 +6743,11 @@ function renderSettingsHTML() {
       <p class="form-hint">${t('baseCurrency')}</p>
       <span class="supabase-badge" id="supabase-status">${t('supabaseLocal')}</span>
       <div class="form-actions"><button type="button" class="btn btn--primary" id="save-settings">${t('save')}</button></div>
+    </div>
+    <div class="card card--maintenance">
+      <h2 class="card__title">${t('maintenanceMode')}</h2>
+      <p class="form-hint maintenance-mode__hint">${t('maintenanceModeDesc')}</p>
+      <button type="button" class="btn btn--danger btn--reset-db" id="reset-database-btn">${t('resetDatabaseBtn')}</button>
     </div>`;
 }
 
@@ -6115,6 +6926,7 @@ function updateSaleProductMeta() {
 
 function renderDashboard() {
   renderSmartDashboard();
+  ActivityFeed.render();
 
   const exp = AnalyticsEngine.totalExpensesAUD();
   const rev = AnalyticsEngine.totalRevenueAUD();
@@ -6210,7 +7022,7 @@ function renderExpensesTable(filter = '') {
       <td>${e.name}</td>
       <td><span class="tag tag--cat">${catLabel(e.category)}</span></td>
       <td><span class="tag tag--${e.currency.toLowerCase()}">${e.currency}</span></td>
-      <td>${e.amountOriginal.toLocaleString()}</td>
+      <td>${formatNum(e.amountOriginal, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
       <td>${e.currency === 'AUD' ? '1' : e.exchangeRate}</td>
       <td>${formatAUD(f.audBeforeVat)}</td>
       <td class="text-info">${formatAUD(f.vat)}</td>
@@ -6332,14 +7144,73 @@ function renderSalesTable(q = '') {
   }).join('');
 }
 
+const SaleProductPicker = {
+  closeMenu() {
+    const menu = document.getElementById('sale-product-menu');
+    const trigger = document.getElementById('sale-product-trigger');
+    if (menu) menu.hidden = true;
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+  },
+
+  toggleMenu(open) {
+    const menu = document.getElementById('sale-product-menu');
+    const trigger = document.getElementById('sale-product-trigger');
+    if (!menu || !trigger) return;
+    const show = open ?? menu.hidden;
+    menu.hidden = !show;
+    trigger.setAttribute('aria-expanded', String(show));
+  },
+
+  renderTrigger(p) {
+    const trigger = document.getElementById('sale-product-trigger');
+    if (!trigger) return;
+    if (!p) {
+      trigger.innerHTML = `<span class="product-picker__placeholder">${t('product')}</span>`;
+      return;
+    }
+    trigger.innerHTML = `
+      <span class="product-picker__option-name">${escapeHtml(p.name)}</span>
+      <span class="product-picker__option-price num-digits">${formatAUD(p.price)}</span>`;
+  },
+
+  select(productId) {
+    const hidden = document.getElementById('sale-product');
+    if (!hidden) return;
+    hidden.value = productId || '';
+    const p = productId ? getProduct(productId) : null;
+    this.renderTrigger(p);
+    const priceEl = document.getElementById('sale-price');
+    if (p && priceEl) priceEl.value = p.price;
+    updateSaleProductMeta();
+    renderSalePreview();
+    this.closeMenu();
+  },
+
+  reset() {
+    this.select('');
+  },
+};
+
 function populateSaleSelect() {
-  const sel = document.getElementById('sale-product');
-  if (!sel) return;
-  sel.innerHTML = state.products
-    .filter((p) => p.quantity > 0)
-    .map((p) => `<option value="${p.id}" data-price="${p.price}" data-color="${p.color}" data-style="${p.style || 'classic'}">${p.code} — ${p.name} (${p.quantity})</option>`)
-    .join('');
-  updateSaleProductMeta();
+  const menu = document.getElementById('sale-product-menu');
+  if (!menu) return;
+  const prev = document.getElementById('sale-product')?.value || '';
+  const products = state.products.filter((p) => p.quantity > 0);
+  menu.innerHTML = products.map((p) => `
+    <li role="presentation">
+      <button type="button" class="product-picker__option" role="option" data-sale-pick="${p.id}">
+        <span class="product-picker__option-left">
+          <span class="product-picker__option-name">${escapeHtml(p.name)}</span>
+          <span class="product-picker__option-meta">${escapeHtml(p.code)} · ${escapeHtml(p.color)} · ${formatNum(p.quantity, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+        </span>
+        <span class="product-picker__option-price num-digits">${formatAUD(p.price)}</span>
+      </button>
+    </li>`).join('');
+  if (prev && products.some((p) => p.id === prev)) SaleProductPicker.select(prev);
+  else {
+    SaleProductPicker.select('');
+    updateSaleProductMeta();
+  }
 }
 
 function renderSalePreview() {
@@ -6510,6 +7381,8 @@ function renderCharts() {
 
 function navigateToTab(tab) {
   if (!tab || !NAV_TABS.includes(tab)) return;
+  if (!AuthSystem.isLoggedIn()) return;
+  if (!navTabsForUser().includes(tab)) tab = 'dashboard';
 
   document.querySelectorAll('.site-nav__btn').forEach((btn) => {
     const target = btn.dataset.target || btn.dataset.tab;
@@ -6527,6 +7400,7 @@ function navigateToTab(tab) {
   window.scrollTo({ top: 0, behavior: tab === 'pos' ? 'auto' : 'smooth' });
   if (tab === 'pos') PosUI.initPanel();
   if (tab === 'returns') renderReturnsLog();
+  if (tab === 'users') UserAdmin.renderPanel();
   if (tab === 'dashboard' || tab === 'analytics') scheduleCharts();
 }
 
@@ -6548,7 +7422,9 @@ function toggleFab(forceOpen) {
 }
 
 function renderAll() {
+  if (!AuthSystem.isLoggedIn()) return;
   renderDashboard();
+  UserAdmin.renderPanel();
   if (document.getElementById('pos-search')) {
     PosEngine.warmCache();
     const hint = document.getElementById('pos-cache-hint');
@@ -6590,6 +7466,7 @@ function renderAll() {
   if (document.getElementById('sip-transaction-log-tbody')) {
     InvoiceOcrUI.renderTransactionLog();
   }
+  enforceAutocompleteOff(document.getElementById('app') || document);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -6792,6 +7669,7 @@ function bindEvents() {
       renderExpensePreview();
     }
     if (e.target.id === 'save-settings') saveSettings();
+    if (e.target.id === 'reset-database-btn') MaintenanceMode.requestReset();
     if (e.target.dataset.invoiceAddRow !== undefined && e.target.closest('#supplier-invoice-processor')) {
       InvoiceOcrUI.addRow();
     }
@@ -6818,6 +7696,17 @@ function bindEvents() {
       });
     }
 
+    const delUserId = e.target.closest('[data-del-user]')?.dataset.delUser;
+    if (delUserId && confirm(t('confirmDeleteUser'))) {
+      UserAdmin.deleteUser(delUserId).then((r) => {
+        if (r.ok) {
+          showToast(t('deleted'));
+          UserAdmin.renderPanel();
+        } else showToast(t(r.error), 'error');
+      });
+      return;
+    }
+
     const ep = e.target.dataset.editProduct;
     if (ep) fillProduct(ep);
     if (e.target.dataset.delProduct && confirm(t('confirmDelete'))) deleteProduct(e.target.dataset.delProduct);
@@ -6842,6 +7731,15 @@ function bindEvents() {
 
     const dpApply = e.target.closest('[data-dp-apply]')?.dataset.dpApply;
     if (dpApply) DynamicPricingUI.applyTier(dpApply);
+
+    const salePick = e.target.closest('[data-sale-pick]')?.dataset.salePick;
+    if (salePick) SaleProductPicker.select(salePick);
+
+    if (e.target.id === 'sale-product-trigger') {
+      SaleProductPicker.toggleMenu();
+      return;
+    }
+    if (!e.target.closest('.product-picker-wrap')) SaleProductPicker.closeMenu();
 
     const posAdd = e.target.closest('[data-pos-add]')?.dataset.posAdd;
     if (posAdd) PosUI.addToCart(posAdd, 1);
@@ -6952,15 +7850,7 @@ function bindEvents() {
       toggleExchangeField();
       renderExpensePreview();
     }
-    if (id === 'sale-product' || id === 'sale-qty' || id === 'sale-price') {
-      if (id === 'sale-product') {
-        const p = getProduct(e.target.value);
-        const pr = document.getElementById('sale-price');
-        if (p && pr) pr.value = p.price;
-        updateSaleProductMeta();
-      }
-      renderSalePreview();
-    }
+    if (id === 'sale-qty' || id === 'sale-price') renderSalePreview();
     if (id === 'expense-currency') toggleExchangeField();
     if (id === 'pos-search') PosUI.onSearchInput(e.target.value);
     if (id === 'returns-search-invoice') ReturnsUI.search(e.target.value);
@@ -7006,6 +7896,28 @@ function bindEvents() {
 
   app?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (e.target.id === 'user-add-form') {
+      const errEl = document.getElementById('user-add-error');
+      if (errEl) {
+        errEl.hidden = true;
+        errEl.textContent = '';
+      }
+      const res = await UserAdmin.createUser({
+        username: document.getElementById('user-add-username')?.value,
+        password: document.getElementById('user-add-password')?.value,
+      });
+      if (!res.ok) {
+        if (errEl) {
+          errEl.textContent = t(res.error);
+          errEl.hidden = false;
+        } else showToast(t(res.error), 'error');
+        return;
+      }
+      e.target.reset();
+      showToast(t('userAdded'), 'success');
+      UserAdmin.renderPanel();
+      return;
+    }
     if (e.target.id === 'product-form') {
       await saveProduct({
         id: document.getElementById('product-id').value || null,
@@ -7038,8 +7950,14 @@ function bindEvents() {
       toggleExchangeField();
     }
     if (e.target.id === 'sale-form') {
+      const productId = document.getElementById('sale-product')?.value;
+      if (!productId) {
+        showToast(t('product'), 'error');
+        SaleProductPicker.toggleMenu(true);
+        return;
+      }
       await saveSale({
-        productId: document.getElementById('sale-product').value,
+        productId,
         quantity: parseInt(document.getElementById('sale-qty').value, 10),
         unitPriceAud: parseFloat(document.getElementById('sale-price').value),
         customer: document.getElementById('sale-customer').value,
@@ -7047,6 +7965,7 @@ function bindEvents() {
       });
       e.target.reset();
       document.getElementById('sale-qty').value = '1';
+      SaleProductPicker.reset();
     }
   });
 
@@ -7127,6 +8046,7 @@ function setLang(lang) {
     const k = el.dataset.i18n;
     if (TRANSLATIONS[lang][k]) el.textContent = TRANSLATIONS[lang][k];
   });
+  AuthSystem.refreshAuthI18n();
   DataStore.save();
   const activeTab = getActiveTab();
   renderSiteNav(activeTab);
@@ -7188,6 +8108,8 @@ function seedDemo() {
 
 async function init() {
   await DataStore.load();
+  await AuthStore.seedBootstrapAdmin();
+  AuthSystem.syncSession();
   currentLang = state.settings.lang || APP_CONFIG.defaultLang;
   document.documentElement.lang = currentLang;
   document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
@@ -7195,8 +8117,11 @@ async function init() {
   seedDemo();
   await NotificationEngine.registerServiceWorker();
   renderApp();
+  resetAuthLoginFields();
   bindEvents();
+  AuthSystem.bindEvents();
   setLang(currentLang);
+  AuthSystem.ensure();
   applyLogos();
   updateConnectionStatus();
 
