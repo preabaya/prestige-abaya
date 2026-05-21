@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Prestige Abaya — Financial & Inventory Management System">
+  <meta name="theme-color" content="#2c3345">
+  <link rel="manifest" href="manifest.json">
+  <title>Prestige Abaya | النظام المالي والمخزوني</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+</head>
+<body>
+  <div id="root" class="root">
+    <header class="site-header">
+      <div class="site-header__top">
+        <div class="site-header__brand">
+          <img id="brand-logo" class="site-header__logo" src="" alt="Prestige Abaya" hidden>
+          <div class="site-header__text">
+            <h1 class="site-header__title">Prestige Abaya</h1>
+            <p class="site-header__subtitle" data-i18n="subtitle">النظام المالي والمخزوني المتكامل</p>
+          </div>
+        </div>
+        <div class="site-header__actions">
+          <div class="connection-status connection-status--local" id="connection-status" title="">
+            <span class="connection-status__dot" aria-hidden="true"></span>
+            <span class="connection-status__label">—</span>
+          </div>
+          <button type="button" class="btn btn--outline btn--sm" id="lang-toggle" aria-label="Toggle language">EN</button>
+        </div>
+      </div>
+      <nav class="site-nav" id="site-nav" aria-label="Main navigation"></nav>
+    </header>
+
+    <div id="app"></div>
+  </div>
+
+  <!-- زر عائم — جوال -->
+  <div class="fab" id="fab" aria-label="Quick actions">
+    <div class="fab__menu" id="fab-menu" hidden>
+      <button type="button" class="fab__item" data-fab="pos" data-i18n="fabPos">نقطة بيع</button>
+      <button type="button" class="fab__item" data-fab="expense" data-i18n="fabExpense">مصروف</button>
+      <button type="button" class="fab__item" data-fab="sale" data-i18n="fabSale">بيع</button>
+      <button type="button" class="fab__item" data-fab="product" data-i18n="fabProduct">منتج</button>
+    </div>
+    <button type="button" class="fab__main" id="fab-toggle" aria-expanded="false">+</button>
+  </div>
+
+  <div id="toast" class="toast" aria-live="polite"></div>
+  <script src="script.js" defer></script>
+</body>
+</html>
