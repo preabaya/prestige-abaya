@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Prestige Abaya — Financial & Inventory Management System">
+  <meta name="theme-color" content="#2c3345">
+  <link rel="manifest" href="manifest.json">
+  <title>Prestige Abaya | النظام المالي والمخزوني</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+</head>
+<body>
+  <div id="root" class="root">
+    <header class="site-header">
+      <div class="site-header__top">
+        <div class="site-header__brand">
+          <img id="brand-logo" class="site-header__logo" src="" alt="Prestige Abaya" hidden>
+          <div class="site-header__text">
+            <h1 class="site-header__title">Prestige Abaya</h1>
+            <p class="site-header__subtitle" data-i18n="subtitle">النظام المالي والمخزوني المتكامل</p>
+          </div>
+        </div>
+        <div class="site-header__actions">
+          <div class="user-menu" id="user-menu-wrap">
+            <button type="button" class="user-session-btn" id="user-menu-btn" aria-expanded="false" aria-haspopup="true" title="">
+              <span class="user-session-btn__icon" aria-hidden="true">👤</span>
+              <span class="user-session-btn__name" id="user-current-name">—</span>
+              <span class="user-menu__caret" aria-hidden="true">▾</span>
+            </button>
+            <div id="user-menu-dropdown" class="user-menu__dropdown" hidden>
+              <div class="user-menu__header">
+                <span class="user-menu__label" data-i18n="userCurrent">المستخدم الحالي</span>
+                <strong id="user-menu-display-name" class="user-menu__name">—</strong>
+              </div>
+              <button type="button" class="user-menu__logout btn btn--outline btn--sm" id="user-logout-btn" data-i18n="authLogout">تسجيل خروج</button>
+            </div>
+          </div>
+          <div class="connection-status connection-status--local" id="connection-status" title="">
+            <span class="connection-status__dot" aria-hidden="true"></span>
+            <span class="connection-status__label">—</span>
+          </div>
+          <button type="button" class="btn btn--outline btn--sm" id="lang-toggle" aria-label="Toggle language">EN</button>
+        </div>
+      </div>
+      <nav class="site-nav" id="site-nav" aria-label="Main navigation"></nav>
+    </header>
+
+    <div id="app"></div>
+  </div>
+
+  <div class="fab" id="fab" aria-label="Quick actions">
+    <div class="fab__menu" id="fab-menu" hidden>
+      <button type="button" class="fab__item" data-fab="pos" data-i18n="fabPos">نقطة بيع</button>
+      <button type="button" class="fab__item" data-fab="expense" data-i18n="fabExpense">مصروف</button>
+      <button type="button" class="fab__item" data-fab="sale" data-i18n="fabSale">بيع</button>
+      <button type="button" class="fab__item" data-fab="product" data-i18n="fabProduct">منتج</button>
+    </div>
+    <button type="button" class="fab__main" id="fab-toggle" aria-expanded="false">+</button>
+  </div>
+
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <div id="auth-overlay" class="auth-overlay" hidden role="dialog" aria-modal="true">
+    <div class="auth-overlay__backdrop"></div>
+    <div class="auth-overlay__panel">
+      <div class="auth-overlay__brand">
+        <span class="auth-overlay__logo" aria-hidden="true">PA</span>
+        <h2 class="auth-overlay__title">Prestige Abaya</h2>
+        <p class="auth-overlay__subtitle" data-i18n="authSubtitle">نظام مالي ومخزوني آمن</p>
+      </div>
+
+      <section class="auth-page auth-page--active">
+        <h3 class="auth-page__heading" data-i18n="authLoginTab">تسجيل الدخول</h3>
+        <div id="auth-login-error" class="auth-form__error" hidden role="alert"></div>
+        <form id="auth-login-form" class="auth-form" autocomplete="off" data-form-type="other">
+          <div class="auth-form__field">
+            <label for="auth-login-username" data-i18n="authUsername">اسم المستخدم</label>
+            <input type="text" id="auth-login-username" name="pa-login-user" required maxlength="48" autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true">
+          </div>
+          <div class="auth-form__field">
+            <label for="auth-login-password" data-i18n="authPassword">كلمة المرور</label>
+            <div class="auth-password-wrap">
+              <input type="password" id="auth-login-password" name="pa-login-pass" required autocomplete="new-password" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true">
+              <button type="button" class="auth-password-toggle" data-auth-toggle-pwd="auth-login-password" aria-pressed="false" aria-label="">
+                <span class="auth-password-toggle__icon auth-password-toggle__icon--show" aria-hidden="true">👁</span>
+                <span class="auth-password-toggle__icon auth-password-toggle__icon--hide" aria-hidden="true">🙈</span>
+              </button>
+            </div>
+          </div>
+          <button type="submit" class="btn btn--primary auth-form__submit" data-i18n="authLoginBtn">دخول</button>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    (function initLoginPage() {
+      if (localStorage.getItem('loggedIn') !== 'true') {
+        localStorage.clear();
+      }
+      function enableFields() {
+        var user = document.getElementById('auth-login-username');
+        var pass = document.getElementById('auth-login-password');
+        if (user) {
+          user.removeAttribute('readonly');
+          user.removeAttribute('disabled');
+          user.disabled = false;
+          user.setAttribute('autocomplete', 'off');
+        }
+        if (pass) {
+          pass.removeAttribute('readonly');
+          pass.removeAttribute('disabled');
+          pass.disabled = false;
+          pass.setAttribute('autocomplete', 'new-password');
+        }
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', enableFields);
+      else enableFields();
+    })();
+  </script>
+  <script src="script.js" defer></script>
+</body>
+</html>
