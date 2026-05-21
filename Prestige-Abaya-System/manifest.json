@@ -1,0 +1,18 @@
+{
+  "name": "Prestige Abaya",
+  "short_name": "Prestige",
+  "description": "Financial & inventory system for Prestige Abaya",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#eceef2",
+  "theme_color": "#2c3345",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%232c3345' width='192' height='192' rx='32'/%3E%3Ctext x='96' y='118' font-size='72' text-anchor='middle' fill='%23c4a574' font-family='serif'%3EPA%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
