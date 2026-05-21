@@ -87,7 +87,7 @@
           <div class="auth-form__field">
             <label for="auth-login-password" data-i18n="authPassword">كلمة المرور</label>
             <div class="auth-password-wrap">
-              <input type="password" id="auth-login-password" name="pa-login-pass" required autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true">
+              <input type="password" id="auth-login-password" name="pa-login-pass" required autocomplete="new-password" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true">
               <button type="button" class="auth-password-toggle" data-auth-toggle-pwd="auth-login-password" aria-pressed="false" aria-label="">
                 <span class="auth-password-toggle__icon auth-password-toggle__icon--show" aria-hidden="true">👁</span>
                 <span class="auth-password-toggle__icon auth-password-toggle__icon--hide" aria-hidden="true">🙈</span>
@@ -101,19 +101,28 @@
   </div>
 
   <script>
-    (function unlockAuthFields() {
-      function enable() {
-        ['auth-login-username', 'auth-login-password'].forEach(function (id) {
-          var el = document.getElementById(id);
-          if (!el) return;
-          el.removeAttribute('readonly');
-          el.removeAttribute('disabled');
-          el.disabled = false;
-          el.setAttribute('autocomplete', 'off');
-        });
+    (function initLoginPage() {
+      if (localStorage.getItem('loggedIn') !== 'true') {
+        localStorage.clear();
       }
-      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', enable);
-      else enable();
+      function enableFields() {
+        var user = document.getElementById('auth-login-username');
+        var pass = document.getElementById('auth-login-password');
+        if (user) {
+          user.removeAttribute('readonly');
+          user.removeAttribute('disabled');
+          user.disabled = false;
+          user.setAttribute('autocomplete', 'off');
+        }
+        if (pass) {
+          pass.removeAttribute('readonly');
+          pass.removeAttribute('disabled');
+          pass.disabled = false;
+          pass.setAttribute('autocomplete', 'new-password');
+        }
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', enableFields);
+      else enableFields();
     })();
   </script>
   <script src="script.js" defer></script>

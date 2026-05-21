@@ -389,7 +389,7 @@ body.user-modal-open .fab {
 
 .auth-overlay__panel {
   position: relative;
-  z-index: 2;
+  z-index: 10051;
   width: min(100%, 26rem);
   background: var(--surface);
   border-radius: calc(var(--radius) + 4px);
@@ -397,6 +397,7 @@ body.user-modal-open .fab {
   padding: var(--space-lg) var(--space-xl);
   border: 1px solid rgba(184, 149, 106, 0.35);
   pointer-events: auto;
+  isolation: isolate;
 }
 
 .auth-overlay__brand {
@@ -486,7 +487,7 @@ body.user-modal-open .fab {
 
 .auth-password-wrap {
   position: relative;
-  z-index: 3;
+  z-index: 10052;
   display: flex;
   align-items: stretch;
 }
@@ -546,9 +547,14 @@ body.user-modal-open .fab {
   margin-bottom: 0.25rem;
 }
 
+.auth-form__field {
+  position: relative;
+  z-index: 10052;
+}
+
 .auth-form__field input {
   position: relative;
-  z-index: 3;
+  z-index: 10052;
   width: 100%;
   padding: 0.55rem 0.75rem;
   border: 1px solid var(--border);
@@ -556,17 +562,20 @@ body.user-modal-open .fab {
   font-size: 0.95rem;
   background: var(--surface);
   pointer-events: auto;
+  cursor: text;
+}
+
+.auth-form__submit {
+  position: relative;
+  z-index: 10052;
+  width: 100%;
+  margin-top: var(--space-xs);
 }
 
 .auth-form__field input:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(184, 149, 106, 0.28);
-}
-
-.auth-form__submit {
-  width: 100%;
-  margin-top: var(--space-xs);
 }
 
 .auth-form__footer {

@@ -290,7 +290,7 @@ const TRANSLATIONS = {
     enableNotifications: 'تفعيل إشعارات الجوال',
     notificationsHint: 'إشعارات عند مبيعات قياسية، نفاد مخزون، أو موعد شحن دولي',
     maintenanceMode: 'صيانة النظام',
-    maintenanceModeDesc: 'تصفير البيانات التشغيلية مع الإبقاء على حسابات المستخدمين وإعدادات النظام.',
+    maintenanceModeDesc: 'يمسح المخزون والفواتير والمبيعات وحركات المخزون فقط — دون المساس بحسابات المستخدمين أو جلسة الدخول.',
     resetDatabaseBtn: 'حذف جميع العمليات والبدء من جديد',
     resetDbConfirm: 'تحذير: سيتم حذف جميع الفواتير والمبيعات وحركات المخزون، هل أنت متأكد؟',
     resetDbSuccess: 'تم تصفير المخزون والعمليات. حسابات المستخدمين محفوظة.',
@@ -693,7 +693,7 @@ const TRANSLATIONS = {
     enableNotifications: 'Enable mobile notifications',
     notificationsHint: 'Alerts for record sales, low stock, intl. shipping due',
     maintenanceMode: 'System maintenance',
-    maintenanceModeDesc: 'Reset operational data while keeping user accounts and system settings.',
+    maintenanceModeDesc: 'Clears inventory, invoices, sales, and stock movements only — user accounts and login stay intact.',
     resetDatabaseBtn: 'Delete all operations and start fresh',
     resetDbConfirm: 'Warning: All invoices, sales, and inventory movements will be deleted. Are you sure?',
     resetDbSuccess: 'Inventory and operations cleared. User accounts were kept.',
@@ -1012,12 +1012,13 @@ const AuthSystem = {
   trySimpleLogin(username, password) {
     const user = (username || '').trim();
     const pass = password || '';
-    if (user === AUTH_BOOTSTRAP.username && pass === AUTH_BOOTSTRAP.password) {
-      localStorage.setItem(SIMPLE_AUTH_KEY, 'true');
-      state.settings.currentUser = AUTH_BOOTSTRAP.username;
-      return true;
-    }
-    return false;
+    return user === AUTH_BOOTSTRAP.username && pass === AUTH_BOOTSTRAP.password;
+  },
+
+  completeLogin() {
+    localStorage.setItem(SIMPLE_AUTH_KEY, 'true');
+    state.settings.currentUser = AUTH_BOOTSTRAP.username;
+    DataStore.save();
   },
 
   logout() {
@@ -1074,6 +1075,7 @@ const AuthSystem = {
   showLogin() {
     this.closeUserMenu();
     dismissAppOverlays();
+    purgeStorageForLoginPage();
     this.showOverlay();
     this.clearAuthErrors();
     resetAuthLoginFields();
@@ -1169,6 +1171,7 @@ const AuthSystem = {
       const username = document.getElementById('auth-login-username')?.value;
       const password = document.getElementById('auth-login-password')?.value;
       if (this.trySimpleLogin(username, password)) {
+        this.completeLogin();
         window.location.href = 'index.html';
         return;
       }
@@ -2701,21 +2704,31 @@ function renderReturnsLog() {
 // ═══════════════════════════════════════════════════════════════
 
 const MaintenanceMode = {
+  /** يمسح مفاتيح المخزون والفواتير داخل prestige-abaya-v3 دون المساس بالمستخدمين أو loggedIn */
   async resetDatabase() {
     if (!AuthSystem.isAdmin()) {
       showToast(t('authRequired'), 'error');
       return false;
     }
 
+    const preservedUsers = [...(state.systemUsers || [])];
+    const preservedSettings = { ...state.settings };
+    const preservedExpenses = [...(state.expenses || [])];
+
     state.products = [];
     state.sales = [];
     state.returns = [];
     state.inventoryTransactions = [];
     state.activityLog = [];
+    state.expenses = preservedExpenses;
+    state.systemUsers = preservedUsers;
 
-    state.settings.nextInvoiceSeq = INVOICE_START_SEQ;
-    state.settings.notifiedKeys = {};
-    state.settings.invoiceFxHistory = [];
+    state.settings = {
+      ...preservedSettings,
+      nextInvoiceSeq: INVOICE_START_SEQ,
+      notifiedKeys: {},
+      invoiceFxHistory: [],
+    };
 
     if (typeof PosEngine !== 'undefined') PosEngine.cart = [];
 
@@ -2842,16 +2855,28 @@ function formatAUD(n) {
   return `${formatNum(n, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AUD`;
 }
 
+function purgeStorageForLoginPage() {
+  if (localStorage.getItem(SIMPLE_AUTH_KEY) === 'true') return;
+  localStorage.clear();
+}
+
 function resetAuthLoginFields() {
   const user = document.getElementById('auth-login-username');
   const pass = document.getElementById('auth-login-password');
-  [user, pass].forEach((el) => {
-    if (!el) return;
-    el.removeAttribute('readonly');
-    el.removeAttribute('disabled');
-    el.disabled = false;
-    el.setAttribute('autocomplete', 'off');
-  });
+  if (user) {
+    user.removeAttribute('readonly');
+    user.removeAttribute('disabled');
+    user.disabled = false;
+    user.setAttribute('autocomplete', 'off');
+    user.style.pointerEvents = 'auto';
+  }
+  if (pass) {
+    pass.removeAttribute('readonly');
+    pass.removeAttribute('disabled');
+    pass.disabled = false;
+    pass.setAttribute('autocomplete', 'new-password');
+    pass.style.pointerEvents = 'auto';
+  }
 }
 
 function dismissAppOverlays() {
@@ -8107,6 +8132,7 @@ function seedDemo() {
 }
 
 async function init() {
+  purgeStorageForLoginPage();
   await DataStore.load();
   await AuthStore.seedBootstrapAdmin();
   AuthSystem.syncSession();
