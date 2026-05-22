@@ -981,6 +981,9 @@ const AuthSystem = {
   },
 
   isLoggedIn() {
+    if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured() && SupabaseBridge.user) {
+      return true;
+    }
     return localStorage.getItem(SIMPLE_AUTH_KEY) === 'true';
   },
 
@@ -1021,7 +1024,43 @@ const AuthSystem = {
     DataStore.save();
   },
 
+  /** تسجيل دخول عبر Supabase Auth (بريد + كلمة مرور) */
+  async loginWithSupabase(email, password) {
+    if (typeof SupabaseBridge === 'undefined' || !SupabaseBridge.init()) {
+      return { ok: false, error: 'Supabase not configured' };
+    }
+    const res = await SupabaseBridge.signIn(email, password);
+    if (!res.ok) return { ok: false, error: res.error };
+
+    localStorage.setItem(SIMPLE_AUTH_KEY, 'true');
+    const name = res.user?.user_metadata?.username
+      || res.user?.email?.split('@')[0]
+      || 'user';
+    state.settings.currentUser = name;
+    await DataStore.save();
+    this.updateHeaderUI();
+    return { ok: true, user: res.user };
+  },
+
+  async logoutSupabase() {
+    if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.client) {
+      await SupabaseBridge.signOut();
+    }
+    localStorage.removeItem(SIMPLE_AUTH_KEY);
+    location.reload();
+  },
+
+  usesSupabase() {
+    return typeof SupabaseBridge !== 'undefined'
+      && SupabaseBridge.isConfigured()
+      && DataStore.provider === 'supabase';
+  },
+
   logout() {
+    if (this.usesSupabase()) {
+      this.logoutSupabase();
+      return;
+    }
     localStorage.removeItem(SIMPLE_AUTH_KEY);
     location.reload();
   },
@@ -1050,7 +1089,12 @@ const AuthSystem = {
     ActivityFeed.render();
   },
 
-  ensure() {
+  async ensure() {
+    if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured()) {
+      SupabaseBridge.init();
+      const session = await SupabaseBridge.getSession();
+      if (session) localStorage.setItem(SIMPLE_AUTH_KEY, 'true');
+    }
     resetAuthLoginFields();
     this.updateHeaderUI();
     if (!this.isLoggedIn()) {
@@ -1165,11 +1209,25 @@ const AuthSystem = {
       }
     });
 
-    document.getElementById('auth-login-form')?.addEventListener('submit', (e) => {
+    document.getElementById('auth-login-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       this.clearAuthErrors();
       const username = document.getElementById('auth-login-username')?.value;
       const password = document.getElementById('auth-login-password')?.value;
+
+      if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured()) {
+        const email = username.includes('@') ? username : `${username.trim()}@prestige-abaya.local`;
+        const res = await this.loginWithSupabase(email, password);
+        if (res.ok) {
+          window.location.href = 'index.html';
+          return;
+        }
+        this.showAuthError('authInvalidCredentials');
+        const errEl = document.getElementById('auth-login-error');
+        if (errEl && res.error) errEl.textContent = String(res.error);
+        return;
+      }
+
       if (this.trySimpleLogin(username, password)) {
         this.completeLogin();
         window.location.href = 'index.html';
@@ -2814,13 +2872,42 @@ const DataStore = {
   },
 
   async _loadSupabase() {
-    console.info('[Supabase] Set APP_CONFIG.supabase then implement _loadSupabase');
-    await this.load();
+    if (typeof SupabaseBridge === 'undefined' || !SupabaseBridge.init()) {
+      console.warn('[Supabase] Bridge not ready — using localStorage');
+      return this.load();
+    }
+    await SupabaseBridge.getSession();
+
+    const [salesRes, productsRes] = await Promise.all([
+      SupabaseBridge.fetchSales(),
+      SupabaseBridge.fetchProducts(),
+    ]);
+
+    if (salesRes.ok) state.sales = salesRes.data;
+    if (productsRes.ok) state.products = productsRes.data;
+
+    migrateData();
+    console.info('[Supabase] Loaded', state.sales.length, 'sales,', state.products.length, 'products');
   },
 
   async _saveSupabase() {
-    console.info('[Supabase] Implement upsert for products, expenses, sales');
-    await this.save();
+    if (typeof SupabaseBridge === 'undefined' || !SupabaseBridge.client) {
+      return this.save();
+    }
+    /* الحفظ التفصيلي يتم عند كل عملية (insertSale / upsertProduct). */
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        products: state.products,
+        expenses: state.expenses,
+        sales: state.sales,
+        returns: state.returns,
+        inventoryTransactions: state.inventoryTransactions,
+        activityLog: state.activityLog,
+        systemUsers: state.systemUsers,
+        settings: state.settings,
+      })
+    );
   },
 };
 
@@ -5294,6 +5381,19 @@ async function saveSale(data, options = {}) {
 
   state.sales.unshift(sale);
   p.quantity -= qty;
+
+  // غيّر الشرط مؤقتاً ليكون دائماً true للتجربة
+if (true) { 
+  const cloud = await SupabaseBridge.insertSale(sale);
+  if (!cloud.ok) {
+      console.error('Error from Supabase:', cloud.error);
+      showToast('Supabase save failed', 'error');
+  } else {
+      console.log('Success! Data saved to Supabase');
+  }
+  await SupabaseBridge.upsertProduct(p);
+}
+
   await DataStore.save();
   ActivityFeed.log({
     type: 'sale',
@@ -8131,8 +8231,23 @@ function seedDemo() {
   DataStore.save();
 }
 
+function initDataProvider() {
+  if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured() && SupabaseBridge.init()) {
+    DataStore.provider = 'supabase';
+    if (window.SUPABASE_CONFIG?.url) {
+      APP_CONFIG.supabase.url = window.SUPABASE_CONFIG.url;
+      APP_CONFIG.supabase.anonKey = window.SUPABASE_CONFIG.anonKey;
+    }
+    console.info('[Prestige] Data provider: Supabase');
+    return true;
+  }
+  DataStore.provider = 'local';
+  return false;
+}
+
 async function init() {
   purgeStorageForLoginPage();
+  initDataProvider();
   await DataStore.load();
   await AuthStore.seedBootstrapAdmin();
   AuthSystem.syncSession();
@@ -8147,7 +8262,7 @@ async function init() {
   bindEvents();
   AuthSystem.bindEvents();
   setLang(currentLang);
-  AuthSystem.ensure();
+  await AuthSystem.ensure();
   applyLogos();
   updateConnectionStatus();
 
