@@ -2,7 +2,11 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- viewport: عرض الشاشة = عرض الجهاز، بدون تكبير افتراضي، مع دعم النوتش -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="description" content="Prestige Abaya — Financial & Inventory Management System">
   <meta name="theme-color" content="#2c3345">
   <link rel="manifest" href="manifest.json">
@@ -125,6 +129,9 @@
       else enableFields();
     })();
   </script>
-  <script src="script.js" defer></script>
+  <!-- Supabase (optional): انسخ supabase.config.example.js → supabase.config.js -->
+  <script src="supabase.config.js"></script>
+    <script src="supabase-bridge.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
