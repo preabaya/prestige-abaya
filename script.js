@@ -3018,6 +3018,18 @@ const DataStore = {
     return SupabaseBridge.ensureAuth();
   },
 
+  /** Sales insert path — may skip ensureAuth/getSession when skipAuthForSales is enabled */
+  async _cloudReadyForSalesInsert() {
+    if (!this.usesCloud()) return { ok: true, localOnly: true };
+    if (!SupabaseBridge.getClient()) {
+      return { ok: false, error: 'Supabase client not available' };
+    }
+    if (typeof SupabaseBridge.isSkipAuthForSales === 'function' && SupabaseBridge.isSkipAuthForSales()) {
+      return SupabaseBridge.ensureClientReady();
+    }
+    return SupabaseBridge.ensureAuth();
+  },
+
   async cloudUpsertProduct(product) {
     const ready = await this._cloudReady();
     if (!ready.ok) return ready;
@@ -3026,7 +3038,7 @@ const DataStore = {
   },
 
   async cloudInsertSale(sale, productAfter) {
-    const ready = await this._cloudReady();
+    const ready = await this._cloudReadyForSalesInsert();
     if (!ready.ok) return ready;
     if (ready.localOnly) return { ok: true, localOnly: true };
 
@@ -6043,7 +6055,7 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
         return false;
       }
 
-      const ready = await DataStore._cloudReady();
+      const ready = await DataStore._cloudReadyForSalesInsert();
       if (!ready.ok) {
         reportCloudSaveError('POS sale', ready);
         return false;

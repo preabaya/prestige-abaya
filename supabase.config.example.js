@@ -10,6 +10,11 @@ window.SUPABASE_CONFIG = {
   enabled: true,
   /** UUID من جدول public.tenants — يُربط بالمستخدم عبر profiles.tenant_id لـ RLS */
   defaultTenantId: '00000000-0000-0000-0000-000000000001',
+  /**
+   * مؤقتاً: true = لا يستدعي auth.getSession() قبل إدراج sales (POS)
+   * اجعلها false عند تفعيل RLS مع تسجيل دخول حقيقي
+   */
+  skipAuthForSales: true,
 };
 
 /** Super Admin panel: /admin/index.html — set Auth user app_metadata: { "role": "super_admin" } */

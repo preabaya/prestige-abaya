@@ -139,6 +139,25 @@ const SupabaseBridge = {
     return !!(cfg.url && cfg.anonKey && cfg.enabled !== false);
   },
 
+  /**
+   * Temporary: skip getSession/ensureAuth before sales inserts (see skipAuthForSales in config).
+   */
+  isSkipAuthForSales() {
+    const cfg = typeof window !== 'undefined' ? window.SUPABASE_CONFIG || {} : {};
+    return cfg.skipAuthForSales !== false;
+  },
+
+  /** Client only — no auth.getSession() */
+  ensureClientReady() {
+    if (!this.isConfigured()) {
+      return { ok: false, error: 'Supabase not configured' };
+    }
+    if (!this.getClient()) {
+      return { ok: false, error: 'Supabase client unavailable' };
+    }
+    return { ok: true, authSkipped: true };
+  },
+
   _configKey() {
     const cfg = window.SUPABASE_CONFIG || {};
     return `${cfg.url || ''}|${cfg.anonKey || ''}`;
@@ -668,9 +687,14 @@ const SupabaseBridge = {
     const client = this.getClient();
     if (!client) return { ok: false, data: null, error: 'No client' };
 
-    const userId = this.userId();
-    if (!userId) {
-      return { ok: false, data: null, error: 'Not authenticated — enable Anonymous sign-in in Supabase Auth' };
+    const skipAuth = tableName === 'sales' && this.isSkipAuthForSales();
+    if (!skipAuth) {
+      const userId = this.userId();
+      if (!userId) {
+        return { ok: false, data: null, error: 'Not authenticated — enable Anonymous sign-in in Supabase Auth' };
+      }
+    } else {
+      console.warn('[Supabase] skipAuthForSales: sales insert without getSession/ensureAuth');
     }
 
     const tenantId = localStorage.getItem(CURRENT_TENANT_STORAGE_KEY)
