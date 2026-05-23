@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Admin — Prestige Abaya ERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="admin">
+    <header class="admin__header">
+      <h1>Super Admin Dashboard</h1>
+      <p>Control center for all ERP tenants — activate or suspend customer accounts.</p>
+    </header>
+
+    <section class="admin__card" id="admin-login-section">
+      <h2>Sign in</h2>
+      <p class="admin-status" style="margin-bottom:1rem">
+        Use a Supabase Auth user with <code>app_metadata.role = "super_admin"</code>.
+      </p>
+      <form id="admin-login-form" class="admin-form">
+        <label>
+          Email
+          <input type="email" id="admin-email" required autocomplete="username">
+        </label>
+        <label>
+          Password
+          <input type="password" id="admin-password" required autocomplete="current-password">
+        </label>
+        <button type="submit" class="btn btn--primary">Sign in</button>
+      </form>
+      <p id="admin-login-status" class="admin-status" role="status"></p>
+    </section>
+
+    <section class="admin__card" id="admin-session" hidden>
+      <div class="admin-toolbar">
+        <span>Logged in: <strong id="admin-session-email"></strong></span>
+        <button type="button" class="btn btn--ghost" id="admin-refresh">Refresh</button>
+        <button type="button" class="btn btn--ghost" id="admin-sign-out">Sign out</button>
+      </div>
+      <p id="admin-load-status" class="admin-status" role="status"></p>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table" aria-label="Tenants">
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th>Plan</th>
+              <th>Status</th>
+              <th>Health</th>
+              <th>Control</th>
+            </tr>
+          </thead>
+          <tbody id="tenants-tbody"></tbody>
+        </table>
+        <p id="tenants-empty" class="admin-empty" hidden>No tenants found.</p>
+      </div>
+    </section>
+
+    <footer class="admin__footer">
+      <a href="../index.html">← Back to POS / ERP app</a>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../supabase.config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

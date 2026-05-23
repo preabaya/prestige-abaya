@@ -4,10 +4,16 @@
 -- Extensions (usually enabled by default)
 -- create extension if not exists "uuid-ossp";
 
--- ─── Tenants (multi-store ERP) ───
+-- ─── Tenants (Super Admin / multi-store ERP) ───
 create table if not exists public.tenants (
   id uuid primary key default gen_random_uuid(),
-  name text not null,
+  company_name text not null,
+  subscription_tier text not null default 'basic'
+    check (subscription_tier in ('basic', 'pro', 'vip')),
+  status text not null default 'active'
+    check (status in ('active', 'suspended')),
+  health_score integer not null default 100
+    check (health_score >= 0 and health_score <= 100),
   created_at timestamptz not null default now()
 );
 
@@ -134,7 +140,25 @@ $$;
 revoke all on function public.current_tenant_id() from public;
 grant execute on function public.current_tenant_id() to anon, authenticated;
 
+-- Super Admin: JWT role = super_admin can manage all tenants
+create or replace function public.is_super_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    nullif(auth.jwt() -> 'app_metadata' ->> 'role', ''),
+    nullif(auth.jwt() -> 'user_metadata' ->> 'role', '')
+  ) = 'super_admin';
+$$;
+
+revoke all on function public.is_super_admin() from public;
+grant execute on function public.is_super_admin() to anon, authenticated;
+
 -- ─── Row Level Security (RLS) ───
+alter table public.tenants enable row level security;
 alter table public.profiles enable row level security;
 alter table public.products enable row level security;
 alter table public.sales enable row level security;
@@ -144,6 +168,13 @@ alter table public.app_settings enable row level security;
 
 create policy "profiles_self" on public.profiles
   for all using (id = auth.uid()) with check (id = auth.uid());
+
+create policy "tenants_super_admin_select" on public.tenants
+  for select using (public.is_super_admin());
+create policy "tenants_super_admin_update" on public.tenants
+  for update using (public.is_super_admin()) with check (public.is_super_admin());
+create policy "tenants_super_admin_insert" on public.tenants
+  for insert with check (public.is_super_admin());
 
 -- Products & sales: tenant isolation
 create policy "sales_tenant_select" on public.sales

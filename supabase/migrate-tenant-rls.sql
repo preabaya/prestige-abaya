@@ -4,7 +4,13 @@
 -- ─── Tenants ───
 create table if not exists public.tenants (
   id uuid primary key default gen_random_uuid(),
-  name text not null,
+  company_name text not null,
+  subscription_tier text not null default 'basic'
+    check (subscription_tier in ('basic', 'pro', 'vip')),
+  status text not null default 'active'
+    check (status in ('active', 'suspended')),
+  health_score integer not null default 100
+    check (health_score >= 0 and health_score <= 100),
   created_at timestamptz not null default now()
 );
 
@@ -98,7 +104,9 @@ create policy "products_tenant_delete" on public.products
   for delete using (tenant_id = public.current_tenant_id());
 
 -- Example: create a default tenant and assign your user (replace UUIDs)
--- insert into public.tenants (id, name) values ('00000000-0000-0000-0000-000000000001', 'Prestige Abaya') on conflict do nothing;
+-- insert into public.tenants (id, company_name, subscription_tier, status, health_score)
+-- values ('00000000-0000-0000-0000-000000000001', 'Prestige Abaya', 'vip', 'active', 92)
+-- on conflict do nothing;
 -- insert into public.profiles (id, tenant_id, display_name)
 --   values ('YOUR_AUTH_USER_UUID', '00000000-0000-0000-0000-000000000001', 'Admin')
 --   on conflict (id) do update set tenant_id = excluded.tenant_id;

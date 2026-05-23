@@ -11,3 +11,5 @@ window.SUPABASE_CONFIG = {
   /** UUID من جدول public.tenants — يُربط بالمستخدم عبر profiles.tenant_id لـ RLS */
   defaultTenantId: '00000000-0000-0000-0000-000000000001',
 };
+
+/** Super Admin panel: /admin/index.html — set Auth user app_metadata: { "role": "super_admin" } */
