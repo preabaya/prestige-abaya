@@ -23,12 +23,21 @@ create table if not exists public.products (
   user_id uuid references auth.users(id) on delete set null
 );
 
--- ─── Sales — Supabase insert uses ONLY: id, customer, total_amount ───
--- Full sale details (products, discounts, notes, …) live in localStorage only.
+-- ─── Sales (verified live columns) ───
 create table if not exists public.sales (
   id text primary key,
-  total_amount numeric(12,2) not null default 0,
-  customer text
+  created_at timestamptz not null default now(),
+  customer_name text,
+  product_name text,
+  price numeric(12,2) not null default 0,
+  quantity integer not null default 1,
+  created_by text,
+  updated_at timestamptz not null default now(),
+  customer text,
+  invoice_number text,
+  line_total_aud numeric(12,2) not null default 0,
+  batch_id text,
+  status text default 'completed'
 );
 
 -- ─── Expenses ───

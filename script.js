@@ -3008,23 +3008,64 @@ function reportCloudSaveError(action, result) {
   showToast(`${action}: ${detail}`, 'error');
 }
 
-/**
- * Candidate row for Supabase `sales` insert.
- * Filtered against live columns via get_table_columns before insert.
- */
-function buildSupabaseSaleCandidate({ id, totalAmount, customer, saleDate, createdBy }) {
-  const ts = saleDate || new Date().toISOString();
-  const row = {
+/** Verified Supabase `public.sales` columns — inserts must use only these keys */
+const SALES_TABLE_COLUMNS = [
+  'id',
+  'created_at',
+  'customer_name',
+  'product_name',
+  'price',
+  'quantity',
+  'created_by',
+  'updated_at',
+  'customer',
+  'invoice_number',
+  'line_total_aud',
+  'batch_id',
+  'status',
+];
+
+function pickSalesInsertColumns(row) {
+  const out = {};
+  SALES_TABLE_COLUMNS.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(row, key) && row[key] !== undefined) {
+      out[key] = row[key];
+    }
+  });
+  return out;
+}
+
+/** Build a Supabase `sales` row using verified column names only */
+function buildSalesInsertRow({
+  id,
+  createdAt,
+  customerName,
+  productName,
+  price,
+  quantity,
+  createdBy,
+  invoiceNumber,
+  lineTotalAud,
+  batchId,
+  status,
+}) {
+  const ts = createdAt || new Date().toISOString();
+  const customer = (customerName || '').trim() || 'POS Guest';
+  return pickSalesInsertColumns({
     id,
-    total_amount: CurrencyEngine.round(Number(totalAmount) || 0),
-    customer: (customer || '').trim() || 'POS Guest',
-    sale_date: ts,
     created_at: ts,
-  };
-  const userId = typeof SupabaseBridge !== 'undefined' ? SupabaseBridge.userId() : null;
-  if (userId) row.user_id = userId;
-  if (createdBy) row.created_by = createdBy;
-  return row;
+    updated_at: ts,
+    customer_name: customer,
+    customer,
+    product_name: productName || '',
+    price: CurrencyEngine.round(Number(price) || 0),
+    quantity: Math.max(1, Math.round(Number(quantity) || 1)),
+    created_by: createdBy || 'guest',
+    invoice_number: invoiceNumber || '',
+    line_total_aud: CurrencyEngine.round(Number(lineTotalAud) || 0),
+    batch_id: batchId || '',
+    status: status || 'completed',
+  });
 }
 
 /** Attach created_by + timestamptz fields for local state and Supabase rows */
@@ -5545,12 +5586,18 @@ async function saveSale(data, options = {}) {
 
   if (DataStore.usesCloud()) {
     const cloud = await DataStore.cloudInsertSale(
-      buildSupabaseSaleCandidate({
+      buildSalesInsertRow({
         id: sale.id,
-        totalAmount: sale.lineTotalAud,
-        customer: sale.customer,
-        saleDate: sale.createdAt,
+        createdAt: sale.createdAt,
+        customerName: sale.customer,
+        productName: sale.productName,
+        price: sale.unitPriceAud,
+        quantity: sale.quantity,
         createdBy: sale.createdBy,
+        invoiceNumber: sale.invoiceNumber,
+        lineTotalAud: sale.lineTotalAud,
+        batchId: sale.batchId,
+        status: sale.returned ? 'returned' : 'completed',
       }),
       null
     );
@@ -5815,24 +5862,19 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
         return false;
       }
 
-      const candidate = buildSupabaseSaleCandidate({
+      const row = buildSalesInsertRow({
         id: saleId,
-        totalAmount: lineTotal,
-        customer: lineCustomer,
+        createdAt: localSale.createdAt,
+        customerName: lineCustomer,
+        productName: p.name,
+        price: CurrencyEngine.round(lineTotal / line.qty),
+        quantity: line.qty,
         createdBy,
+        invoiceNumber,
+        lineTotalAud: lineTotal,
+        batchId,
+        status: 'completed',
       });
-
-      const columnsRes = await SupabaseBridge.getTableColumns('sales');
-      if (!columnsRes.ok) {
-        reportCloudSaveError('POS sale (schema)', columnsRes);
-        return false;
-      }
-
-      const row = SupabaseBridge.filterRowToExistingColumns(candidate, columnsRes.columns);
-      if (!Object.keys(row).length) {
-        reportCloudSaveError('POS sale', { error: 'No matching columns for sales insert' });
-        return false;
-      }
 
       const cloud = await SupabaseBridge.insertSaleRow(row);
       if (!cloud.ok) {

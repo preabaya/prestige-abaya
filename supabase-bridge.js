@@ -13,8 +13,22 @@ let _sharedConfigKey = null;
 /** @type {Promise<{ ok: boolean, user?: object, session?: object, error?: string }> | null} */
 let _authReadyPromise = null;
 
-/** Fallback when get_table_columns RPC is unavailable */
-const SALES_DB_COLUMNS_FALLBACK = ['id', 'customer', 'total_amount'];
+/** Verified public.sales columns — fallback when get_table_columns RPC is unavailable */
+const SALES_DB_COLUMNS_FALLBACK = [
+  'id',
+  'created_at',
+  'customer_name',
+  'product_name',
+  'price',
+  'quantity',
+  'created_by',
+  'updated_at',
+  'customer',
+  'invoice_number',
+  'line_total_aud',
+  'batch_id',
+  'status',
+];
 
 /** @type {Map<string, { columns: string[], fetchedAt: number }>} */
 const _tableColumnsCache = new Map();
@@ -310,37 +324,34 @@ const SupabaseBridge = {
     return pickDbColumns(draft, PRODUCTS_DB_COLUMNS);
   },
 
-  /**
-   * Build a sales insert candidate (may include columns not on every deployment).
-   * Call filterRowToExistingColumns() after getTableColumns('sales').
-   */
+  /** Build sales insert row using verified public.sales column names only */
   saleToCandidateRow(sale) {
-    const total = roundAud(
-      sale.total_amount ?? sale.totalAmount ?? sale.lineTotalAud ?? 0
+    const createdAt = timestamptzForWrite(sale.created_at ?? sale.createdAt) || new Date().toISOString();
+    const customer = (sale.customer_name ?? sale.customerName ?? sale.customer ?? 'POS Guest');
+    const customerStr = String(customer).trim() || 'POS Guest';
+    const lineTotal = roundAud(
+      sale.line_total_aud ?? sale.lineTotalAud ?? sale.total_amount ?? sale.totalAmount ?? 0
+    );
+    const qty = Math.max(1, Math.round(Number(sale.quantity) || 1));
+    const price = roundAud(
+      sale.price ?? sale.unitPriceAud ?? (qty ? lineTotal / qty : lineTotal)
     );
     const row = {
       id: sale.id,
-      total_amount: total,
-      customer: (sale.customer != null && String(sale.customer).trim())
-        ? String(sale.customer).trim()
-        : 'POS Guest',
+      created_at: createdAt,
+      updated_at: timestamptzForWrite(sale.updated_at ?? sale.updatedAt) || createdAt,
+      customer_name: customerStr,
+      customer: customerStr,
+      product_name: sale.product_name ?? sale.productName ?? '',
+      price,
+      quantity: qty,
+      created_by: String(sale.created_by ?? sale.createdBy ?? 'guest'),
+      invoice_number: sale.invoice_number ?? sale.invoiceNumber ?? '',
+      line_total_aud: lineTotal,
+      batch_id: sale.batch_id ?? sale.batchId ?? '',
+      status: sale.status ?? (sale.returned ? 'returned' : 'completed'),
     };
-    const saleDate = timestamptzForWrite(
-      sale.sale_date ?? sale.saleDate ?? sale.createdAt ?? sale.created_at
-    );
-    if (saleDate) row.sale_date = saleDate;
-    const createdAt = timestamptzForWrite(sale.created_at ?? sale.createdAt);
-    if (createdAt) row.created_at = createdAt;
-    const userId = sale.user_id ?? sale.userId ?? this.userId();
-    if (userId) row.user_id = userId;
-    const createdBy = sale.created_by ?? sale.createdBy;
-    if (createdBy != null && String(createdBy).trim()) {
-      row.created_by = String(createdBy).trim();
-    }
-    if (sale.invoice_number ?? sale.invoiceNumber) {
-      row.invoice_number = sale.invoice_number ?? sale.invoiceNumber;
-    }
-    return row;
+    return pickDbColumns(row, SALES_DB_COLUMNS_FALLBACK);
   },
 
   filterRowToExistingColumns(row, columns) {
@@ -399,19 +410,28 @@ const SupabaseBridge = {
   },
 
   rowToSale(row) {
-    const total = Number(row.total_amount) || 0;
-    const saleDate = timestamptzFromDb(row.sale_date ?? row.created_at);
+    const lineTotal = Number(row.line_total_aud) || Number(row.total_amount) || 0;
+    const qty = Math.max(1, Math.round(Number(row.quantity) || 1));
+    const price = Number(row.price) || (qty ? lineTotal / qty : lineTotal);
+    const createdAt = timestamptzFromDb(row.created_at);
+    const customer = row.customer ?? row.customer_name;
     return {
       id: row.id,
-      customer: row.customer,
-      totalAmount: total,
-      lineTotalAud: total,
-      createdAt: saleDate,
-      saleDate,
-      quantity: 1,
-      unitPriceAud: total,
+      customer,
+      customerName: row.customer_name ?? customer,
+      productName: row.product_name,
+      totalAmount: lineTotal,
+      lineTotalAud: lineTotal,
+      createdAt,
+      saleDate: createdAt,
+      quantity: qty,
+      unitPriceAud: price,
       unitCostAud: 0,
-      returned: false,
+      invoiceNumber: row.invoice_number,
+      batchId: row.batch_id,
+      status: row.status,
+      createdBy: row.created_by,
+      returned: row.status === 'returned',
     };
   },
 
