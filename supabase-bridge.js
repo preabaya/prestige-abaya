@@ -229,9 +229,9 @@ const SupabaseBridge = {
   },
 
   /** Map app audit fields → Supabase column names */
-  auditRowFields(entity) {
-    const createdBy = entity?.createdBy ?? entity?.created_by ?? null;
-    return createdBy ? { created_by: String(createdBy) } : {};
+  auditRowFields(entity, fallbackCreatedBy = 'guest') {
+    const createdBy = entity?.createdBy ?? entity?.created_by ?? fallbackCreatedBy;
+    return { created_by: String(createdBy || fallbackCreatedBy) };
   },
 
   applyTimestampsToRow(row, entity, { includeUpdated = true } = {}) {
@@ -277,8 +277,10 @@ const SupabaseBridge = {
       unit_price_aud: sale.unitPriceAud,
       unit_cost_aud: sale.unitCostAud,
       line_total_aud: sale.lineTotalAud ?? sale.unitPriceAud * sale.quantity,
-      customer: sale.customer,
-      payment: sale.payment,
+      customer: (sale.customer != null && String(sale.customer).trim())
+        ? String(sale.customer).trim()
+        : 'POS Guest',
+      payment: sale.payment ?? '—',
       sale_source: sale.saleSource || 'in_store',
       payment_method: sale.paymentMethod || 'cash',
       invoice_number: sale.invoiceNumber,

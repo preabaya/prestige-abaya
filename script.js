@@ -5514,7 +5514,8 @@ async function saveSale(data, options = {}) {
     lineTotalAud,
     discountType: data.discountType || 'none',
     discountValue: data.discountValue || 0,
-    customer: data.customer || '—',
+    customer: (data.customer || '').trim() || '—',
+    createdBy: UserSession.createdBy(),
     payment: data.payment || '—',
     saleSource: data.saleSource || 'in_store',
     paymentMethod: data.paymentMethod || 'cash',
@@ -5722,7 +5723,7 @@ const PosEngine = {
 };
 
 /** POS checkout — stock is deducted here only (not while items sit in cart). */
-async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null) {
+async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null, options = {}) {
   if (!lines.length) return false;
   if (!UserSession.requireUser()) return false;
 
@@ -5738,12 +5739,16 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
   const batchId = uid().slice(0, 8);
   const invoiceNumber = InvoiceNumberEngine.next();
   const payLabel = paymentMethodLabel(paymentMethod);
+  const createdBy = UserSession.createdBy();
+  const batchCustomer = (options.customer || document.getElementById('pos-customer')?.value || '')
+    .trim() || 'POS Guest';
   const created = [];
 
   for (const line of lines) {
     const p = getProduct(line.productId);
     const lineSub = line.lineSubtotal ?? CurrencyEngine.round(line.unitPrice * line.qty + (line.extraShipping || 0));
     const lineTotal = line.lineTotal ?? lineSub;
+    const lineCustomer = (line.customer || batchCustomer).trim() || batchCustomer;
     const sale = withRecordTimestamps({
       id: uid(),
       productId: line.productId,
@@ -5760,7 +5765,8 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
       discountType: line.discountType || 'none',
       discountValue: line.discountValue || 0,
       extraShipping: line.extraShipping || 0,
-      customer: '—',
+      customer: lineCustomer,
+      createdBy,
       payment: payLabel,
       paymentMethod,
       saleSource: 'off_store',
