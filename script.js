@@ -5753,7 +5753,7 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
     const lineSub = line.lineSubtotal ?? CurrencyEngine.round(line.unitPrice * line.qty + (line.extraShipping || 0));
     const lineTotal = line.lineTotal ?? lineSub;
     const lineCustomer = (line.customer || batchCustomer).trim() || batchCustomer;
-    // Full sales row → SupabaseBridge.saleToRow() (see supabase/migrate-sales-columns.sql)
+    // Supabase insert: SupabaseBridge.saleToRow() — only SALES_DB_COLUMNS (extras stay local)
     const sale = withRecordTimestamps({
       id: uid(),
       productId: line.productId,
