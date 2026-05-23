@@ -11,9 +11,10 @@ window.SUPABASE_CONFIG = {
   /** UUID من جدول public.tenants — يُربط بالمستخدم عبر profiles.tenant_id لـ RLS */
   defaultTenantId: '00000000-0000-0000-0000-000000000001',
   /**
-   * مؤقتاً: true = لا يستدعي auth.getSession() قبل إدراج sales (POS)
-   * اجعلها false عند تفعيل RLS مع تسجيل دخول حقيقي
+   * true = anon key فقط — لا getSession/ensureAuth قبل القراءة أو الكتابة
+   * اجعل skipAuth: false عند تفعيل RLS مع تسجيل دخول حقيقي
    */
+  skipAuth: true,
   skipAuthForSales: true,
 };
 

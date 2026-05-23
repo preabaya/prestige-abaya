@@ -1063,16 +1063,26 @@ const AuthSystem = {
     if (typeof SupabaseBridge === 'undefined' || !SupabaseBridge.isConfigured()) {
       return { ok: false, error: 'Supabase not configured' };
     }
-    const auth = await SupabaseBridge.ensureAuth();
-    if (!auth.ok) return { ok: false, error: auth.error || 'Not authenticated' };
-
-    const profile = await SupabaseBridge.fetchProfileTenantId();
-    if (!profile.ok || !profile.tenantId) {
-      return { ok: false, error: profile.error || 'No tenant_id on user profile' };
+    const ready = await SupabaseBridge.ensureClientReady();
+    if (!ready.ok) {
+      return { ok: false, error: ready.error || 'Database connection error' };
     }
 
-    this.setStoredTenantId(profile.tenantId);
-    return { ok: true, tenantId: profile.tenantId };
+    if (!SupabaseBridge.isSkipAuth()) {
+      const profile = await SupabaseBridge.fetchProfileTenantId();
+      if (profile.ok && profile.tenantId) {
+        this.setStoredTenantId(profile.tenantId);
+        return { ok: true, tenantId: profile.tenantId };
+      }
+    }
+
+    const cfg = typeof window !== 'undefined' ? window.SUPABASE_CONFIG || {} : {};
+    const tid = this.getStoredTenantId() || cfg.defaultTenantId || this.ensureTenantId();
+    if (tid) {
+      this.setStoredTenantId(tid);
+      return { ok: true, tenantId: String(tid) };
+    }
+    return { ok: false, error: 'Database configuration error: missing tenant_id' };
   },
 
   /** Tenant id from localStorage (set at login from profiles) */
@@ -1206,22 +1216,12 @@ const AuthSystem = {
     if (loginSection) loginSection.hidden = true;
 
     if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured()) {
-      const auth = await SupabaseBridge.ensureAuth();
-      if (!auth.ok) {
-        console.warn('[Supabase] Guest auth:', auth.error);
+      const ready = await SupabaseBridge.ensureClientReady();
+      if (!ready.ok) {
+        console.warn('[Supabase] Guest cloud:', ready.error);
       } else {
-        let tenantRes = await this.loadTenantFromProfile();
-        if (!tenantRes.ok) {
-          const fallback = this.ensureTenantId();
-          if (fallback) {
-            const synced = await SupabaseBridge.syncTenantProfile(fallback);
-            if (!synced.ok) console.warn('[Supabase] Tenant profile sync:', synced.error);
-            tenantRes = await this.loadTenantFromProfile();
-          }
-        }
-        if (!tenantRes.ok) {
-          console.warn('[Supabase] Guest tenant:', tenantRes.error);
-        }
+        const tenantRes = await this.loadTenantFromProfile();
+        if (!tenantRes.ok) console.warn('[Supabase] Guest tenant:', tenantRes.error);
       }
     }
 
@@ -1238,8 +1238,8 @@ const AuthSystem = {
 
   async ensure() {
     if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured()) {
-      const auth = await SupabaseBridge.ensureAuth();
-      if (auth.ok) localStorage.setItem(SIMPLE_AUTH_KEY, 'true');
+      const ready = await SupabaseBridge.ensureClientReady();
+      if (ready.ok) localStorage.setItem(SIMPLE_AUTH_KEY, 'true');
     }
     resetAuthLoginFields();
     this.updateHeaderUI();
@@ -3012,22 +3012,7 @@ const DataStore = {
 
   async _cloudReady() {
     if (!this.usesCloud()) return { ok: true, localOnly: true };
-    if (!SupabaseBridge.getClient()) {
-      return { ok: false, error: 'Supabase client not available' };
-    }
-    return SupabaseBridge.ensureAuth();
-  },
-
-  /** Sales insert path — may skip ensureAuth/getSession when skipAuthForSales is enabled */
-  async _cloudReadyForSalesInsert() {
-    if (!this.usesCloud()) return { ok: true, localOnly: true };
-    if (!SupabaseBridge.getClient()) {
-      return { ok: false, error: 'Supabase client not available' };
-    }
-    if (typeof SupabaseBridge.isSkipAuthForSales === 'function' && SupabaseBridge.isSkipAuthForSales()) {
-      return SupabaseBridge.ensureClientReady();
-    }
-    return SupabaseBridge.ensureAuth();
+    return SupabaseBridge.ensureClientReady();
   },
 
   async cloudUpsertProduct(product) {
@@ -3038,7 +3023,7 @@ const DataStore = {
   },
 
   async cloudInsertSale(sale, productAfter) {
-    const ready = await this._cloudReadyForSalesInsert();
+    const ready = await this._cloudReady();
     if (!ready.ok) return ready;
     if (ready.localOnly) return { ok: true, localOnly: true };
 
@@ -3074,9 +3059,9 @@ const DataStore = {
       console.warn('[Supabase] Bridge not ready — using localStorage');
       return this.load();
     }
-    const auth = await SupabaseBridge.ensureAuth();
-    if (!auth.ok) {
-      console.warn('[Supabase] Auth failed — using localStorage:', auth.error);
+    const ready = await SupabaseBridge.ensureClientReady();
+    if (!ready.ok) {
+      console.warn('[Supabase] Client not ready — using localStorage:', ready.error);
       return this.load();
     }
 
@@ -3235,14 +3220,35 @@ function getCurrentTenantIdForInsert() {
   return null;
 }
 
-function requireCurrentTenantIdForSale() {
-  const tenantId = getCurrentTenantIdForInsert();
-  if (tenantId) return tenantId;
-  console.error('Critical Security Error: No Tenant ID found!');
-  const message = 'خطأ في الجلسة: يرجى تسجيل الدخول مجدداً.';
-  alert(message);
-  showToast(message, 'error');
-  throw new Error(message);
+function resolveTenantIdForSale() {
+  let tenantId = getCurrentTenantIdForInsert();
+  if (!tenantId) {
+    const cfg = typeof window !== 'undefined' ? window.SUPABASE_CONFIG || {} : {};
+    tenantId = cfg.defaultTenantId || state.settings?.tenantId;
+    if (tenantId) UserSession.setStoredTenantId(tenantId);
+  }
+  if (!tenantId) {
+    const message = 'خطأ في الاتصال بقاعدة البيانات: إعداد tenant_id غير مكتمل في supabase.config.js';
+    console.error('[Tenant]', message);
+    showToast(message, 'error');
+    throw new Error(message);
+  }
+  return tenantId;
+}
+
+/** Insert sales row via anon key — supabase.from('sales').insert only */
+async function addSale(row) {
+  if (!DataStore.usesCloud()) return { ok: true, localOnly: true };
+  const ready = await DataStore._cloudReady();
+  if (!ready.ok) return ready;
+  let tenantId;
+  try {
+    tenantId = resolveTenantIdForSale();
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+  const payload = tagSalesInsertWithTenant(row, tenantId);
+  return SupabaseBridge.insertSaleDirect(payload);
 }
 
 /**
@@ -3256,8 +3262,7 @@ async function secureInsert(table, data) {
   }
   const result = await SupabaseBridge.secureInsert(table, data);
   if (!result.ok) {
-    if (result.error === 'No tenant_id') return null;
-    throw new Error(result.error || 'secureInsert failed');
+    throw new Error(result.error || 'Database connection error');
   }
   return result.data;
 }
@@ -5779,16 +5784,19 @@ async function saveSale(data, options = {}) {
   }, { isNew: true });
 
   if (DataStore.usesCloud()) {
-    let currentTenantId;
-    try {
-      currentTenantId = requireCurrentTenantIdForSale();
-    } catch {
-      return;
-    }
-    const cloud = await DataStore.cloudInsertSale(
-      { ...sale, tenantId: currentTenantId, tenant_id: currentTenantId },
-      null
-    );
+    const row = buildSalesInsertRow({
+      id: sale.id,
+      createdAt: sale.createdAt,
+      customerName: sale.customer,
+      productName: sale.productName,
+      price: sale.unitPriceAud,
+      quantity: sale.quantity,
+      createdBy: sale.createdBy,
+      invoiceNumber: sale.invoiceNumber,
+      lineTotalAud: sale.lineTotalAud,
+      status: 'completed',
+    });
+    const cloud = await addSale(row);
     if (!cloud.ok) {
       reportCloudSaveError('Sale save', cloud);
       return;
@@ -5985,7 +5993,7 @@ const PosEngine = {
 
 /**
  * POS checkout — stock is deducted here only (not while items sit in cart).
- * Cloud saves use secureInsert('sales', …) for tenant isolation + AI anomaly hooks.
+ * Cloud saves use addSale() → supabase.from('sales').insert (anon key, no session).
  */
 async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null, options = {}) {
   if (!lines.length) return false;
@@ -6048,19 +6056,6 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
     }, { isNew: true });
 
     if (DataStore.usesCloud()) {
-      let currentTenantId;
-      try {
-        currentTenantId = requireCurrentTenantIdForSale();
-      } catch {
-        return false;
-      }
-
-      const ready = await DataStore._cloudReadyForSalesInsert();
-      if (!ready.ok) {
-        reportCloudSaveError('POS sale', ready);
-        return false;
-      }
-
       const row = buildSalesInsertRow({
         id: saleId,
         createdAt: localSale.createdAt,
@@ -6075,7 +6070,7 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
         status: 'completed',
       });
 
-      const cloud = await SupabaseBridge.secureInsert('sales', row);
+      const cloud = await addSale(row);
       if (!cloud.ok) {
         reportCloudSaveError('POS sale', cloud);
         return false;

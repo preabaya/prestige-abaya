@@ -140,14 +140,21 @@ const SupabaseBridge = {
   },
 
   /**
-   * Temporary: skip getSession/ensureAuth before sales inserts (see skipAuthForSales in config).
+   * Anon-key mode: no getSession / ensureAuth before reads or writes (default: true).
+   * Set skipAuth: false in supabase.config.js to re-enable session checks.
    */
-  isSkipAuthForSales() {
+  isSkipAuth() {
     const cfg = typeof window !== 'undefined' ? window.SUPABASE_CONFIG || {} : {};
-    return cfg.skipAuthForSales !== false;
+    if (cfg.skipAuth === false) return false;
+    if (cfg.skipAuthForSales === false) return false;
+    return true;
   },
 
-  /** Client only — no auth.getSession() */
+  isSkipAuthForSales() {
+    return this.isSkipAuth();
+  },
+
+  /** Client + anon key only — does not call auth.getSession() */
   ensureClientReady() {
     if (!this.isConfigured()) {
       return { ok: false, error: 'Supabase not configured' };
@@ -208,9 +215,12 @@ const SupabaseBridge = {
   },
 
   /**
-   * One shared auth bootstrap: restore session or sign in anonymously once.
+   * Auth bootstrap — bypassed when isSkipAuth() (anon key only).
    */
   async ensureAuth() {
+    if (this.isSkipAuth()) {
+      return this.ensureClientReady();
+    }
     if (!this.isConfigured()) {
       return { ok: false, error: 'Supabase not configured' };
     }
@@ -405,7 +415,7 @@ const SupabaseBridge = {
       price: product.price,
       quantity: product.quantity,
       image: product.image || null,
-      user_id: this.userId(),
+      user_id: this.isSkipAuth() ? undefined : this.userId(),
       tenant_id: product.tenant_id ?? product.tenantId ?? this.tenantId(),
       ...this.auditRowFields(product),
     };
@@ -687,23 +697,22 @@ const SupabaseBridge = {
     const client = this.getClient();
     if (!client) return { ok: false, data: null, error: 'No client' };
 
-    const skipAuth = tableName === 'sales' && this.isSkipAuthForSales();
-    if (!skipAuth) {
+    if (!this.isSkipAuth()) {
       const userId = this.userId();
       if (!userId) {
-        return { ok: false, data: null, error: 'Not authenticated — enable Anonymous sign-in in Supabase Auth' };
+        return { ok: false, data: null, error: 'Database connection error: not authenticated' };
       }
-    } else {
-      console.warn('[Supabase] skipAuthForSales: sales insert without getSession/ensureAuth');
     }
 
+    const cfg = typeof window !== 'undefined' ? window.SUPABASE_CONFIG || {} : {};
     const tenantId = localStorage.getItem(CURRENT_TENANT_STORAGE_KEY)
-      || this.getStoredTenantId();
+      || this.getStoredTenantId()
+      || cfg.defaultTenantId;
 
     if (!tenantId || !String(tenantId).trim()) {
-      console.error('Critical Security Error: No Tenant ID found!');
-      alert('خطأ في الجلسة: يرجى تسجيل الدخول مجدداً.');
-      return { ok: false, data: null, error: 'No tenant_id' };
+      const dbErr = 'Database configuration error: missing tenant_id in supabase.config.js';
+      console.error('[Supabase]', dbErr);
+      return { ok: false, data: null, error: dbErr };
     }
 
     const tenantIdStr = String(tenantId).trim();
@@ -730,20 +739,20 @@ const SupabaseBridge = {
     return result;
   },
 
-  async insertSaleRow(row) {
+  /**
+   * Direct sales insert — supabase.from('sales').insert only (anon key, no session).
+   */
+  async insertSaleDirect(row) {
     return this.secureInsert('sales', row);
   },
 
-  async insertSale(sale) {
-    const candidate = this.saleToCandidateRow(sale);
-    const columnsRes = await this.getTableColumns('sales');
-    if (!columnsRes.ok) return { ok: false, error: columnsRes.error };
+  async insertSaleRow(row) {
+    return this.insertSaleDirect(row);
+  },
 
-    const row = this.filterRowToExistingColumns(candidate, columnsRes.columns);
-    if (!Object.keys(row).length) {
-      return { ok: false, error: 'No matching columns for sales insert' };
-    }
-    return this.insertSaleRow(row);
+  async insertSale(sale) {
+    const row = this.saleToCandidateRow(sale);
+    return this.insertSaleDirect(row);
   },
 
   async fetchProducts() {
@@ -780,9 +789,11 @@ const SupabaseBridge = {
     const client = this.getClient();
     if (!client) return { ok: false, error: 'No client' };
 
-    const userId = this.userId();
-    if (!userId) {
-      return { ok: false, error: 'Not authenticated — enable Anonymous sign-in in Supabase Auth' };
+    if (!this.isSkipAuth()) {
+      const userId = this.userId();
+      if (!userId) {
+        return { ok: false, error: 'Database connection error: not authenticated' };
+      }
     }
 
     const row = this.productToRow(product);
