@@ -228,6 +228,43 @@ const SupabaseBridge = {
     return this.user?.id ?? null;
   },
 
+  /** Map app audit fields → Supabase column names */
+  auditRowFields(entity) {
+    const createdBy = entity?.createdBy ?? entity?.created_by ?? null;
+    return createdBy ? { created_by: String(createdBy) } : {};
+  },
+
+  applyTimestampsToRow(row, entity, { includeUpdated = true } = {}) {
+    const createdAt = timestamptzForWrite(entity?.createdAt ?? entity?.created_at);
+    if (createdAt) row.created_at = createdAt;
+    if (includeUpdated) {
+      const updatedAt = timestamptzForWrite(
+        entity?.updatedAt ?? entity?.updated_at ?? entity?.createdAt ?? new Date()
+      );
+      if (updatedAt) row.updated_at = updatedAt;
+    }
+    return row;
+  },
+
+  productToRow(product) {
+    const userId = this.userId();
+    const row = {
+      id: product.id,
+      code: product.code,
+      name: product.name,
+      size: product.size,
+      color: product.color,
+      style: product.style || 'classic',
+      cost: product.cost,
+      price: product.price,
+      quantity: product.quantity,
+      image: product.image || null,
+      user_id: userId,
+      ...this.auditRowFields(product),
+    };
+    return this.applyTimestampsToRow(row, product, { includeUpdated: true });
+  },
+
   saleToRow(sale) {
     const row = {
       id: sale.id,
@@ -247,12 +284,10 @@ const SupabaseBridge = {
       invoice_number: sale.invoiceNumber,
       returned: !!sale.returned,
       notes: sale.notes || '',
-      created_by: sale.createdBy,
       user_id: this.userId(),
+      ...this.auditRowFields(sale),
     };
-    const createdAt = timestamptzForWrite(sale.createdAt);
-    if (createdAt) row.created_at = createdAt;
-    return row;
+    return this.applyTimestampsToRow(row, sale, { includeUpdated: true });
   },
 
   rowToSale(row) {
@@ -275,6 +310,7 @@ const SupabaseBridge = {
       returned: row.returned,
       notes: row.notes,
       createdAt: timestamptzFromDb(row.created_at),
+      updatedAt: timestamptzFromDb(row.updated_at),
       createdBy: row.created_by,
       createdByUserId: row.user_id,
     };
@@ -352,24 +388,7 @@ const SupabaseBridge = {
       return { ok: false, error: 'Not authenticated — enable Anonymous sign-in in Supabase Auth' };
     }
 
-    const row = {
-      id: product.id,
-      code: product.code,
-      name: product.name,
-      size: product.size,
-      color: product.color,
-      style: product.style || 'classic',
-      cost: product.cost,
-      price: product.price,
-      quantity: product.quantity,
-      image: product.image || null,
-      created_by: product.createdBy,
-      user_id: userId,
-    };
-    const createdAt = timestamptzForWrite(product.createdAt);
-    const updatedAt = timestamptzForWrite(product.updatedAt ?? new Date());
-    if (createdAt) row.created_at = createdAt;
-    if (updatedAt) row.updated_at = updatedAt;
+    const row = this.productToRow(product);
 
     const { data, error } = await client.from('products').upsert(row).select('id').single();
     if (error) return { ok: false, error: error.message };

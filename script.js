@@ -3008,6 +3008,26 @@ function reportCloudSaveError(action, result) {
   showToast(`${action}: ${detail}`, 'error');
 }
 
+/** Attach created_by + timestamptz fields for local state and Supabase rows */
+function withRecordTimestamps(record, { isNew = false } = {}) {
+  const now = new Date().toISOString();
+  const audit = UserSession.auditFields();
+  if (isNew) {
+    return {
+      ...record,
+      ...audit,
+      createdAt: record.createdAt || now,
+      updatedAt: now,
+    };
+  }
+  return {
+    ...record,
+    createdAt: record.createdAt,
+    createdBy: record.createdBy ?? audit.createdBy,
+    updatedAt: now,
+  };
+}
+
 function uid() {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
@@ -3616,14 +3636,12 @@ async function saveProduct(data) {
   if (data.id) {
     const existing = state.products.find((p) => p.id === data.id);
     if (!existing) return;
-    product = { ...existing, ...data };
+    product = withRecordTimestamps({ ...existing, ...data }, { isNew: false });
   } else {
-    product = {
-      ...data,
-      id: uid(),
-      createdAt: new Date().toISOString(),
-      ...UserSession.auditFields(),
-    };
+    product = withRecordTimestamps(
+      { ...data, id: uid() },
+      { isNew: true }
+    );
   }
 
   const cloud = await DataStore.cloudUpsertProduct(product);
@@ -5482,7 +5500,7 @@ async function saveSale(data, options = {}) {
   const lineTotalAud = data.lineTotalAud ?? subtotalAud;
   const unitPriceAud = CurrencyEngine.round(lineTotalAud / qty);
 
-  const sale = {
+  const sale = withRecordTimestamps({
     id: uid(),
     productId: data.productId,
     productName: p.name,
@@ -5503,11 +5521,12 @@ async function saveSale(data, options = {}) {
     returned: false,
     invoiceNumber: data.invoiceNumber || InvoiceNumberEngine.next(),
     notes: data.notes || '',
-    createdAt: new Date().toISOString(),
-    ...UserSession.auditFields(),
-  };
+  }, { isNew: true });
 
-  const productAfter = { ...p, quantity: p.quantity - qty };
+  const productAfter = withRecordTimestamps(
+    { ...p, quantity: p.quantity - qty },
+    { isNew: false }
+  );
   const cloud = await DataStore.cloudInsertSale(sale, productAfter);
   if (DataStore.usesCloud() && !cloud.ok) {
     reportCloudSaveError('Sale save', cloud);
@@ -5725,7 +5744,7 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
     const p = getProduct(line.productId);
     const lineSub = line.lineSubtotal ?? CurrencyEngine.round(line.unitPrice * line.qty + (line.extraShipping || 0));
     const lineTotal = line.lineTotal ?? lineSub;
-    const sale = {
+    const sale = withRecordTimestamps({
       id: uid(),
       productId: line.productId,
       productName: p.name,
@@ -5749,11 +5768,12 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
       batchId,
       returned: false,
       notes: `سلة POS · ${invoiceNumber}`,
-      createdAt: new Date().toISOString(),
-      ...UserSession.auditFields(),
-    };
+    }, { isNew: true });
 
-    const productAfter = { ...p, quantity: p.quantity - line.qty };
+    const productAfter = withRecordTimestamps(
+      { ...p, quantity: p.quantity - line.qty },
+      { isNew: false }
+    );
     const cloud = await DataStore.cloudInsertSale(sale, productAfter);
     if (DataStore.usesCloud() && !cloud.ok) {
       reportCloudSaveError('POS sale', cloud);

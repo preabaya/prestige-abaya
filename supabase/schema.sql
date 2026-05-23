@@ -43,6 +43,7 @@ create table if not exists public.sales (
   returned boolean not null default false,
   notes text,
   created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   created_by text,
   user_id uuid references auth.users(id) on delete set null
 );
