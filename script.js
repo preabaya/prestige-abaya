@@ -1030,6 +1030,14 @@ const AuthSystem = {
     return cfg.defaultTenantId || null;
   },
 
+  /** Tenant id from the active login session (preferred for Supabase inserts) */
+  sessionTenantId() {
+    if (this.session?.tenantId) return String(this.session.tenantId);
+    const tid = this.ensureTenantId();
+    if (tid && this.session) this.session.tenantId = tid;
+    return tid ? String(tid) : null;
+  },
+
   ensureTenantId() {
     let tid = this.tenantId();
     if (!tid && typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -3132,6 +3140,15 @@ function buildSalesInsertRow({
   if (batchIdInt != null) row.batch_id = batchIdInt;
   if (tenantId) row.tenant_id = String(tenantId);
   return pickSalesInsertColumns(row);
+}
+
+/** Force tenant_id on a sales insert payload immediately before Supabase insert */
+function tagSalesInsertWithTenant(row, tenantId) {
+  if (!tenantId) return row;
+  return pickSalesInsertColumns({
+    ...row,
+    tenant_id: String(tenantId),
+  });
 }
 
 /** Attach created_by + timestamptz fields for local state and Supabase rows */
@@ -5651,21 +5668,13 @@ async function saveSale(data, options = {}) {
   }, { isNew: true });
 
   if (DataStore.usesCloud()) {
+    const sessionTenantId = UserSession.sessionTenantId();
+    if (!sessionTenantId) {
+      reportCloudSaveError('Sale save', { error: 'Missing tenant_id on user session' });
+      return;
+    }
     const cloud = await DataStore.cloudInsertSale(
-      buildSalesInsertRow({
-        id: sale.id,
-        createdAt: sale.createdAt,
-        customerName: sale.customer,
-        productName: sale.productName,
-        price: sale.unitPriceAud,
-        quantity: sale.quantity,
-        createdBy: sale.createdBy,
-        invoiceNumber: sale.invoiceNumber,
-        lineTotalAud: sale.lineTotalAud,
-        batchId: sale.batchId,
-        status: sale.returned ? 'returned' : 'completed',
-        tenantId: UserSession.tenantId(),
-      }),
+      { ...sale, tenantId: sessionTenantId, tenant_id: sessionTenantId },
       null
     );
     if (!cloud.ok) {
@@ -5887,7 +5896,7 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
   const createdBy = UserSession.createdBy();
   const batchCustomer = (options.customer || document.getElementById('pos-customer')?.value || '')
     .trim() || 'POS Guest';
-  const tenantId = UserSession.ensureTenantId();
+  const sessionTenantId = UserSession.sessionTenantId();
   const created = [];
 
   for (const line of lines) {
@@ -5925,8 +5934,8 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
     }, { isNew: true });
 
     if (DataStore.usesCloud()) {
-      if (!tenantId) {
-        reportCloudSaveError('POS sale', { error: 'Missing tenant_id on user profile' });
+      if (!sessionTenantId) {
+        reportCloudSaveError('POS sale', { error: 'Missing tenant_id on user session' });
         return false;
       }
 
@@ -5936,20 +5945,23 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
         return false;
       }
 
-      const row = buildSalesInsertRow({
-        id: saleId,
-        createdAt: localSale.createdAt,
-        customerName: lineCustomer,
-        productName: p.name,
-        price: CurrencyEngine.round(lineTotal / line.qty),
-        quantity: parseInt(line.qty, 10) || 1,
-        createdBy,
-        invoiceNumber,
-        lineTotalAud: lineTotal,
-        batchId: batchIdForCloud,
-        status: 'completed',
-        tenantId,
-      });
+      const row = tagSalesInsertWithTenant(
+        buildSalesInsertRow({
+          id: saleId,
+          createdAt: localSale.createdAt,
+          customerName: lineCustomer,
+          productName: p.name,
+          price: CurrencyEngine.round(lineTotal / line.qty),
+          quantity: parseInt(line.qty, 10) || 1,
+          createdBy,
+          invoiceNumber,
+          lineTotalAud: lineTotal,
+          batchId: batchIdForCloud,
+          status: 'completed',
+          tenantId: sessionTenantId,
+        }),
+        sessionTenantId
+      );
 
       const cloud = await SupabaseBridge.insertSaleRow(row);
       if (!cloud.ok) {

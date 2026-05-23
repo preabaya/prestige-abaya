@@ -506,9 +506,13 @@ const SupabaseBridge = {
       return { ok: false, error: 'Not authenticated — enable Anonymous sign-in in Supabase Auth' };
     }
 
+    const payload = { ...row };
+    const tenantId = payload.tenant_id ?? this.tenantId();
+    if (tenantId) payload.tenant_id = String(tenantId);
+
     const { data, error } = await client
       .from('sales')
-      .insert(row)
+      .insert(payload)
       .select()
       .single();
 
