@@ -2895,6 +2895,42 @@ const DataStore = {
     }
   },
 
+  usesCloud() {
+    return this.provider === 'supabase'
+      && typeof SupabaseBridge !== 'undefined'
+      && SupabaseBridge.isConfigured();
+  },
+
+  async _cloudReady() {
+    if (!this.usesCloud()) return { ok: true, localOnly: true };
+    if (!SupabaseBridge.getClient()) {
+      return { ok: false, error: 'Supabase client not available' };
+    }
+    return SupabaseBridge.ensureAuth();
+  },
+
+  async cloudUpsertProduct(product) {
+    const ready = await this._cloudReady();
+    if (!ready.ok) return ready;
+    if (ready.localOnly) return { ok: true, localOnly: true };
+    return SupabaseBridge.upsertProduct(product);
+  },
+
+  async cloudInsertSale(sale, productAfter) {
+    const ready = await this._cloudReady();
+    if (!ready.ok) return ready;
+    if (ready.localOnly) return { ok: true, localOnly: true };
+
+    const saleRes = await SupabaseBridge.insertSale(sale);
+    if (!saleRes.ok) return saleRes;
+
+    if (productAfter) {
+      const prodRes = await SupabaseBridge.upsertProduct(productAfter);
+      if (!prodRes.ok) return prodRes;
+    }
+    return { ok: true };
+  },
+
   async save() {
     if (this.provider === 'supabase') return this._saveSupabase();
     localStorage.setItem(
@@ -2962,6 +2998,12 @@ const DataStore = {
 
 function t(k) {
   return TRANSLATIONS[currentLang][k] ?? TRANSLATIONS.ar[k] ?? k;
+}
+
+function reportCloudSaveError(action, result) {
+  const detail = result?.error || 'Unknown error';
+  console.error(`[Supabase] ${action}:`, detail);
+  showToast(`${action}: ${detail}`, 'error');
 }
 
 function uid() {
@@ -3556,16 +3598,32 @@ async function saveProduct(data) {
     showToast('Code exists', 'error');
     return;
   }
+
+  let product;
   if (data.id) {
-    const i = state.products.findIndex((p) => p.id === data.id);
-    if (i >= 0) state.products[i] = { ...state.products[i], ...data };
+    const existing = state.products.find((p) => p.id === data.id);
+    if (!existing) return;
+    product = { ...existing, ...data };
   } else {
-    state.products.push({
+    product = {
       ...data,
       id: uid(),
       createdAt: new Date().toISOString(),
       ...UserSession.auditFields(),
-    });
+    };
+  }
+
+  const cloud = await DataStore.cloudUpsertProduct(product);
+  if (DataStore.usesCloud() && !cloud.ok) {
+    reportCloudSaveError('Product save', cloud);
+    return;
+  }
+
+  if (data.id) {
+    const i = state.products.findIndex((p) => p.id === data.id);
+    if (i >= 0) state.products[i] = product;
+  } else {
+    state.products.push(product);
   }
   await DataStore.save();
   ActivityFeed.log({
@@ -3786,6 +3844,18 @@ async function realTimeIntegrateReviewedInvoice(reviewedRows, meta = {}) {
   await Promise.all(
     inventoryResults.map((inv) => Promise.resolve(integrateReviewRowTransaction(inv)))
   );
+
+  if (DataStore.usesCloud()) {
+    for (const inv of inventoryResults) {
+      const p = getProduct(inv.productId);
+      if (!p) continue;
+      const cloud = await DataStore.cloudUpsertProduct(p);
+      if (!cloud.ok) {
+        reportCloudSaveError('Invoice product', cloud);
+        return { ok: false, error: cloud.error };
+      }
+    }
+  }
 
   await DataStore.save();
   PosEngine.warmCache();
@@ -5424,23 +5494,15 @@ async function saveSale(data, options = {}) {
     ...UserSession.auditFields(),
   };
 
+  const productAfter = { ...p, quantity: p.quantity - qty };
+  const cloud = await DataStore.cloudInsertSale(sale, productAfter);
+  if (DataStore.usesCloud() && !cloud.ok) {
+    reportCloudSaveError('Sale save', cloud);
+    return;
+  }
+
   state.sales.unshift(sale);
   p.quantity -= qty;
-
-  if (DataStore.provider === 'supabase') {
-    const auth = await SupabaseBridge.ensureAuth();
-    if (!auth.ok) {
-      showToast('Supabase auth failed', 'error');
-      console.warn('[Supabase] ensureAuth:', auth.error);
-    } else {
-      const cloud = await SupabaseBridge.insertSale(sale);
-      if (!cloud.ok) {
-        console.error('[Supabase] insertSale:', cloud.error);
-        showToast('Supabase save failed', 'error');
-      }
-      await SupabaseBridge.upsertProduct(p);
-    }
-  }
 
   await DataStore.save();
   ActivityFeed.log({
@@ -5646,7 +5708,7 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
   const payLabel = paymentMethodLabel(paymentMethod);
   const created = [];
 
-  lines.forEach((line) => {
+  for (const line of lines) {
     const p = getProduct(line.productId);
     const lineSub = line.lineSubtotal ?? CurrencyEngine.round(line.unitPrice * line.qty + (line.extraShipping || 0));
     const lineTotal = line.lineTotal ?? lineSub;
@@ -5677,10 +5739,18 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
       createdAt: new Date().toISOString(),
       ...UserSession.auditFields(),
     };
+
+    const productAfter = { ...p, quantity: p.quantity - line.qty };
+    const cloud = await DataStore.cloudInsertSale(sale, productAfter);
+    if (DataStore.usesCloud() && !cloud.ok) {
+      reportCloudSaveError('POS sale', cloud);
+      return false;
+    }
+
     state.sales.unshift(sale);
     p.quantity -= line.qty;
     created.push(sale);
-  });
+  }
 
   await DataStore.save();
   ActivityFeed.log({

@@ -254,6 +254,11 @@ const SupabaseBridge = {
     const client = this.getClient();
     if (!client) return { ok: false, error: 'No client' };
 
+    const userId = this.userId();
+    if (!userId) {
+      return { ok: false, error: 'Not authenticated — enable Anonymous sign-in in Supabase Auth' };
+    }
+
     const row = this.saleToRow(sale);
     const { data, error } = await client
       .from('sales')
@@ -298,6 +303,11 @@ const SupabaseBridge = {
     const client = this.getClient();
     if (!client) return { ok: false, error: 'No client' };
 
+    const userId = this.userId();
+    if (!userId) {
+      return { ok: false, error: 'Not authenticated — enable Anonymous sign-in in Supabase Auth' };
+    }
+
     const row = {
       id: product.id,
       code: product.code,
@@ -309,12 +319,14 @@ const SupabaseBridge = {
       price: product.price,
       quantity: product.quantity,
       image: product.image || null,
+      created_at: product.createdAt || new Date().toISOString(),
       updated_at: new Date().toISOString(),
       created_by: product.createdBy,
-      user_id: this.userId(),
+      user_id: userId,
     };
-    const { error } = await client.from('products').upsert(row);
-    return { ok: !error, error: error?.message };
+    const { data, error } = await client.from('products').upsert(row).select('id').single();
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, id: data?.id };
   },
 };
 
