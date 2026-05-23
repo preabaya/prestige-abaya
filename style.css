@@ -415,7 +415,9 @@ body.user-modal-open .fab {
   pointer-events: auto;
 }
 
-.auth-overlay[hidden] {
+.auth-overlay[hidden],
+.auth-overlay--disabled,
+#auth-login {
   display: none !important;
   visibility: hidden !important;
   pointer-events: none !important;
