@@ -12,6 +12,8 @@ const SECURE_INSERT_TABLES = new Set(['sales', 'products']);
 const SALES_ANOMALY_AVG_MULTIPLIER = 3;
 const SALES_ANOMALY_RECENT_COUNT = 10;
 const SALES_ANOMALY_MIN_SAMPLES = 3;
+/** Fixed high-value threshold (AUD) — logs HIGH_VALUE_TRANSACTION to ai_alerts */
+const SALES_HIGH_VALUE_THRESHOLD_AUD = 5000;
 
 /** @type {import('@supabase/supabase-js').SupabaseClient | null} */
 let _sharedClient = null;
@@ -584,39 +586,61 @@ const SupabaseBridge = {
     return { ok: true };
   },
 
-  /** Pre-save hook: flag sales totals > 3× tenant's recent average */
+  /**
+   * Pre-save AI hook for sales:
+   * - HIGH_VALUE_TRANSACTION if amount > SALES_HIGH_VALUE_THRESHOLD_AUD
+   * - sales_amount_anomaly if amount > 3× recent tenant average
+   */
   async preSaveHookSales(payload, tenantId) {
     const amount = this.saleAmountFromRow(payload);
     if (!Number.isFinite(amount) || amount <= 0) return { ok: true };
 
+    let anomaly = false;
+
+    if (amount > SALES_HIGH_VALUE_THRESHOLD_AUD) {
+      const details = `Transaction of ${amount} AUD detected.`;
+      console.warn('AI Alert: Unusual high value transaction detected!');
+      await this.logAiAlert({
+        tenantId,
+        alertType: 'HIGH_VALUE_TRANSACTION',
+        message: details,
+        tableName: 'sales',
+        recordId: payload.id,
+        severity: 'warning',
+        metadata: { details, amount, threshold: SALES_HIGH_VALUE_THRESHOLD_AUD },
+      });
+      anomaly = true;
+    }
+
     const recent = await this.fetchRecentSaleAmounts(tenantId);
-    if (recent.length < SALES_ANOMALY_MIN_SAMPLES) return { ok: true };
+    if (recent.length >= SALES_ANOMALY_MIN_SAMPLES) {
+      const average = recent.reduce((sum, n) => sum + n, 0) / recent.length;
+      const threshold = average * SALES_ANOMALY_AVG_MULTIPLIER;
 
-    const average = recent.reduce((sum, n) => sum + n, 0) / recent.length;
-    const threshold = average * SALES_ANOMALY_AVG_MULTIPLIER;
+      if (amount > threshold) {
+        const message = `Anomaly Alert: sale amount ${amount} AUD exceeds ${SALES_ANOMALY_AVG_MULTIPLIER}× recent average (${roundAud(average)} AUD, last ${recent.length} sales)`;
+        console.warn('[AI]', message);
+        await this.logAiAlert({
+          tenantId,
+          alertType: 'sales_amount_anomaly',
+          message,
+          tableName: 'sales',
+          recordId: payload.id,
+          severity: 'warning',
+          metadata: {
+            details: message,
+            amount,
+            average: roundAud(average),
+            threshold: roundAud(threshold),
+            multiplier: SALES_ANOMALY_AVG_MULTIPLIER,
+            sampleSize: recent.length,
+          },
+        });
+        anomaly = true;
+      }
+    }
 
-    if (amount <= threshold) return { ok: true };
-
-    const message = `Anomaly Alert: sale amount ${amount} AUD exceeds ${SALES_ANOMALY_AVG_MULTIPLIER}× recent average (${roundAud(average)} AUD, last ${recent.length} sales)`;
-    console.warn('[AI]', message);
-
-    await this.logAiAlert({
-      tenantId,
-      alertType: 'sales_amount_anomaly',
-      message,
-      tableName: 'sales',
-      recordId: payload.id,
-      severity: 'warning',
-      metadata: {
-        amount,
-        average: roundAud(average),
-        threshold: roundAud(threshold),
-        multiplier: SALES_ANOMALY_AVG_MULTIPLIER,
-        sampleSize: recent.length,
-      },
-    });
-
-    return { ok: true, anomaly: true, message };
+    return { ok: true, anomaly };
   },
 
   async runPreSaveHooks(table, payload, tenantId) {
@@ -627,33 +651,41 @@ const SupabaseBridge = {
   },
 
   /**
-   * Tenant-scoped insert with pre-save hooks (sales anomaly → ai_alerts).
+   * Global Secure Insert with AI Hook
+   * 1. Tenant isolation (appends tenant_id from localStorage)
+   * 2. AI anomaly detection pre-save hook (sales → ai_alerts)
+   * 3. Persist row to Supabase
    * @param {string} table
    * @param {object} data
-   * @returns {Promise<{ ok: boolean, data?: object, error?: string, anomaly?: boolean }>}
+   * @returns {Promise<{ ok: boolean, data?: object|null, error?: string, anomaly?: boolean, sale?: object }>}
    */
   async secureInsert(table, data) {
     const tableName = String(table || '').trim();
     if (!SECURE_INSERT_TABLES.has(tableName)) {
-      return { ok: false, error: `secureInsert not allowed for table: ${tableName}` };
+      return { ok: false, data: null, error: `secureInsert not allowed for table: ${tableName}` };
     }
 
     const client = this.getClient();
-    if (!client) return { ok: false, error: 'No client' };
+    if (!client) return { ok: false, data: null, error: 'No client' };
 
     const userId = this.userId();
     if (!userId) {
-      return { ok: false, error: 'Not authenticated — enable Anonymous sign-in in Supabase Auth' };
+      return { ok: false, data: null, error: 'Not authenticated — enable Anonymous sign-in in Supabase Auth' };
     }
 
-    const tenantId = this.getStoredTenantId();
-    if (!tenantId) {
-      return { ok: false, error: 'Missing current_tenant_id in localStorage — sign in again' };
+    const tenantId = localStorage.getItem(CURRENT_TENANT_STORAGE_KEY)
+      || this.getStoredTenantId();
+
+    if (!tenantId || !String(tenantId).trim()) {
+      console.error('Critical Security Error: No Tenant ID found!');
+      alert('خطأ في الجلسة: يرجى تسجيل الدخول مجدداً.');
+      return { ok: false, data: null, error: 'No tenant_id' };
     }
 
-    const payload = { ...data, tenant_id: tenantId };
+    const tenantIdStr = String(tenantId).trim();
+    const payload = { ...data, tenant_id: tenantIdStr };
 
-    const hookResult = await this.runPreSaveHooks(tableName, payload, tenantId);
+    const hookResult = await this.runPreSaveHooks(tableName, payload, tenantIdStr);
 
     const { data: inserted, error } = await client
       .from(tableName)
@@ -661,7 +693,10 @@ const SupabaseBridge = {
       .select()
       .single();
 
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      console.error('Supabase Error:', error);
+      return { ok: false, data: null, error: error.message };
+    }
 
     const result = { ok: true, data: inserted };
     if (tableName === 'sales') {

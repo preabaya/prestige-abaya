@@ -3226,10 +3226,28 @@ function getCurrentTenantIdForInsert() {
 function requireCurrentTenantIdForSale() {
   const tenantId = getCurrentTenantIdForInsert();
   if (tenantId) return tenantId;
-  const message = 'User is not properly logged in: missing current_tenant_id. Please sign in again.';
+  console.error('Critical Security Error: No Tenant ID found!');
+  const message = 'خطأ في الجلسة: يرجى تسجيل الدخول مجدداً.';
   alert(message);
   showToast(message, 'error');
   throw new Error(message);
+}
+
+/**
+ * Global Secure Insert with AI Hook (delegates to SupabaseBridge).
+ * @returns {Promise<object|null>} inserted row or null on auth failure
+ */
+async function secureInsert(table, data) {
+  if (typeof SupabaseBridge === 'undefined' || !SupabaseBridge.getClient()) {
+    console.error('Supabase Error: client not available');
+    return null;
+  }
+  const result = await SupabaseBridge.secureInsert(table, data);
+  if (!result.ok) {
+    if (result.error === 'No tenant_id') return null;
+    throw new Error(result.error || 'secureInsert failed');
+  }
+  return result.data;
 }
 
 /** Attach created_by + timestamptz fields for local state and Supabase rows */
@@ -5953,7 +5971,10 @@ const PosEngine = {
   },
 };
 
-/** POS checkout — stock is deducted here only (not while items sit in cart). */
+/**
+ * POS checkout — stock is deducted here only (not while items sit in cart).
+ * Cloud saves use secureInsert('sales', …) for tenant isolation + AI anomaly hooks.
+ */
 async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null, options = {}) {
   if (!lines.length) return false;
   if (!UserSession.requireUser()) return false;
@@ -6048,7 +6069,7 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
         return false;
       }
       if (cloud.anomaly) {
-        showToast('Anomaly alert logged for unusually high sale amount', 'warning');
+        showToast('تنبيه ذكي: تم تسجيل عملية غير اعتيادية في ai_alerts', 'error');
       }
     }
 
