@@ -283,7 +283,9 @@ const SupabaseBridge = {
       payment: sale.payment ?? '—',
       sale_source: sale.saleSource || 'in_store',
       payment_method: sale.paymentMethod || 'cash',
-      invoice_number: sale.invoiceNumber,
+      invoice_number: (sale.invoiceNumber != null && String(sale.invoiceNumber).trim())
+        ? String(sale.invoiceNumber).trim()
+        : null,
       returned: !!sale.returned,
       notes: sale.notes || '',
       user_id: this.userId(),

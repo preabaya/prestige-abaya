@@ -5738,6 +5738,10 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
   const totals = cartTotals || PosEngine.calcCartTotals();
   const batchId = uid().slice(0, 8);
   const invoiceNumber = InvoiceNumberEngine.next();
+  if (!invoiceNumber || !String(invoiceNumber).trim()) {
+    showToast('Invoice number error', 'error');
+    return false;
+  }
   const payLabel = paymentMethodLabel(paymentMethod);
   const createdBy = UserSession.createdBy();
   const batchCustomer = (options.customer || document.getElementById('pos-customer')?.value || '')
@@ -5749,6 +5753,7 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
     const lineSub = line.lineSubtotal ?? CurrencyEngine.round(line.unitPrice * line.qty + (line.extraShipping || 0));
     const lineTotal = line.lineTotal ?? lineSub;
     const lineCustomer = (line.customer || batchCustomer).trim() || batchCustomer;
+    // Supabase sales row: invoice_number ← invoiceNumber (shared per POS batch)
     const sale = withRecordTimestamps({
       id: uid(),
       productId: line.productId,
