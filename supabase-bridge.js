@@ -68,6 +68,14 @@ const SupabaseBridge = {
     return { ok: true, user: data.user, session: data.session };
   },
 
+  async signInAnonymously() {
+    if (!this.client) return { ok: false, error: 'No client' };
+    const { data, error } = await this.client.auth.signInAnonymously();
+    if (error) return { ok: false, error: error.message };
+    this.user = data.user;
+    return { ok: true, user: data.user, session: data.session };
+  },
+
   async signOut() {
     if (!this.client) return;
     await this.client.auth.signOut();

@@ -8,6 +8,9 @@ const STORAGE_KEY = 'prestige-abaya-v3';
 const AUTH_SESSION_KEY = 'prestige-abaya-auth-session';
 const SIMPLE_AUTH_KEY = 'loggedIn';
 const AUTH_BOOTSTRAP = { username: 'Louay', password: 'Louay2019@' };
+/** true = no login screen; app opens as guest (Supabase uses anonymous auth when enabled) */
+const AUTH_SKIP_LOGIN = true;
+const AUTH_GUEST_NAME = 'guest';
 
 const APP_CONFIG = {
   vatRate: 0.15,
@@ -966,6 +969,16 @@ const AuthSystem = {
   session: null,
 
   syncSession() {
+    if (AUTH_SKIP_LOGIN) {
+      this.session = {
+        userId: 'guest',
+        username: AUTH_GUEST_NAME,
+        role: 'admin',
+        loggedIn: true,
+      };
+      state.settings.currentUser = AUTH_GUEST_NAME;
+      return;
+    }
     this.session = AuthStore.loadSession();
     if (this.session?.userId && this.session?.username) {
       const user = AuthStore.loadUsers().find((u) => u.id === this.session.userId);
@@ -981,6 +994,7 @@ const AuthSystem = {
   },
 
   isLoggedIn() {
+    if (AUTH_SKIP_LOGIN) return true;
     if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured() && SupabaseBridge.user) {
       return true;
     }
@@ -988,10 +1002,12 @@ const AuthSystem = {
   },
 
   isAdmin() {
+    if (AUTH_SKIP_LOGIN) return true;
     return this.isLoggedIn();
   },
 
   current() {
+    if (AUTH_SKIP_LOGIN) return AUTH_GUEST_NAME;
     if (this.isLoggedIn()) return AUTH_BOOTSTRAP.username;
     return (state.settings?.currentUser || '').trim();
   },
@@ -1003,7 +1019,7 @@ const AuthSystem = {
   auditFields() {
     return {
       createdBy: this.createdBy(),
-      createdByUserId: this.isLoggedIn() ? 'louay' : null,
+      createdByUserId: AUTH_SKIP_LOGIN ? 'guest' : (this.isLoggedIn() ? 'louay' : null),
     };
   },
 
@@ -1081,6 +1097,32 @@ const AuthSystem = {
     document.body.classList.remove('auth-locked');
   },
 
+  /** Open app without login; Supabase uses anonymous auth when configured */
+  async enterAsGuest() {
+    localStorage.setItem(SIMPLE_AUTH_KEY, 'true');
+    state.settings.currentUser = AUTH_GUEST_NAME;
+    this.session = {
+      userId: 'guest',
+      username: AUTH_GUEST_NAME,
+      role: 'admin',
+      loggedIn: true,
+      issuedAt: new Date().toISOString(),
+    };
+    this.hideOverlay();
+    document.body.classList.remove('auth-locked');
+    const loginSection = document.getElementById('auth-login');
+    if (loginSection) loginSection.hidden = true;
+
+    if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured()) {
+      SupabaseBridge.init();
+      const anon = await SupabaseBridge.signInAnonymously();
+      if (!anon.ok) console.warn('[Supabase] Anonymous auth:', anon.error);
+      else await SupabaseBridge.getSession();
+    }
+
+    this.updateHeaderUI();
+  },
+
   enterApp() {
     this.hideOverlay();
     if (typeof renderApp === 'function') renderApp();
@@ -1110,6 +1152,7 @@ const AuthSystem = {
   },
 
   requireUser() {
+    if (AUTH_SKIP_LOGIN) return true;
     if (this.isLoggedIn()) return true;
     this.showLogin();
     this.showAuthError('authRequired');
@@ -1117,6 +1160,7 @@ const AuthSystem = {
   },
 
   showLogin() {
+    if (AUTH_SKIP_LOGIN) return;
     this.closeUserMenu();
     dismissAppOverlays();
     purgeStorageForLoginPage();
@@ -6175,11 +6219,7 @@ function renderApp() {
   const app = document.getElementById('app');
   if (!app) return;
 
-  if (!AuthSystem.isLoggedIn()) {
-    app.innerHTML = '<main class="app-main app-main--locked" aria-hidden="true"></main>';
-    renderSiteNav('dashboard');
-    return;
-  }
+  // if (!AuthSystem.isLoggedIn()) { ... } — login disabled (AUTH_SKIP_LOGIN)
 
   const activeTab = getActiveTab();
   const allowed = navTabsForUser();
@@ -8246,8 +8286,9 @@ function initDataProvider() {
 }
 
 async function init() {
-  purgeStorageForLoginPage();
+  // purgeStorageForLoginPage(); — disabled: guest mode must not wipe localStorage on load
   initDataProvider();
+  await AuthSystem.enterAsGuest();
   await DataStore.load();
   await AuthStore.seedBootstrapAdmin();
   AuthSystem.syncSession();
@@ -8258,11 +8299,12 @@ async function init() {
   seedDemo();
   await NotificationEngine.registerServiceWorker();
   renderApp();
-  resetAuthLoginFields();
   bindEvents();
   AuthSystem.bindEvents();
   setLang(currentLang);
-  await AuthSystem.ensure();
+  // await AuthSystem.ensure(); — login screen removed; enterAsGuest() runs above
+  navigateToTab('dashboard');
+  renderAll();
   applyLogos();
   updateConnectionStatus();
 
