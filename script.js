@@ -1367,7 +1367,9 @@ const UserAdmin = {
 const UserSession = AuthSystem;
 
 function formatRelativeTime(iso) {
-  const diff = Date.now() - new Date(iso).getTime();
+  const normalized = parseAppTimestamp(iso);
+  if (!normalized) return t('timeAgoNow');
+  const diff = Date.now() - new Date(normalized).getTime();
   if (diff < 45000) return t('timeAgoNow');
   const mins = Math.floor(diff / 60000);
   if (mins < 60) return t('timeAgoMinutes').replace('{n}', String(mins));
@@ -3094,9 +3096,20 @@ function enforceAutocompleteOff(root = document) {
   });
 }
 
+function parseAppTimestamp(value) {
+  if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.timestamptzFromDb) {
+    return SupabaseBridge.timestamptzFromDb(value);
+  }
+  if (value == null || value === '') return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 function formatDate(iso) {
+  const normalized = parseAppTimestamp(iso);
+  if (!normalized) return '—';
   const loc = currentLang === 'ar' ? 'ar-SA' : 'en-AU';
-  return new Date(iso).toLocaleDateString(loc, { year: 'numeric', month: 'short', day: 'numeric' });
+  return new Date(normalized).toLocaleDateString(loc, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function catLabel(id) {

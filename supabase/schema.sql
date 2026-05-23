@@ -16,6 +16,7 @@ create table if not exists public.products (
   price numeric(12,2) not null default 0,
   quantity integer not null default 0,
   image text,
+  -- timestamptz: client sends ISO 8601; omit on insert to use default now()
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   created_by text,

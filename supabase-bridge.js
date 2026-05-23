@@ -13,7 +13,48 @@ let _sharedConfigKey = null;
 /** @type {Promise<{ ok: boolean, user?: object, session?: object, error?: string }> | null} */
 let _authReadyPromise = null;
 
+/**
+ * Normalize DB timestamptz (ISO string, Date, epoch ms) for app use.
+ * @returns {string|null} ISO 8601 UTC or null
+ */
+function timestamptzFromDb(value) {
+  if (value == null || value === '') return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  const s = String(value).trim();
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/**
+ * Value for Postgres timestamptz columns — ISO 8601 only, or omit (undefined).
+ * Never sends locale-specific date strings.
+ * @returns {string|undefined}
+ */
+function timestamptzForWrite(value) {
+  if (value == null || value === '') return undefined;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+  }
+  const s = String(value).trim();
+  if (!s) return undefined;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
 const SupabaseBridge = {
+  timestamptzFromDb,
+  timestamptzForWrite,
   get client() {
     return _sharedClient;
   },
@@ -188,7 +229,7 @@ const SupabaseBridge = {
   },
 
   saleToRow(sale) {
-    return {
+    const row = {
       id: sale.id,
       product_id: sale.productId,
       product_name: sale.productName,
@@ -206,10 +247,12 @@ const SupabaseBridge = {
       invoice_number: sale.invoiceNumber,
       returned: !!sale.returned,
       notes: sale.notes || '',
-      created_at: sale.createdAt || new Date().toISOString(),
       created_by: sale.createdBy,
       user_id: this.userId(),
     };
+    const createdAt = timestamptzForWrite(sale.createdAt);
+    if (createdAt) row.created_at = createdAt;
+    return row;
   },
 
   rowToSale(row) {
@@ -231,7 +274,7 @@ const SupabaseBridge = {
       invoiceNumber: row.invoice_number,
       returned: row.returned,
       notes: row.notes,
-      createdAt: row.created_at,
+      createdAt: timestamptzFromDb(row.created_at),
       createdBy: row.created_by,
       createdByUserId: row.user_id,
     };
@@ -293,7 +336,8 @@ const SupabaseBridge = {
         price: Number(r.price),
         quantity: r.quantity,
         image: r.image,
-        createdAt: r.created_at,
+        createdAt: timestamptzFromDb(r.created_at),
+        updatedAt: timestamptzFromDb(r.updated_at),
         createdBy: r.created_by,
       })),
     };
@@ -319,11 +363,14 @@ const SupabaseBridge = {
       price: product.price,
       quantity: product.quantity,
       image: product.image || null,
-      created_at: product.createdAt || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
       created_by: product.createdBy,
       user_id: userId,
     };
+    const createdAt = timestamptzForWrite(product.createdAt);
+    const updatedAt = timestamptzForWrite(product.updatedAt ?? new Date());
+    if (createdAt) row.created_at = createdAt;
+    if (updatedAt) row.updated_at = updatedAt;
+
     const { data, error } = await client.from('products').upsert(row).select('id').single();
     if (error) return { ok: false, error: error.message };
     return { ok: true, id: data?.id };
