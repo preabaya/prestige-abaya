@@ -3035,6 +3035,28 @@ function pickSalesInsertColumns(row) {
   return out;
 }
 
+/** Coerce values for Postgres integer columns (id, quantity, batch_id) */
+function coerceSalesIntegerField(value, fallback = undefined) {
+  if (value == null || value === '') return fallback;
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+  const s = String(value).trim();
+  if (/^\d+$/.test(s)) return parseInt(s, 10);
+  return fallback;
+}
+
+/** Local uid() strings cannot be inserted into integer id — use numeric id for Supabase */
+function salesInsertId(localId) {
+  const parsed = coerceSalesIntegerField(localId);
+  if (parsed != null) return parsed;
+  return Date.now() + Math.floor(Math.random() * 1000);
+}
+
+function salesInsertBatchId(localBatchId) {
+  const parsed = coerceSalesIntegerField(localBatchId);
+  if (parsed != null) return parsed;
+  return Date.now();
+}
+
 /** Build a Supabase `sales` row using verified column names only */
 function buildSalesInsertRow({
   id,
@@ -3051,21 +3073,24 @@ function buildSalesInsertRow({
 }) {
   const ts = createdAt || new Date().toISOString();
   const customer = (customerName || '').trim() || 'POS Guest';
-  return pickSalesInsertColumns({
-    id,
+  const qty = coerceSalesIntegerField(quantity, 1);
+  const row = {
+    id: salesInsertId(id),
     created_at: ts,
     updated_at: ts,
     customer_name: customer,
     customer,
     product_name: productName || '',
     price: CurrencyEngine.round(Number(price) || 0),
-    quantity: Math.max(1, Math.round(Number(quantity) || 1)),
+    quantity: Math.max(1, qty ?? 1),
     created_by: createdBy || 'guest',
     invoice_number: invoiceNumber || '',
     line_total_aud: CurrencyEngine.round(Number(lineTotalAud) || 0),
-    batch_id: batchId || '',
     status: status || 'completed',
-  });
+  };
+  const batchIdInt = coerceSalesIntegerField(batchId);
+  if (batchIdInt != null) row.batch_id = batchIdInt;
+  return pickSalesInsertColumns(row);
 }
 
 /** Attach created_by + timestamptz fields for local state and Supabase rows */
@@ -5810,6 +5835,7 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
 
   const totals = cartTotals || PosEngine.calcCartTotals();
   const batchId = uid().slice(0, 8);
+  const batchIdForCloud = Date.now();
   const invoiceNumber = InvoiceNumberEngine.next();
   if (!invoiceNumber || !String(invoiceNumber).trim()) {
     showToast('Invoice number error', 'error');
@@ -5868,11 +5894,11 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
         customerName: lineCustomer,
         productName: p.name,
         price: CurrencyEngine.round(lineTotal / line.qty),
-        quantity: line.qty,
+        quantity: parseInt(line.qty, 10) || 1,
         createdBy,
         invoiceNumber,
         lineTotalAud: lineTotal,
-        batchId,
+        batchId: batchIdForCloud,
         status: 'completed',
       });
 

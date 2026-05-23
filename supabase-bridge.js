@@ -332,12 +332,18 @@ const SupabaseBridge = {
     const lineTotal = roundAud(
       sale.line_total_aud ?? sale.lineTotalAud ?? sale.total_amount ?? sale.totalAmount ?? 0
     );
-    const qty = Math.max(1, Math.round(Number(sale.quantity) || 1));
+    const qtyRaw = sale.quantity ?? sale.qty;
+    const qtyParsed = parseInt(qtyRaw, 10);
+    const qty = Math.max(1, Number.isFinite(qtyParsed) ? qtyParsed : 1);
     const price = roundAud(
       sale.price ?? sale.unitPriceAud ?? (qty ? lineTotal / qty : lineTotal)
     );
+    const idParsed = parseInt(sale.id, 10);
+    const id = Number.isFinite(idParsed) && /^\d+$/.test(String(sale.id).trim())
+      ? idParsed
+      : Date.now() + Math.floor(Math.random() * 1000);
     const row = {
-      id: sale.id,
+      id,
       created_at: createdAt,
       updated_at: timestamptzForWrite(sale.updated_at ?? sale.updatedAt) || createdAt,
       customer_name: customerStr,
@@ -348,9 +354,13 @@ const SupabaseBridge = {
       created_by: String(sale.created_by ?? sale.createdBy ?? 'guest'),
       invoice_number: sale.invoice_number ?? sale.invoiceNumber ?? '',
       line_total_aud: lineTotal,
-      batch_id: sale.batch_id ?? sale.batchId ?? '',
       status: sale.status ?? (sale.returned ? 'returned' : 'completed'),
     };
+    const batchRaw = sale.batch_id ?? sale.batchId;
+    const batchParsed = parseInt(batchRaw, 10);
+    if (Number.isFinite(batchParsed) && /^\d+$/.test(String(batchRaw).trim())) {
+      row.batch_id = batchParsed;
+    }
     return pickDbColumns(row, SALES_DB_COLUMNS_FALLBACK);
   },
 
