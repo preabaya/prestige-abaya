@@ -65,6 +65,7 @@ select cron.schedule(
 );
 ```
 
-## OpenAI
+## OpenAI / Cursor SDK
 
-Edit the placeholder block in `index.ts` to call Chat Completions and store/send summaries.
+- **In-function:** edit the placeholder block in `index.ts` to call OpenAI Chat Completions.
+- **Cursor SDK (local/CI):** run `scripts/morning-report.mjs` — aggregates the same sales data and uses `Agent.prompt()` for the narrative report. See `scripts/README.md`.

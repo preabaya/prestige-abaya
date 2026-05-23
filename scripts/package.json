@@ -1,0 +1,12 @@
+{
+  "name": "prestige-abaya-scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "morning-report": "node morning-report.mjs"
+  },
+  "dependencies": {
+    "@cursor/sdk": "^1.0.13",
+    "@supabase/supabase-js": "^2.49.0"
+  }
+}
