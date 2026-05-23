@@ -23,16 +23,13 @@ create table if not exists public.products (
   user_id uuid references auth.users(id) on delete set null
 );
 
--- ─── Sales — Supabase insert uses ONLY: id, sale_date, total_amount, customer ───
+-- ─── Sales — Supabase insert uses ONLY: id, customer, total_amount ───
 -- Full sale details (products, discounts, notes, …) live in localStorage only.
 create table if not exists public.sales (
   id text primary key,
-  sale_date timestamptz not null default now(),
   total_amount numeric(12,2) not null default 0,
   customer text
 );
-
-create index if not exists sales_sale_date_idx on public.sales (sale_date desc);
 
 -- ─── Expenses ───
 create table if not exists public.expenses (

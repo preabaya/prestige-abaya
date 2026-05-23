@@ -14,7 +14,7 @@ let _sharedConfigKey = null;
 let _authReadyPromise = null;
 
 /** Live Supabase `sales` table — insert payload is limited to these columns only */
-const SALES_DB_COLUMNS = ['id', 'sale_date', 'total_amount', 'customer'];
+const SALES_DB_COLUMNS = ['id', 'customer', 'total_amount'];
 
 const PRODUCTS_DB_COLUMNS = [
   'id',
@@ -299,14 +299,13 @@ const SupabaseBridge = {
     return pickDbColumns(draft, PRODUCTS_DB_COLUMNS);
   },
 
-  /** Minimal sales row for Supabase insert — only id, sale_date, total_amount, customer */
+  /** Minimal sales row for Supabase insert — only id, customer, total_amount */
   saleToRow(sale) {
     const total = roundAud(
-      sale.totalAmount ?? sale.lineTotalAud ?? sale.total_amount ?? 0
+      sale.total_amount ?? sale.totalAmount ?? sale.lineTotalAud ?? 0
     );
     const row = {
       id: sale.id,
-      sale_date: timestamptzForWrite(sale.saleDate ?? sale.createdAt ?? new Date()),
       total_amount: total,
       customer: (sale.customer != null && String(sale.customer).trim())
         ? String(sale.customer).trim()
@@ -317,7 +316,7 @@ const SupabaseBridge = {
 
   rowToSale(row) {
     const total = Number(row.total_amount) || 0;
-    const saleDate = timestamptzFromDb(row.sale_date);
+    const saleDate = timestamptzFromDb(row.sale_date ?? row.created_at);
     return {
       id: row.id,
       customer: row.customer,
@@ -339,7 +338,7 @@ const SupabaseBridge = {
     const { data, error } = await client
       .from('sales')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('id', { ascending: false });
 
     if (error) return { ok: false, data: [], error: error.message };
     return { ok: true, data: (data || []).map((r) => this.rowToSale(r)) };
