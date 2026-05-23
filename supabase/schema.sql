@@ -23,34 +23,16 @@ create table if not exists public.products (
   user_id uuid references auth.users(id) on delete set null
 );
 
--- ─── Sales — columns sent to Supabase: see SALES_DB_COLUMNS in supabase-bridge.js ───
--- App-only on sales (localStorage): subtotalAud, batchId, productSize, discountType, …
+-- ─── Sales — Supabase insert uses ONLY: id, sale_date, total_amount, customer ───
+-- Full sale details (products, discounts, notes, …) live in localStorage only.
 create table if not exists public.sales (
   id text primary key,
-  product_id text references public.products(id) on delete set null,
-  product_name text,
-  product_code text,
-  product_color text,
-  product_style text default 'classic',
-  quantity integer not null default 1,
-  unit_price_aud numeric(12,2) not null default 0,
-  unit_cost_aud numeric(12,2) not null default 0,
-  line_total_aud numeric(12,2),
-  customer text,
-  payment text,
-  sale_source text default 'in_store',
-  payment_method text default 'cash',
-  invoice_number text,
-  returned boolean not null default false,
-  notes text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  created_by text,
-  user_id uuid references auth.users(id) on delete set null
+  sale_date timestamptz not null default now(),
+  total_amount numeric(12,2) not null default 0,
+  customer text
 );
 
-create index if not exists sales_created_at_idx on public.sales (created_at desc);
-create index if not exists sales_user_id_idx on public.sales (user_id);
+create index if not exists sales_sale_date_idx on public.sales (sale_date desc);
 
 -- ─── Expenses ───
 create table if not exists public.expenses (

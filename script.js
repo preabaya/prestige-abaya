@@ -3008,6 +3008,16 @@ function reportCloudSaveError(action, result) {
   showToast(`${action}: ${detail}`, 'error');
 }
 
+/** Supabase `sales` insert — only: id, sale_date, total_amount, customer */
+function buildSupabaseSalePayload({ id, saleDate, totalAmount, customer }) {
+  return {
+    id,
+    saleDate: saleDate || new Date().toISOString(),
+    totalAmount: CurrencyEngine.round(Number(totalAmount) || 0),
+    customer: (customer || '').trim() || 'POS Guest',
+  };
+}
+
 /** Attach created_by + timestamptz fields for local state and Supabase rows */
 function withRecordTimestamps(record, { isNew = false } = {}) {
   const now = new Date().toISOString();
@@ -5524,14 +5534,20 @@ async function saveSale(data, options = {}) {
     notes: data.notes || '',
   }, { isNew: true });
 
-  const productAfter = withRecordTimestamps(
-    { ...p, quantity: p.quantity - qty },
-    { isNew: false }
-  );
-  const cloud = await DataStore.cloudInsertSale(sale, productAfter);
-  if (DataStore.usesCloud() && !cloud.ok) {
-    reportCloudSaveError('Sale save', cloud);
-    return;
+  if (DataStore.usesCloud()) {
+    const cloud = await DataStore.cloudInsertSale(
+      buildSupabaseSalePayload({
+        id: sale.id,
+        saleDate: sale.createdAt,
+        totalAmount: sale.lineTotalAud,
+        customer: sale.customer,
+      }),
+      null
+    );
+    if (!cloud.ok) {
+      reportCloudSaveError('Sale save', cloud);
+      return;
+    }
   }
 
   state.sales.unshift(sale);
@@ -5753,9 +5769,11 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
     const lineSub = line.lineSubtotal ?? CurrencyEngine.round(line.unitPrice * line.qty + (line.extraShipping || 0));
     const lineTotal = line.lineTotal ?? lineSub;
     const lineCustomer = (line.customer || batchCustomer).trim() || batchCustomer;
-    // Supabase insert: SupabaseBridge.saleToRow() — only SALES_DB_COLUMNS (extras stay local)
-    const sale = withRecordTimestamps({
-      id: uid(),
+    const saleId = uid();
+    const saleDate = new Date().toISOString();
+
+    const localSale = withRecordTimestamps({
+      id: saleId,
       productId: line.productId,
       productName: p.name,
       productCode: p.code,
@@ -5781,19 +5799,23 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
       notes: `سلة POS · ${invoiceNumber}`,
     }, { isNew: true });
 
-    const productAfter = withRecordTimestamps(
-      { ...p, quantity: p.quantity - line.qty },
-      { isNew: false }
-    );
-    const cloud = await DataStore.cloudInsertSale(sale, productAfter);
-    if (DataStore.usesCloud() && !cloud.ok) {
-      reportCloudSaveError('POS sale', cloud);
-      return false;
+    if (DataStore.usesCloud()) {
+      const supabaseSale = buildSupabaseSalePayload({
+        id: saleId,
+        saleDate,
+        totalAmount: lineTotal,
+        customer: lineCustomer,
+      });
+      const cloud = await DataStore.cloudInsertSale(supabaseSale, null);
+      if (!cloud.ok) {
+        reportCloudSaveError('POS sale', cloud);
+        return false;
+      }
     }
 
-    state.sales.unshift(sale);
+    state.sales.unshift(localSale);
     p.quantity -= line.qty;
-    created.push(sale);
+    created.push(localSale);
   }
 
   await DataStore.save();

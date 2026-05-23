@@ -13,33 +13,8 @@ let _sharedConfigKey = null;
 /** @type {Promise<{ ok: boolean, user?: object, session?: object, error?: string }> | null} */
 let _authReadyPromise = null;
 
-/**
- * Columns that exist on live Supabase tables.
- * App-only fields (batchId, discountType, subtotalAud, productSize, …) stay in localStorage only.
- */
-const SALES_DB_COLUMNS = [
-  'id',
-  'product_id',
-  'product_name',
-  'product_code',
-  'product_color',
-  'product_style',
-  'quantity',
-  'unit_price_aud',
-  'unit_cost_aud',
-  'line_total_aud',
-  'customer',
-  'payment',
-  'sale_source',
-  'payment_method',
-  'invoice_number',
-  'returned',
-  'notes',
-  'created_at',
-  'updated_at',
-  'created_by',
-  'user_id',
-];
+/** Live Supabase `sales` table — insert payload is limited to these columns only */
+const SALES_DB_COLUMNS = ['id', 'sale_date', 'total_amount', 'customer'];
 
 const PRODUCTS_DB_COLUMNS = [
   'id',
@@ -324,90 +299,37 @@ const SupabaseBridge = {
     return pickDbColumns(draft, PRODUCTS_DB_COLUMNS);
   },
 
-  /** Ensure numeric totals for cloud insert (app may store extras only locally) */
-  normalizeSaleForCloud(sale) {
-    const qty = Math.max(1, parseInt(sale.quantity, 10) || 1);
-    const unitPriceAud = Number(sale.unitPriceAud) || 0;
-    const lineTotalAud = sale.lineTotalAud != null
-      ? Number(sale.lineTotalAud)
-      : roundAud(unitPriceAud * qty);
-    return {
-      ...sale,
-      quantity: qty,
-      unitPriceAud,
-      unitCostAud: Number(sale.unitCostAud) || 0,
-      lineTotalAud,
-    };
-  },
-
+  /** Minimal sales row for Supabase insert — only id, sale_date, total_amount, customer */
   saleToRow(sale) {
-    const s = this.normalizeSaleForCloud(sale);
-    const draft = {
-      id: s.id,
-      product_id: s.productId ?? null,
-      product_name: s.productName ?? null,
-      product_code: s.productCode ?? null,
-      product_color: s.productColor ?? null,
-      product_style: s.productStyle || 'classic',
-      quantity: s.quantity,
-      unit_price_aud: s.unitPriceAud,
-      unit_cost_aud: s.unitCostAud,
-      line_total_aud: s.lineTotalAud,
-      customer: (s.customer != null && String(s.customer).trim())
-        ? String(s.customer).trim()
+    const total = roundAud(
+      sale.totalAmount ?? sale.lineTotalAud ?? sale.total_amount ?? 0
+    );
+    const row = {
+      id: sale.id,
+      sale_date: timestamptzForWrite(sale.saleDate ?? sale.createdAt ?? new Date()),
+      total_amount: total,
+      customer: (sale.customer != null && String(sale.customer).trim())
+        ? String(sale.customer).trim()
         : 'POS Guest',
-      payment: s.payment ?? '—',
-      sale_source: s.saleSource || 'in_store',
-      payment_method: s.paymentMethod || 'cash',
-      invoice_number: (s.invoiceNumber != null && String(s.invoiceNumber).trim())
-        ? String(s.invoiceNumber).trim()
-        : null,
-      returned: !!s.returned,
-      notes: s.notes || '',
-      user_id: this.userId(),
-      ...this.auditRowFields(s),
     };
-    this.applyTimestampsToRow(draft, s, SALES_DB_COLUMNS, { includeUpdated: true });
-    return pickDbColumns(draft, SALES_DB_COLUMNS);
+    return pickDbColumns(row, SALES_DB_COLUMNS);
   },
 
   rowToSale(row) {
-    const qty = row.quantity ?? 1;
-    const unitPrice = Number(row.unit_price_aud) || 0;
-    const lineTotal = row.line_total_aud != null
-      ? Number(row.line_total_aud)
-      : unitPrice * qty;
-    const sale = {
+    const total = Number(row.total_amount) || 0;
+    const saleDate = timestamptzFromDb(row.sale_date);
+    return {
       id: row.id,
-      productId: row.product_id,
-      productName: row.product_name,
-      productCode: row.product_code,
-      productColor: row.product_color,
-      productStyle: row.product_style,
-      quantity: qty,
-      unitPriceAud: unitPrice,
-      unitCostAud: Number(row.unit_cost_aud) || 0,
-      lineTotalAud: lineTotal,
       customer: row.customer,
-      payment: row.payment,
-      saleSource: row.sale_source,
-      paymentMethod: row.payment_method,
-      invoiceNumber: row.invoice_number,
-      returned: row.returned,
-      notes: row.notes,
-      createdAt: timestamptzFromDb(row.created_at),
-      updatedAt: timestamptzFromDb(row.updated_at),
-      createdBy: row.created_by,
-      createdByUserId: row.user_id,
+      totalAmount: total,
+      lineTotalAud: total,
+      createdAt: saleDate,
+      saleDate,
+      quantity: 1,
+      unitPriceAud: total,
+      unitCostAud: 0,
+      returned: false,
     };
-    if (row.subtotal_aud != null) sale.subtotalAud = Number(row.subtotal_aud);
-    if (row.product_size != null) sale.productSize = row.product_size;
-    if (row.batch_id != null) sale.batchId = row.batch_id;
-    if (row.discount_type != null) sale.discountType = row.discount_type;
-    if (row.discount_value != null) sale.discountValue = Number(row.discount_value);
-    if (row.extra_shipping_aud != null) sale.extraShipping = Number(row.extra_shipping_aud);
-    if (row.returned_at != null) sale.returnedAt = timestamptzFromDb(row.returned_at);
-    return sale;
   },
 
   async fetchSales() {
