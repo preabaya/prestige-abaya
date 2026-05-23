@@ -1,0 +1,6 @@
+# Supabase local / deploy config (minimal)
+# See: https://supabase.com/docs/guides/functions/function-configuration
+
+[functions.generate-morning-report]
+# Set false when invoking from pg_cron with x-cron-secret only
+verify_jwt = true
