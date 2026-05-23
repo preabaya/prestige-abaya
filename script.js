@@ -6028,28 +6028,27 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
         return false;
       }
 
-      const row = tagSalesInsertWithTenant(
-        buildSalesInsertRow({
-          id: saleId,
-          createdAt: localSale.createdAt,
-          customerName: lineCustomer,
-          productName: p.name,
-          price: CurrencyEngine.round(lineTotal / line.qty),
-          quantity: parseInt(line.qty, 10) || 1,
-          createdBy,
-          invoiceNumber,
-          lineTotalAud: lineTotal,
-          batchId: batchIdForCloud,
-          status: 'completed',
-          tenantId: currentTenantId,
-        }),
-        currentTenantId
-      );
+      const row = buildSalesInsertRow({
+        id: saleId,
+        createdAt: localSale.createdAt,
+        customerName: lineCustomer,
+        productName: p.name,
+        price: CurrencyEngine.round(lineTotal / line.qty),
+        quantity: parseInt(line.qty, 10) || 1,
+        createdBy,
+        invoiceNumber,
+        lineTotalAud: lineTotal,
+        batchId: batchIdForCloud,
+        status: 'completed',
+      });
 
-      const cloud = await SupabaseBridge.insertSaleRow(row);
+      const cloud = await SupabaseBridge.secureInsert('sales', row);
       if (!cloud.ok) {
         reportCloudSaveError('POS sale', cloud);
         return false;
+      }
+      if (cloud.anomaly) {
+        showToast('Anomaly alert logged for unusually high sale amount', 'warning');
       }
     }
 

@@ -6,6 +6,12 @@
  * Single shared Supabase client (singleton) — avoids multiple GoTrueClient instances.
  */
 const PRESTIGE_SUPABASE_AUTH_STORAGE_KEY = 'prestige-abaya-supabase-auth';
+const CURRENT_TENANT_STORAGE_KEY = 'current_tenant_id';
+
+const SECURE_INSERT_TABLES = new Set(['sales', 'products']);
+const SALES_ANOMALY_AVG_MULTIPLIER = 3;
+const SALES_ANOMALY_RECENT_COUNT = 10;
+const SALES_ANOMALY_MIN_SAMPLES = 3;
 
 /** @type {import('@supabase/supabase-js').SupabaseClient | null} */
 let _sharedClient = null;
@@ -521,7 +527,117 @@ const SupabaseBridge = {
     return { ok: true, data: (data || []).map((r) => this.rowToSale(r)) };
   },
 
-  async insertSaleRow(row) {
+  getStoredTenantId() {
+    try {
+      const tid = localStorage.getItem(CURRENT_TENANT_STORAGE_KEY);
+      return tid && String(tid).trim() ? String(tid).trim() : null;
+    } catch {
+      return null;
+    }
+  },
+
+  saleAmountFromRow(row) {
+    return roundAud(
+      row?.line_total_aud ?? row?.total_amount ?? row?.lineTotalAud ?? row?.totalAmount ?? 0
+    );
+  },
+
+  async fetchRecentSaleAmounts(tenantId, limit = SALES_ANOMALY_RECENT_COUNT) {
+    const client = this.getClient();
+    if (!client || !tenantId) return [];
+
+    const { data, error } = await client
+      .from('sales')
+      .select('line_total_aud, total_amount')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.warn('[secureInsert] Recent sales lookup:', error.message);
+      return [];
+    }
+
+    return (data || [])
+      .map((r) => this.saleAmountFromRow(r))
+      .filter((n) => Number.isFinite(n) && n > 0);
+  },
+
+  async logAiAlert({ tenantId, alertType, message, tableName, recordId, severity, metadata }) {
+    const client = this.getClient();
+    if (!client || !tenantId) return { ok: false, error: 'No client or tenant' };
+
+    const { error } = await client.from('ai_alerts').insert({
+      tenant_id: tenantId,
+      alert_type: alertType,
+      severity: severity || 'warning',
+      table_name: tableName || null,
+      record_id: recordId != null ? String(recordId) : null,
+      message,
+      metadata: metadata || {},
+    });
+
+    if (error) {
+      console.warn('[secureInsert] ai_alerts insert:', error.message);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  },
+
+  /** Pre-save hook: flag sales totals > 3× tenant's recent average */
+  async preSaveHookSales(payload, tenantId) {
+    const amount = this.saleAmountFromRow(payload);
+    if (!Number.isFinite(amount) || amount <= 0) return { ok: true };
+
+    const recent = await this.fetchRecentSaleAmounts(tenantId);
+    if (recent.length < SALES_ANOMALY_MIN_SAMPLES) return { ok: true };
+
+    const average = recent.reduce((sum, n) => sum + n, 0) / recent.length;
+    const threshold = average * SALES_ANOMALY_AVG_MULTIPLIER;
+
+    if (amount <= threshold) return { ok: true };
+
+    const message = `Anomaly Alert: sale amount ${amount} AUD exceeds ${SALES_ANOMALY_AVG_MULTIPLIER}× recent average (${roundAud(average)} AUD, last ${recent.length} sales)`;
+    console.warn('[AI]', message);
+
+    await this.logAiAlert({
+      tenantId,
+      alertType: 'sales_amount_anomaly',
+      message,
+      tableName: 'sales',
+      recordId: payload.id,
+      severity: 'warning',
+      metadata: {
+        amount,
+        average: roundAud(average),
+        threshold: roundAud(threshold),
+        multiplier: SALES_ANOMALY_AVG_MULTIPLIER,
+        sampleSize: recent.length,
+      },
+    });
+
+    return { ok: true, anomaly: true, message };
+  },
+
+  async runPreSaveHooks(table, payload, tenantId) {
+    if (table === 'sales') {
+      return this.preSaveHookSales(payload, tenantId);
+    }
+    return { ok: true };
+  },
+
+  /**
+   * Tenant-scoped insert with pre-save hooks (sales anomaly → ai_alerts).
+   * @param {string} table
+   * @param {object} data
+   * @returns {Promise<{ ok: boolean, data?: object, error?: string, anomaly?: boolean }>}
+   */
+  async secureInsert(table, data) {
+    const tableName = String(table || '').trim();
+    if (!SECURE_INSERT_TABLES.has(tableName)) {
+      return { ok: false, error: `secureInsert not allowed for table: ${tableName}` };
+    }
+
     const client = this.getClient();
     if (!client) return { ok: false, error: 'No client' };
 
@@ -530,18 +646,33 @@ const SupabaseBridge = {
       return { ok: false, error: 'Not authenticated — enable Anonymous sign-in in Supabase Auth' };
     }
 
-    const payload = { ...row };
-    const tenantId = payload.tenant_id ?? this.tenantId();
-    if (tenantId) payload.tenant_id = String(tenantId);
+    const tenantId = this.getStoredTenantId();
+    if (!tenantId) {
+      return { ok: false, error: 'Missing current_tenant_id in localStorage — sign in again' };
+    }
 
-    const { data, error } = await client
-      .from('sales')
+    const payload = { ...data, tenant_id: tenantId };
+
+    const hookResult = await this.runPreSaveHooks(tableName, payload, tenantId);
+
+    const { data: inserted, error } = await client
+      .from(tableName)
       .insert(payload)
       .select()
       .single();
 
     if (error) return { ok: false, error: error.message };
-    return { ok: true, sale: this.rowToSale(data) };
+
+    const result = { ok: true, data: inserted };
+    if (tableName === 'sales') {
+      result.sale = this.rowToSale(inserted);
+    }
+    if (hookResult.anomaly) result.anomaly = true;
+    return result;
+  },
+
+  async insertSaleRow(row) {
+    return this.secureInsert('sales', row);
   },
 
   async insertSale(sale) {

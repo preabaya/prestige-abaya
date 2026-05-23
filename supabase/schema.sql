@@ -59,6 +59,22 @@ create table if not exists public.sales (
 create index if not exists products_tenant_id_idx on public.products (tenant_id);
 create index if not exists sales_tenant_id_idx on public.sales (tenant_id);
 
+-- ─── AI alerts (fraud / anomaly detection) ───
+create table if not exists public.ai_alerts (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants (id) on delete cascade,
+  alert_type text not null,
+  severity text not null default 'warning',
+  table_name text,
+  record_id text,
+  message text not null,
+  metadata jsonb default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists ai_alerts_tenant_created_idx
+  on public.ai_alerts (tenant_id, created_at desc);
+
 -- ─── Expenses ───
 create table if not exists public.expenses (
   id text primary key,
@@ -122,6 +138,7 @@ grant execute on function public.current_tenant_id() to anon, authenticated;
 alter table public.profiles enable row level security;
 alter table public.products enable row level security;
 alter table public.sales enable row level security;
+alter table public.ai_alerts enable row level security;
 alter table public.expenses enable row level security;
 alter table public.app_settings enable row level security;
 
@@ -148,6 +165,11 @@ create policy "products_tenant_update" on public.products
   with check (tenant_id = public.current_tenant_id());
 create policy "products_tenant_delete" on public.products
   for delete using (tenant_id = public.current_tenant_id());
+
+create policy "ai_alerts_tenant_select" on public.ai_alerts
+  for select using (tenant_id = public.current_tenant_id());
+create policy "ai_alerts_tenant_insert" on public.ai_alerts
+  for insert with check (tenant_id = public.current_tenant_id());
 
 create policy "expenses_select_own" on public.expenses for select using (auth.uid() = user_id);
 create policy "expenses_insert_own" on public.expenses for insert with check (auth.uid() = user_id);
