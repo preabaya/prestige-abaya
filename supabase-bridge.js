@@ -298,6 +298,30 @@ const SupabaseBridge = {
   },
 
   /**
+   * Read tenant_id from public.profiles for the signed-in user.
+   * @returns {Promise<{ ok: boolean, tenantId?: string, error?: string }>}
+   */
+  async fetchProfileTenantId() {
+    const userId = this.userId();
+    if (!userId) return { ok: false, error: 'Not authenticated' };
+
+    const client = this.getClient();
+    if (!client) return { ok: false, error: 'No client' };
+
+    const { data, error } = await client
+      .from('profiles')
+      .select('tenant_id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) return { ok: false, error: error.message };
+    if (!data?.tenant_id) {
+      return { ok: false, error: 'No tenant_id on user profile' };
+    }
+    return { ok: true, tenantId: String(data.tenant_id) };
+  },
+
+  /**
    * Persist tenant on profiles so current_tenant_id() matches session for RLS.
    * @param {string} tenantId
    */

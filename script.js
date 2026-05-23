@@ -6,6 +6,7 @@
 const BASE_CURRENCY = 'AUD';
 const STORAGE_KEY = 'prestige-abaya-v3';
 const AUTH_SESSION_KEY = 'prestige-abaya-auth-session';
+const CURRENT_TENANT_KEY = 'current_tenant_id';
 const SIMPLE_AUTH_KEY = 'loggedIn';
 const AUTH_BOOTSTRAP = { username: 'Louay', password: 'Louay2019@' };
 /** true = no login screen; app opens as guest (Supabase uses anonymous auth when enabled) */
@@ -1030,8 +1031,54 @@ const AuthSystem = {
     return cfg.defaultTenantId || null;
   },
 
-  /** Tenant id from the active login session (preferred for Supabase inserts) */
+  getStoredTenantId() {
+    try {
+      const tid = localStorage.getItem(CURRENT_TENANT_KEY);
+      return tid && String(tid).trim() ? String(tid).trim() : null;
+    } catch {
+      return null;
+    }
+  },
+
+  setStoredTenantId(tenantId) {
+    if (!tenantId) {
+      localStorage.removeItem(CURRENT_TENANT_KEY);
+      return;
+    }
+    const tid = String(tenantId).trim();
+    localStorage.setItem(CURRENT_TENANT_KEY, tid);
+    if (this.session) this.session.tenantId = tid;
+    state.settings.tenantId = tid;
+  },
+
+  clearStoredTenantId() {
+    localStorage.removeItem(CURRENT_TENANT_KEY);
+  },
+
+  /**
+   * Load tenant_id from Supabase profiles for the signed-in user → localStorage.
+   * @returns {Promise<{ ok: boolean, tenantId?: string, error?: string }>}
+   */
+  async loadTenantFromProfile() {
+    if (typeof SupabaseBridge === 'undefined' || !SupabaseBridge.isConfigured()) {
+      return { ok: false, error: 'Supabase not configured' };
+    }
+    const auth = await SupabaseBridge.ensureAuth();
+    if (!auth.ok) return { ok: false, error: auth.error || 'Not authenticated' };
+
+    const profile = await SupabaseBridge.fetchProfileTenantId();
+    if (!profile.ok || !profile.tenantId) {
+      return { ok: false, error: profile.error || 'No tenant_id on user profile' };
+    }
+
+    this.setStoredTenantId(profile.tenantId);
+    return { ok: true, tenantId: profile.tenantId };
+  },
+
+  /** Tenant id from localStorage (set at login from profiles) */
   sessionTenantId() {
+    const stored = this.getStoredTenantId();
+    if (stored) return stored;
     if (this.session?.tenantId) return String(this.session.tenantId);
     const tid = this.ensureTenantId();
     if (tid && this.session) this.session.tenantId = tid;
@@ -1083,10 +1130,12 @@ const AuthSystem = {
     const res = await SupabaseBridge.signIn(email, password);
     if (!res.ok) return { ok: false, error: res.error };
 
-    const tenantId = this.ensureTenantId();
-    if (tenantId) {
-      const profile = await SupabaseBridge.syncTenantProfile(tenantId);
-      if (!profile.ok) console.warn('[Supabase] Tenant profile:', profile.error);
+    const tenantRes = await this.loadTenantFromProfile();
+    if (!tenantRes.ok) {
+      return {
+        ok: false,
+        error: tenantRes.error || 'Could not load tenant_id from profiles table',
+      };
     }
 
     localStorage.setItem(SIMPLE_AUTH_KEY, 'true');
@@ -1103,6 +1152,7 @@ const AuthSystem = {
     if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.getClient()) {
       await SupabaseBridge.signOut();
     }
+    this.clearStoredTenantId();
     localStorage.removeItem(SIMPLE_AUTH_KEY);
     location.reload();
   },
@@ -1118,6 +1168,7 @@ const AuthSystem = {
       this.logoutSupabase();
       return;
     }
+    this.clearStoredTenantId();
     localStorage.removeItem(SIMPLE_AUTH_KEY);
     location.reload();
   },
@@ -1154,13 +1205,23 @@ const AuthSystem = {
     const loginSection = document.getElementById('auth-login');
     if (loginSection) loginSection.hidden = true;
 
-    const tenantId = this.ensureTenantId();
     if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured()) {
       const auth = await SupabaseBridge.ensureAuth();
-      if (!auth.ok) console.warn('[Supabase] Guest auth:', auth.error);
-      else if (tenantId) {
-        const profile = await SupabaseBridge.syncTenantProfile(tenantId);
-        if (!profile.ok) console.warn('[Supabase] Tenant profile:', profile.error);
+      if (!auth.ok) {
+        console.warn('[Supabase] Guest auth:', auth.error);
+      } else {
+        let tenantRes = await this.loadTenantFromProfile();
+        if (!tenantRes.ok) {
+          const fallback = this.ensureTenantId();
+          if (fallback) {
+            const synced = await SupabaseBridge.syncTenantProfile(fallback);
+            if (!synced.ok) console.warn('[Supabase] Tenant profile sync:', synced.error);
+            tenantRes = await this.loadTenantFromProfile();
+          }
+        }
+        if (!tenantRes.ok) {
+          console.warn('[Supabase] Guest tenant:', tenantRes.error);
+        }
       }
     }
 
@@ -3149,6 +3210,26 @@ function tagSalesInsertWithTenant(row, tenantId) {
     ...row,
     tenant_id: String(tenantId),
   });
+}
+
+/** Tenant id persisted at login (profiles → localStorage current_tenant_id) */
+function getCurrentTenantIdForInsert() {
+  try {
+    const tid = localStorage.getItem(CURRENT_TENANT_KEY);
+    if (tid && String(tid).trim()) return String(tid).trim();
+  } catch (e) {
+    console.warn('[Tenant] localStorage read failed:', e);
+  }
+  return null;
+}
+
+function requireCurrentTenantIdForSale() {
+  const tenantId = getCurrentTenantIdForInsert();
+  if (tenantId) return tenantId;
+  const message = 'User is not properly logged in: missing current_tenant_id. Please sign in again.';
+  alert(message);
+  showToast(message, 'error');
+  throw new Error(message);
 }
 
 /** Attach created_by + timestamptz fields for local state and Supabase rows */
@@ -5668,13 +5749,14 @@ async function saveSale(data, options = {}) {
   }, { isNew: true });
 
   if (DataStore.usesCloud()) {
-    const sessionTenantId = UserSession.sessionTenantId();
-    if (!sessionTenantId) {
-      reportCloudSaveError('Sale save', { error: 'Missing tenant_id on user session' });
+    let currentTenantId;
+    try {
+      currentTenantId = requireCurrentTenantIdForSale();
+    } catch {
       return;
     }
     const cloud = await DataStore.cloudInsertSale(
-      { ...sale, tenantId: sessionTenantId, tenant_id: sessionTenantId },
+      { ...sale, tenantId: currentTenantId, tenant_id: currentTenantId },
       null
     );
     if (!cloud.ok) {
@@ -5896,7 +5978,6 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
   const createdBy = UserSession.createdBy();
   const batchCustomer = (options.customer || document.getElementById('pos-customer')?.value || '')
     .trim() || 'POS Guest';
-  const sessionTenantId = UserSession.sessionTenantId();
   const created = [];
 
   for (const line of lines) {
@@ -5934,8 +6015,10 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
     }, { isNew: true });
 
     if (DataStore.usesCloud()) {
-      if (!sessionTenantId) {
-        reportCloudSaveError('POS sale', { error: 'Missing tenant_id on user session' });
+      let currentTenantId;
+      try {
+        currentTenantId = requireCurrentTenantIdForSale();
+      } catch {
         return false;
       }
 
@@ -5958,9 +6041,9 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
           lineTotalAud: lineTotal,
           batchId: batchIdForCloud,
           status: 'completed',
-          tenantId: sessionTenantId,
+          tenantId: currentTenantId,
         }),
-        sessionTenantId
+        currentTenantId
       );
 
       const cloud = await SupabaseBridge.insertSaleRow(row);
