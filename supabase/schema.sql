@@ -54,6 +54,24 @@ create table if not exists public.app_settings (
   user_id uuid references auth.users(id) on delete cascade
 );
 
+-- ─── Schema introspection (client filters inserts to real columns) ───
+create or replace function public.get_table_columns(p_table_name text)
+returns table (column_name text)
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select c.column_name::text
+  from information_schema.columns c
+  where c.table_schema = 'public'
+    and c.table_name = lower(trim(p_table_name))
+  order by c.ordinal_position;
+$$;
+
+revoke all on function public.get_table_columns(text) from public;
+grant execute on function public.get_table_columns(text) to anon, authenticated;
+
 -- ─── Row Level Security (RLS) ───
 alter table public.products enable row level security;
 alter table public.sales enable row level security;

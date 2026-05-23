@@ -13,8 +13,12 @@ let _sharedConfigKey = null;
 /** @type {Promise<{ ok: boolean, user?: object, session?: object, error?: string }> | null} */
 let _authReadyPromise = null;
 
-/** Live Supabase `sales` table — insert payload is limited to these columns only */
-const SALES_DB_COLUMNS = ['id', 'customer', 'total_amount'];
+/** Fallback when get_table_columns RPC is unavailable */
+const SALES_DB_COLUMNS_FALLBACK = ['id', 'customer', 'total_amount'];
+
+/** @type {Map<string, { columns: string[], fetchedAt: number }>} */
+const _tableColumnsCache = new Map();
+const TABLE_COLUMNS_CACHE_MS = 5 * 60 * 1000;
 
 const PRODUCTS_DB_COLUMNS = [
   'id',
@@ -41,6 +45,13 @@ function pickDbColumns(row, allowlist) {
     }
   });
   return out;
+}
+
+function normalizeColumnList(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((r) => (typeof r === 'string' ? r : r?.column_name))
+    .filter(Boolean);
 }
 
 /**
@@ -299,8 +310,11 @@ const SupabaseBridge = {
     return pickDbColumns(draft, PRODUCTS_DB_COLUMNS);
   },
 
-  /** Minimal sales row for Supabase insert — only id, customer, total_amount */
-  saleToRow(sale) {
+  /**
+   * Build a sales insert candidate (may include columns not on every deployment).
+   * Call filterRowToExistingColumns() after getTableColumns('sales').
+   */
+  saleToCandidateRow(sale) {
     const total = roundAud(
       sale.total_amount ?? sale.totalAmount ?? sale.lineTotalAud ?? 0
     );
@@ -311,7 +325,77 @@ const SupabaseBridge = {
         ? String(sale.customer).trim()
         : 'POS Guest',
     };
-    return pickDbColumns(row, SALES_DB_COLUMNS);
+    const saleDate = timestamptzForWrite(
+      sale.sale_date ?? sale.saleDate ?? sale.createdAt ?? sale.created_at
+    );
+    if (saleDate) row.sale_date = saleDate;
+    const createdAt = timestamptzForWrite(sale.created_at ?? sale.createdAt);
+    if (createdAt) row.created_at = createdAt;
+    const userId = sale.user_id ?? sale.userId ?? this.userId();
+    if (userId) row.user_id = userId;
+    const createdBy = sale.created_by ?? sale.createdBy;
+    if (createdBy != null && String(createdBy).trim()) {
+      row.created_by = String(createdBy).trim();
+    }
+    if (sale.invoice_number ?? sale.invoiceNumber) {
+      row.invoice_number = sale.invoice_number ?? sale.invoiceNumber;
+    }
+    return row;
+  },
+
+  filterRowToExistingColumns(row, columns) {
+    const allowed = new Set(
+      Array.isArray(columns) ? columns : normalizeColumnList(columns)
+    );
+    const out = {};
+    Object.keys(row || {}).forEach((key) => {
+      if (allowed.has(key) && row[key] !== undefined) {
+        out[key] = row[key];
+      }
+    });
+    return out;
+  },
+
+  /**
+   * Query information_schema.columns (via RPC) for a public table.
+   * @returns {Promise<{ ok: boolean, columns?: string[], error?: string }>}
+   */
+  async getTableColumns(tableName) {
+    const name = String(tableName || '').trim().toLowerCase();
+    if (!name) return { ok: false, error: 'Table name required' };
+
+    const cached = _tableColumnsCache.get(name);
+    if (cached && Date.now() - cached.fetchedAt < TABLE_COLUMNS_CACHE_MS) {
+      return { ok: true, columns: cached.columns };
+    }
+
+    const client = this.getClient();
+    if (!client) return { ok: false, error: 'No client' };
+
+    const { data, error } = await client.rpc('get_table_columns', {
+      p_table_name: name,
+    });
+
+    if (error) {
+      console.warn('[Supabase] get_table_columns RPC failed, using fallback:', error.message);
+      const fallback = name === 'sales' ? SALES_DB_COLUMNS_FALLBACK : [];
+      if (fallback.length) {
+        _tableColumnsCache.set(name, { columns: fallback, fetchedAt: Date.now() });
+        return { ok: true, columns: fallback, fallback: true };
+      }
+      return { ok: false, error: error.message };
+    }
+
+    const columns = normalizeColumnList(data);
+    if (!columns.length) {
+      return {
+        ok: false,
+        error: `No columns returned for public.${name} — run get_table_columns in Supabase SQL Editor`,
+      };
+    }
+
+    _tableColumnsCache.set(name, { columns, fetchedAt: Date.now() });
+    return { ok: true, columns };
   },
 
   rowToSale(row) {
@@ -344,7 +428,7 @@ const SupabaseBridge = {
     return { ok: true, data: (data || []).map((r) => this.rowToSale(r)) };
   },
 
-  async insertSale(sale) {
+  async insertSaleRow(row) {
     const client = this.getClient();
     if (!client) return { ok: false, error: 'No client' };
 
@@ -353,7 +437,6 @@ const SupabaseBridge = {
       return { ok: false, error: 'Not authenticated — enable Anonymous sign-in in Supabase Auth' };
     }
 
-    const row = this.saleToRow(sale);
     const { data, error } = await client
       .from('sales')
       .insert(row)
@@ -362,6 +445,18 @@ const SupabaseBridge = {
 
     if (error) return { ok: false, error: error.message };
     return { ok: true, sale: this.rowToSale(data) };
+  },
+
+  async insertSale(sale) {
+    const candidate = this.saleToCandidateRow(sale);
+    const columnsRes = await this.getTableColumns('sales');
+    if (!columnsRes.ok) return { ok: false, error: columnsRes.error };
+
+    const row = this.filterRowToExistingColumns(candidate, columnsRes.columns);
+    if (!Object.keys(row).length) {
+      return { ok: false, error: 'No matching columns for sales insert' };
+    }
+    return this.insertSaleRow(row);
   },
 
   async fetchProducts() {
