@@ -37,6 +37,10 @@ function timestamptzFromDb(value) {
  * Never sends locale-specific date strings.
  * @returns {string|undefined}
  */
+function roundAud(n) {
+  return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+
 function timestamptzForWrite(value) {
   if (value == null || value === '') return undefined;
   if (value instanceof Date) {
@@ -265,36 +269,73 @@ const SupabaseBridge = {
     return this.applyTimestampsToRow(row, product, { includeUpdated: true });
   },
 
-  saleToRow(sale) {
-    const row = {
-      id: sale.id,
-      product_id: sale.productId,
-      product_name: sale.productName,
-      product_code: sale.productCode,
-      product_color: sale.productColor,
-      product_style: sale.productStyle || 'classic',
-      quantity: sale.quantity,
-      unit_price_aud: sale.unitPriceAud,
-      unit_cost_aud: sale.unitCostAud,
-      line_total_aud: sale.lineTotalAud ?? sale.unitPriceAud * sale.quantity,
-      customer: (sale.customer != null && String(sale.customer).trim())
-        ? String(sale.customer).trim()
-        : 'POS Guest',
-      payment: sale.payment ?? '—',
-      sale_source: sale.saleSource || 'in_store',
-      payment_method: sale.paymentMethod || 'cash',
-      invoice_number: (sale.invoiceNumber != null && String(sale.invoiceNumber).trim())
-        ? String(sale.invoiceNumber).trim()
-        : null,
-      returned: !!sale.returned,
-      notes: sale.notes || '',
-      user_id: this.userId(),
-      ...this.auditRowFields(sale),
+  /** Normalize sale for cloud insert — ensures totals exist before saleToRow */
+  normalizeSaleForCloud(sale) {
+    const qty = Math.max(1, parseInt(sale.quantity, 10) || 1);
+    const unitPriceAud = Number(sale.unitPriceAud) || 0;
+    const lineTotalAud = sale.lineTotalAud != null
+      ? Number(sale.lineTotalAud)
+      : roundAud(unitPriceAud * qty);
+    const subtotalAud = sale.subtotalAud != null
+      ? Number(sale.subtotalAud)
+      : lineTotalAud;
+    return {
+      ...sale,
+      quantity: qty,
+      unitPriceAud,
+      unitCostAud: Number(sale.unitCostAud) || 0,
+      subtotalAud,
+      lineTotalAud,
+      discountType: sale.discountType || 'none',
+      discountValue: Number(sale.discountValue) || 0,
+      extraShipping: Number(sale.extraShipping) || 0,
     };
-    return this.applyTimestampsToRow(row, sale, { includeUpdated: true });
+  },
+
+  saleToRow(sale) {
+    const s = this.normalizeSaleForCloud(sale);
+    const row = {
+      id: s.id,
+      product_id: s.productId ?? null,
+      product_name: s.productName ?? null,
+      product_code: s.productCode ?? null,
+      product_color: s.productColor ?? null,
+      product_style: s.productStyle || 'classic',
+      product_size: s.productSize ?? null,
+      quantity: s.quantity,
+      unit_price_aud: s.unitPriceAud,
+      unit_cost_aud: s.unitCostAud,
+      subtotal_aud: s.subtotalAud,
+      line_total_aud: s.lineTotalAud,
+      discount_type: s.discountType || 'none',
+      discount_value: s.discountValue ?? 0,
+      extra_shipping_aud: s.extraShipping ?? 0,
+      customer: (s.customer != null && String(s.customer).trim())
+        ? String(s.customer).trim()
+        : 'POS Guest',
+      payment: s.payment ?? '—',
+      sale_source: s.saleSource || 'in_store',
+      payment_method: s.paymentMethod || 'cash',
+      invoice_number: (s.invoiceNumber != null && String(s.invoiceNumber).trim())
+        ? String(s.invoiceNumber).trim()
+        : null,
+      batch_id: s.batchId ?? null,
+      returned: !!s.returned,
+      notes: s.notes || '',
+      user_id: this.userId(),
+      ...this.auditRowFields(s),
+    };
+    const returnedAt = timestamptzForWrite(s.returnedAt);
+    if (returnedAt) row.returned_at = returnedAt;
+    return this.applyTimestampsToRow(row, s, { includeUpdated: true });
   },
 
   rowToSale(row) {
+    const qty = row.quantity ?? 1;
+    const unitPrice = Number(row.unit_price_aud) || 0;
+    const lineTotal = row.line_total_aud != null
+      ? Number(row.line_total_aud)
+      : unitPrice * qty;
     return {
       id: row.id,
       productId: row.product_id,
@@ -302,16 +343,23 @@ const SupabaseBridge = {
       productCode: row.product_code,
       productColor: row.product_color,
       productStyle: row.product_style,
-      quantity: row.quantity,
-      unitPriceAud: Number(row.unit_price_aud),
-      unitCostAud: Number(row.unit_cost_aud),
-      lineTotalAud: row.line_total_aud != null ? Number(row.line_total_aud) : undefined,
+      productSize: row.product_size,
+      quantity: qty,
+      unitPriceAud: unitPrice,
+      unitCostAud: Number(row.unit_cost_aud) || 0,
+      subtotalAud: row.subtotal_aud != null ? Number(row.subtotal_aud) : lineTotal,
+      lineTotalAud: lineTotal,
+      discountType: row.discount_type || 'none',
+      discountValue: row.discount_value != null ? Number(row.discount_value) : 0,
+      extraShipping: row.extra_shipping_aud != null ? Number(row.extra_shipping_aud) : 0,
       customer: row.customer,
       payment: row.payment,
       saleSource: row.sale_source,
       paymentMethod: row.payment_method,
       invoiceNumber: row.invoice_number,
+      batchId: row.batch_id,
       returned: row.returned,
+      returnedAt: timestamptzFromDb(row.returned_at),
       notes: row.notes,
       createdAt: timestamptzFromDb(row.created_at),
       updatedAt: timestamptzFromDb(row.updated_at),

@@ -23,24 +23,31 @@ create table if not exists public.products (
   user_id uuid references auth.users(id) on delete set null
 );
 
--- ─── Sales (orders / invoices) ───
+-- ─── Sales (orders / invoices) — must match SupabaseBridge.saleToRow() ───
 create table if not exists public.sales (
   id text primary key,
   product_id text references public.products(id) on delete set null,
   product_name text,
   product_code text,
   product_color text,
-  product_style text,
+  product_style text default 'classic',
+  product_size text,
   quantity integer not null default 1,
-  unit_price_aud numeric(12,2) not null,
+  unit_price_aud numeric(12,2) not null default 0,
   unit_cost_aud numeric(12,2) not null default 0,
+  subtotal_aud numeric(12,2),
   line_total_aud numeric(12,2),
+  discount_type text default 'none',
+  discount_value numeric(12,2) default 0,
+  extra_shipping_aud numeric(12,2) default 0,
   customer text,
   payment text,
   sale_source text default 'in_store',
   payment_method text default 'cash',
   invoice_number text,
+  batch_id text,
   returned boolean not null default false,
+  returned_at timestamptz,
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -50,6 +57,8 @@ create table if not exists public.sales (
 
 create index if not exists sales_created_at_idx on public.sales (created_at desc);
 create index if not exists sales_user_id_idx on public.sales (user_id);
+create index if not exists sales_invoice_number_idx on public.sales (invoice_number);
+create index if not exists sales_batch_id_idx on public.sales (batch_id);
 
 -- ─── Expenses ───
 create table if not exists public.expenses (
