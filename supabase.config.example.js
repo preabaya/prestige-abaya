@@ -8,4 +8,6 @@ window.SUPABASE_CONFIG = {
   anonKey: 'YOUR_ANON_PUBLIC_KEY',
   /** عند true يُحمَّل/يُحفظ من Supabase بدل localStorage */
   enabled: true,
+  /** UUID من جدول public.tenants — يُربط بالمستخدم عبر profiles.tenant_id لـ RLS */
+  defaultTenantId: '00000000-0000-0000-0000-000000000001',
 };

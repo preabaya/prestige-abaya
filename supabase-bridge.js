@@ -28,6 +28,7 @@ const SALES_DB_COLUMNS_FALLBACK = [
   'line_total_aud',
   'batch_id',
   'status',
+  'tenant_id',
 ];
 
 /** @type {Map<string, { columns: string[], fetchedAt: number }>} */
@@ -49,6 +50,7 @@ const PRODUCTS_DB_COLUMNS = [
   'updated_at',
   'created_by',
   'user_id',
+  'tenant_id',
 ];
 
 function pickDbColumns(row, allowlist) {
@@ -287,6 +289,41 @@ const SupabaseBridge = {
     return this.user?.id ?? null;
   },
 
+  /** Tenant from JWT metadata or synced profile (see syncTenantProfile) */
+  tenantId() {
+    const u = this.user;
+    if (u?.app_metadata?.tenant_id) return String(u.app_metadata.tenant_id);
+    if (u?.user_metadata?.tenant_id) return String(u.user_metadata.tenant_id);
+    return null;
+  },
+
+  /**
+   * Persist tenant on profiles so current_tenant_id() matches session for RLS.
+   * @param {string} tenantId
+   */
+  async syncTenantProfile(tenantId) {
+    const userId = this.userId();
+    if (!userId || !tenantId) return { ok: true, skipped: true };
+
+    const client = this.getClient();
+    if (!client) return { ok: false, error: 'No client' };
+
+    const { error } = await client.from('profiles').upsert(
+      {
+        id: userId,
+        tenant_id: tenantId,
+        display_name: this.user?.user_metadata?.username
+          || this.user?.email?.split('@')[0]
+          || 'user',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' }
+    );
+
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  },
+
   /** Map app audit fields → Supabase column names */
   auditRowFields(entity, fallbackCreatedBy = 'guest') {
     const createdBy = entity?.createdBy ?? entity?.created_by ?? fallbackCreatedBy;
@@ -318,6 +355,7 @@ const SupabaseBridge = {
       quantity: product.quantity,
       image: product.image || null,
       user_id: this.userId(),
+      tenant_id: product.tenant_id ?? product.tenantId ?? this.tenantId(),
       ...this.auditRowFields(product),
     };
     this.applyTimestampsToRow(draft, product, PRODUCTS_DB_COLUMNS, { includeUpdated: true });
@@ -355,6 +393,7 @@ const SupabaseBridge = {
       invoice_number: sale.invoice_number ?? sale.invoiceNumber ?? '',
       line_total_aud: lineTotal,
       status: sale.status ?? (sale.returned ? 'returned' : 'completed'),
+      tenant_id: sale.tenant_id ?? sale.tenantId ?? this.tenantId(),
     };
     const batchRaw = sale.batch_id ?? sale.batchId;
     const batchParsed = parseInt(batchRaw, 10);

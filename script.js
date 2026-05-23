@@ -1016,11 +1016,38 @@ const AuthSystem = {
     return this.current() || '—';
   },
 
+  /** Tenant UUID for multi-tenant RLS (profile, settings, or SUPABASE_CONFIG.defaultTenantId) */
+  tenantId() {
+    if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured()) {
+      const fromAuth = SupabaseBridge.tenantId();
+      if (fromAuth) return fromAuth;
+    }
+    if (this.session?.tenantId) return this.session.tenantId;
+    const user = AuthStore.loadUsers().find((u) => u.id === this.session?.userId);
+    if (user?.tenantId) return user.tenantId;
+    if (state.settings?.tenantId) return state.settings.tenantId;
+    const cfg = window.SUPABASE_CONFIG || {};
+    return cfg.defaultTenantId || null;
+  },
+
+  ensureTenantId() {
+    let tid = this.tenantId();
+    if (!tid && typeof crypto !== 'undefined' && crypto.randomUUID) {
+      tid = crypto.randomUUID();
+      state.settings.tenantId = tid;
+    }
+    if (tid && this.session) this.session.tenantId = tid;
+    return tid;
+  },
+
   auditFields() {
-    return {
+    const fields = {
       createdBy: this.createdBy(),
       createdByUserId: AUTH_SKIP_LOGIN ? 'guest' : (this.isLoggedIn() ? 'louay' : null),
     };
+    const tid = this.tenantId();
+    if (tid) fields.tenantId = tid;
+    return fields;
   },
 
   findUser(login) {
@@ -1047,6 +1074,12 @@ const AuthSystem = {
     }
     const res = await SupabaseBridge.signIn(email, password);
     if (!res.ok) return { ok: false, error: res.error };
+
+    const tenantId = this.ensureTenantId();
+    if (tenantId) {
+      const profile = await SupabaseBridge.syncTenantProfile(tenantId);
+      if (!profile.ok) console.warn('[Supabase] Tenant profile:', profile.error);
+    }
 
     localStorage.setItem(SIMPLE_AUTH_KEY, 'true');
     const name = res.user?.user_metadata?.username
@@ -1113,9 +1146,14 @@ const AuthSystem = {
     const loginSection = document.getElementById('auth-login');
     if (loginSection) loginSection.hidden = true;
 
+    const tenantId = this.ensureTenantId();
     if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured()) {
       const auth = await SupabaseBridge.ensureAuth();
       if (!auth.ok) console.warn('[Supabase] Guest auth:', auth.error);
+      else if (tenantId) {
+        const profile = await SupabaseBridge.syncTenantProfile(tenantId);
+        if (!profile.ok) console.warn('[Supabase] Tenant profile:', profile.error);
+      }
     }
 
     this.updateHeaderUI();
@@ -3023,6 +3061,7 @@ const SALES_TABLE_COLUMNS = [
   'line_total_aud',
   'batch_id',
   'status',
+  'tenant_id',
 ];
 
 function pickSalesInsertColumns(row) {
@@ -3070,6 +3109,7 @@ function buildSalesInsertRow({
   lineTotalAud,
   batchId,
   status,
+  tenantId,
 }) {
   const ts = createdAt || new Date().toISOString();
   const customer = (customerName || '').trim() || 'POS Guest';
@@ -3090,6 +3130,7 @@ function buildSalesInsertRow({
   };
   const batchIdInt = coerceSalesIntegerField(batchId);
   if (batchIdInt != null) row.batch_id = batchIdInt;
+  if (tenantId) row.tenant_id = String(tenantId);
   return pickSalesInsertColumns(row);
 }
 
@@ -5623,6 +5664,7 @@ async function saveSale(data, options = {}) {
         lineTotalAud: sale.lineTotalAud,
         batchId: sale.batchId,
         status: sale.returned ? 'returned' : 'completed',
+        tenantId: UserSession.tenantId(),
       }),
       null
     );
@@ -5845,6 +5887,7 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
   const createdBy = UserSession.createdBy();
   const batchCustomer = (options.customer || document.getElementById('pos-customer')?.value || '')
     .trim() || 'POS Guest';
+  const tenantId = UserSession.ensureTenantId();
   const created = [];
 
   for (const line of lines) {
@@ -5882,6 +5925,11 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
     }, { isNew: true });
 
     if (DataStore.usesCloud()) {
+      if (!tenantId) {
+        reportCloudSaveError('POS sale', { error: 'Missing tenant_id on user profile' });
+        return false;
+      }
+
       const ready = await DataStore._cloudReady();
       if (!ready.ok) {
         reportCloudSaveError('POS sale', ready);
@@ -5900,6 +5948,7 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
         lineTotalAud: lineTotal,
         batchId: batchIdForCloud,
         status: 'completed',
+        tenantId,
       });
 
       const cloud = await SupabaseBridge.insertSaleRow(row);

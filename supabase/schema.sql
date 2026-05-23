@@ -4,6 +4,21 @@
 -- Extensions (usually enabled by default)
 -- create extension if not exists "uuid-ossp";
 
+-- ─── Tenants (multi-store ERP) ───
+create table if not exists public.tenants (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  created_at timestamptz not null default now()
+);
+
+-- ─── Profiles: maps auth.users → tenant_id ───
+create table if not exists public.profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  tenant_id uuid not null references public.tenants (id) on delete restrict,
+  display_name text,
+  updated_at timestamptz not null default now()
+);
+
 -- ─── Products (inventory) ───
 create table if not exists public.products (
   id text primary key,
@@ -16,14 +31,14 @@ create table if not exists public.products (
   price numeric(12,2) not null default 0,
   quantity integer not null default 0,
   image text,
-  -- timestamptz: client sends ISO 8601; omit on insert to use default now()
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   created_by text,
+  tenant_id uuid references public.tenants (id) on delete cascade,
   user_id uuid references auth.users(id) on delete set null
 );
 
--- ─── Sales (verified live columns) ───
+-- ─── Sales (verified live columns + tenant_id) ───
 create table if not exists public.sales (
   id text primary key,
   created_at timestamptz not null default now(),
@@ -37,8 +52,12 @@ create table if not exists public.sales (
   invoice_number text,
   line_total_aud numeric(12,2) not null default 0,
   batch_id text,
-  status text default 'completed'
+  status text default 'completed',
+  tenant_id uuid references public.tenants (id) on delete cascade
 );
+
+create index if not exists products_tenant_id_idx on public.products (tenant_id);
+create index if not exists sales_tenant_id_idx on public.sales (tenant_id);
 
 -- ─── Expenses ───
 create table if not exists public.expenses (
@@ -81,22 +100,54 @@ $$;
 revoke all on function public.get_table_columns(text) from public;
 grant execute on function public.get_table_columns(text) to anon, authenticated;
 
+-- Tenant id for the active session (JWT app_metadata / user_metadata or profiles row)
+create or replace function public.current_tenant_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    nullif(auth.jwt() -> 'app_metadata' ->> 'tenant_id', '')::uuid,
+    nullif(auth.jwt() -> 'user_metadata' ->> 'tenant_id', '')::uuid,
+    (select p.tenant_id from public.profiles p where p.id = auth.uid() limit 1)
+  );
+$$;
+
+revoke all on function public.current_tenant_id() from public;
+grant execute on function public.current_tenant_id() to anon, authenticated;
+
 -- ─── Row Level Security (RLS) ───
+alter table public.profiles enable row level security;
 alter table public.products enable row level security;
 alter table public.sales enable row level security;
 alter table public.expenses enable row level security;
 alter table public.app_settings enable row level security;
 
--- Authenticated users can read/write their own rows (user_id = auth.uid())
-create policy "sales_select_own" on public.sales for select using (auth.uid() = user_id);
-create policy "sales_insert_own" on public.sales for insert with check (auth.uid() = user_id);
-create policy "sales_update_own" on public.sales for update using (auth.uid() = user_id);
-create policy "sales_delete_own" on public.sales for delete using (auth.uid() = user_id);
+create policy "profiles_self" on public.profiles
+  for all using (id = auth.uid()) with check (id = auth.uid());
 
-create policy "products_select_own" on public.products for select using (auth.uid() = user_id);
-create policy "products_insert_own" on public.products for insert with check (auth.uid() = user_id);
-create policy "products_update_own" on public.products for update using (auth.uid() = user_id);
-create policy "products_delete_own" on public.products for delete using (auth.uid() = user_id);
+-- Products & sales: tenant isolation
+create policy "sales_tenant_select" on public.sales
+  for select using (tenant_id = public.current_tenant_id());
+create policy "sales_tenant_insert" on public.sales
+  for insert with check (tenant_id = public.current_tenant_id());
+create policy "sales_tenant_update" on public.sales
+  for update using (tenant_id = public.current_tenant_id())
+  with check (tenant_id = public.current_tenant_id());
+create policy "sales_tenant_delete" on public.sales
+  for delete using (tenant_id = public.current_tenant_id());
+
+create policy "products_tenant_select" on public.products
+  for select using (tenant_id = public.current_tenant_id());
+create policy "products_tenant_insert" on public.products
+  for insert with check (tenant_id = public.current_tenant_id());
+create policy "products_tenant_update" on public.products
+  for update using (tenant_id = public.current_tenant_id())
+  with check (tenant_id = public.current_tenant_id());
+create policy "products_tenant_delete" on public.products
+  for delete using (tenant_id = public.current_tenant_id());
 
 create policy "expenses_select_own" on public.expenses for select using (auth.uid() = user_id);
 create policy "expenses_insert_own" on public.expenses for insert with check (auth.uid() = user_id);
