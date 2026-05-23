@@ -2,9 +2,26 @@
  * Prestige Abaya — Supabase bridge (Auth + database)
  * Requires: @supabase/supabase-js loaded before this file
  * Config: supabase.config.js → window.SUPABASE_CONFIG
+ *
+ * Single shared Supabase client (singleton) — avoids multiple GoTrueClient instances.
  */
+const PRESTIGE_SUPABASE_AUTH_STORAGE_KEY = 'prestige-abaya-supabase-auth';
+
+/** @type {import('@supabase/supabase-js').SupabaseClient | null} */
+let _sharedClient = null;
+let _sharedConfigKey = null;
+/** @type {Promise<{ ok: boolean, user?: object, session?: object, error?: string }> | null} */
+let _authReadyPromise = null;
+
 const SupabaseBridge = {
-  client: null,
+  get client() {
+    return _sharedClient;
+  },
+
+  set client(_) {
+    /* read-only; use getClient() / init() */
+  },
+
   user: null,
 
   isConfigured() {
@@ -12,6 +29,25 @@ const SupabaseBridge = {
     return !!(cfg.url && cfg.anonKey && cfg.enabled !== false);
   },
 
+  _configKey() {
+    const cfg = window.SUPABASE_CONFIG || {};
+    return `${cfg.url || ''}|${cfg.anonKey || ''}`;
+  },
+
+  /**
+   * Returns the singleton client, creating it once if configured.
+   * @returns {import('@supabase/supabase-js').SupabaseClient | null}
+   */
+  getClient() {
+    if (_sharedClient && _sharedConfigKey === this._configKey()) {
+      return _sharedClient;
+    }
+    return this.init() ? _sharedClient : null;
+  },
+
+  /**
+   * Idempotent init — never calls createClient more than once per config.
+   */
   init() {
     if (typeof supabase === 'undefined') {
       console.warn('[Supabase] Load https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
@@ -20,31 +56,91 @@ const SupabaseBridge = {
     const cfg = window.SUPABASE_CONFIG;
     if (!cfg?.url || !cfg?.anonKey) return false;
 
-    this.client = supabase.createClient(cfg.url, cfg.anonKey, {
+    const configKey = this._configKey();
+    if (_sharedClient && _sharedConfigKey === configKey) {
+      return true;
+    }
+
+    if (_sharedClient && _sharedConfigKey !== configKey) {
+      _authReadyPromise = null;
+      _sharedClient = null;
+    }
+
+    _sharedClient = supabase.createClient(cfg.url, cfg.anonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        storageKey: PRESTIGE_SUPABASE_AUTH_STORAGE_KEY,
       },
     });
+    _sharedConfigKey = configKey;
     return true;
   },
 
+  /**
+   * One shared auth bootstrap: restore session or sign in anonymously once.
+   */
+  async ensureAuth() {
+    if (!this.isConfigured()) {
+      return { ok: false, error: 'Supabase not configured' };
+    }
+    if (!this.getClient()) {
+      return { ok: false, error: 'Supabase client unavailable' };
+    }
+    if (this.user?.id) {
+      return { ok: true, user: this.user };
+    }
+    if (_authReadyPromise) {
+      return _authReadyPromise;
+    }
+
+    _authReadyPromise = this._establishAuth();
+    try {
+      return await _authReadyPromise;
+    } catch (err) {
+      _authReadyPromise = null;
+      return { ok: false, error: err?.message || String(err) };
+    }
+  },
+
+  async _establishAuth() {
+    const session = await this.getSession();
+    if (session?.user) {
+      return { ok: true, user: this.user, session };
+    }
+
+    const anon = await this.signInAnonymously();
+    if (!anon.ok) {
+      _authReadyPromise = null;
+      return anon;
+    }
+    await this.getSession();
+    return { ok: true, user: this.user, session: anon.session };
+  },
+
+  resetAuthState() {
+    this.user = null;
+    _authReadyPromise = null;
+  },
+
   async getSession() {
-    if (!this.client) return null;
-    const { data } = await this.client.auth.getSession();
+    const client = this.getClient();
+    if (!client) return null;
+    const { data } = await client.auth.getSession();
     this.user = data.session?.user ?? null;
     return data.session;
   },
 
   /**
    * تسجيل الدخول — Supabase Auth يستخدم البريد الإلكتروني.
-   * يمكنك استخدام: louay@prestige-abaya.com كبريد للمستخدم Louay
    */
   async signIn(email, password) {
-    if (!this.client) return { ok: false, error: 'Supabase not initialized' };
+    const client = this.getClient();
+    if (!client) return { ok: false, error: 'Supabase not initialized' };
 
-    const { data, error } = await this.client.auth.signInWithPassword({
+    _authReadyPromise = null;
+    const { data, error } = await client.auth.signInWithPassword({
       email: (email || '').trim(),
       password: password || '',
     });
@@ -52,13 +148,15 @@ const SupabaseBridge = {
     if (error) return { ok: false, error: error.message };
 
     this.user = data.user;
+    _authReadyPromise = Promise.resolve({ ok: true, user: data.user, session: data.session });
     return { ok: true, user: data.user, session: data.session };
   },
 
   async signUp(email, password, metadata = {}) {
-    if (!this.client) return { ok: false, error: 'Supabase not initialized' };
+    const client = this.getClient();
+    if (!client) return { ok: false, error: 'Supabase not initialized' };
 
-    const { data, error } = await this.client.auth.signUp({
+    const { data, error } = await client.auth.signUp({
       email: (email || '').trim(),
       password: password || '',
       options: { data: metadata },
@@ -69,24 +167,26 @@ const SupabaseBridge = {
   },
 
   async signInAnonymously() {
-    if (!this.client) return { ok: false, error: 'No client' };
-    const { data, error } = await this.client.auth.signInAnonymously();
+    const client = this.getClient();
+    if (!client) return { ok: false, error: 'No client' };
+
+    const { data, error } = await client.auth.signInAnonymously();
     if (error) return { ok: false, error: error.message };
     this.user = data.user;
     return { ok: true, user: data.user, session: data.session };
   },
 
   async signOut() {
-    if (!this.client) return;
-    await this.client.auth.signOut();
-    this.user = null;
+    const client = this.getClient();
+    if (!client) return;
+    await client.auth.signOut();
+    this.resetAuthState();
   },
 
   userId() {
     return this.user?.id ?? null;
   },
 
-  /** تحويل كائن بيع من التطبيق إلى صف Supabase */
   saleToRow(sale) {
     return {
       id: sale.id,
@@ -137,11 +237,11 @@ const SupabaseBridge = {
     };
   },
 
-  /** جلب كل المبيعات للمستخدم الحالي (RLS يفلتر تلقائياً) */
   async fetchSales() {
-    if (!this.client) return { ok: false, data: [], error: 'No client' };
+    const client = this.getClient();
+    if (!client) return { ok: false, data: [], error: 'No client' };
 
-    const { data, error } = await this.client
+    const { data, error } = await client
       .from('sales')
       .select('*')
       .order('created_at', { ascending: false });
@@ -150,12 +250,12 @@ const SupabaseBridge = {
     return { ok: true, data: (data || []).map((r) => this.rowToSale(r)) };
   },
 
-  /** حفظ عملية بيع واحدة في قاعدة البيانات */
   async insertSale(sale) {
-    if (!this.client) return { ok: false, error: 'No client' };
+    const client = this.getClient();
+    if (!client) return { ok: false, error: 'No client' };
 
     const row = this.saleToRow(sale);
-    const { data, error } = await this.client
+    const { data, error } = await client
       .from('sales')
       .insert(row)
       .select()
@@ -166,7 +266,10 @@ const SupabaseBridge = {
   },
 
   async fetchProducts() {
-    const { data, error } = await this.client
+    const client = this.getClient();
+    if (!client) return { ok: false, data: [], error: 'No client' };
+
+    const { data, error } = await client
       .from('products')
       .select('*')
       .order('created_at', { ascending: false });
@@ -192,6 +295,9 @@ const SupabaseBridge = {
   },
 
   async upsertProduct(product) {
+    const client = this.getClient();
+    if (!client) return { ok: false, error: 'No client' };
+
     const row = {
       id: product.id,
       code: product.code,
@@ -207,7 +313,11 @@ const SupabaseBridge = {
       created_by: product.createdBy,
       user_id: this.userId(),
     };
-    const { error } = await this.client.from('products').upsert(row);
+    const { error } = await client.from('products').upsert(row);
     return { ok: !error, error: error?.message };
   },
 };
+
+if (typeof window !== 'undefined') {
+  window.SupabaseBridge = SupabaseBridge;
+}

@@ -1042,7 +1042,7 @@ const AuthSystem = {
 
   /** تسجيل دخول عبر Supabase Auth (بريد + كلمة مرور) */
   async loginWithSupabase(email, password) {
-    if (typeof SupabaseBridge === 'undefined' || !SupabaseBridge.init()) {
+    if (typeof SupabaseBridge === 'undefined' || !SupabaseBridge.getClient()) {
       return { ok: false, error: 'Supabase not configured' };
     }
     const res = await SupabaseBridge.signIn(email, password);
@@ -1059,7 +1059,7 @@ const AuthSystem = {
   },
 
   async logoutSupabase() {
-    if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.client) {
+    if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.getClient()) {
       await SupabaseBridge.signOut();
     }
     localStorage.removeItem(SIMPLE_AUTH_KEY);
@@ -1114,10 +1114,8 @@ const AuthSystem = {
     if (loginSection) loginSection.hidden = true;
 
     if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured()) {
-      SupabaseBridge.init();
-      const anon = await SupabaseBridge.signInAnonymously();
-      if (!anon.ok) console.warn('[Supabase] Anonymous auth:', anon.error);
-      else await SupabaseBridge.getSession();
+      const auth = await SupabaseBridge.ensureAuth();
+      if (!auth.ok) console.warn('[Supabase] Guest auth:', auth.error);
     }
 
     this.updateHeaderUI();
@@ -1133,9 +1131,8 @@ const AuthSystem = {
 
   async ensure() {
     if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured()) {
-      SupabaseBridge.init();
-      const session = await SupabaseBridge.getSession();
-      if (session) localStorage.setItem(SIMPLE_AUTH_KEY, 'true');
+      const auth = await SupabaseBridge.ensureAuth();
+      if (auth.ok) localStorage.setItem(SIMPLE_AUTH_KEY, 'true');
     }
     resetAuthLoginFields();
     this.updateHeaderUI();
@@ -2916,11 +2913,15 @@ const DataStore = {
   },
 
   async _loadSupabase() {
-    if (typeof SupabaseBridge === 'undefined' || !SupabaseBridge.init()) {
+    if (typeof SupabaseBridge === 'undefined' || !SupabaseBridge.getClient()) {
       console.warn('[Supabase] Bridge not ready — using localStorage');
       return this.load();
     }
-    await SupabaseBridge.getSession();
+    const auth = await SupabaseBridge.ensureAuth();
+    if (!auth.ok) {
+      console.warn('[Supabase] Auth failed — using localStorage:', auth.error);
+      return this.load();
+    }
 
     const [salesRes, productsRes] = await Promise.all([
       SupabaseBridge.fetchSales(),
@@ -2935,7 +2936,7 @@ const DataStore = {
   },
 
   async _saveSupabase() {
-    if (typeof SupabaseBridge === 'undefined' || !SupabaseBridge.client) {
+    if (typeof SupabaseBridge === 'undefined' || !SupabaseBridge.getClient()) {
       return this.save();
     }
     /* الحفظ التفصيلي يتم عند كل عملية (insertSale / upsertProduct). */
@@ -5426,17 +5427,20 @@ async function saveSale(data, options = {}) {
   state.sales.unshift(sale);
   p.quantity -= qty;
 
-  // غيّر الشرط مؤقتاً ليكون دائماً true للتجربة
-if (true) { 
-  const cloud = await SupabaseBridge.insertSale(sale);
-  if (!cloud.ok) {
-      console.error('Error from Supabase:', cloud.error);
-      showToast('Supabase save failed', 'error');
-  } else {
-      console.log('Success! Data saved to Supabase');
+  if (DataStore.provider === 'supabase') {
+    const auth = await SupabaseBridge.ensureAuth();
+    if (!auth.ok) {
+      showToast('Supabase auth failed', 'error');
+      console.warn('[Supabase] ensureAuth:', auth.error);
+    } else {
+      const cloud = await SupabaseBridge.insertSale(sale);
+      if (!cloud.ok) {
+        console.error('[Supabase] insertSale:', cloud.error);
+        showToast('Supabase save failed', 'error');
+      }
+      await SupabaseBridge.upsertProduct(p);
+    }
   }
-  await SupabaseBridge.upsertProduct(p);
-}
 
   await DataStore.save();
   ActivityFeed.log({
@@ -8272,7 +8276,7 @@ function seedDemo() {
 }
 
 function initDataProvider() {
-  if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured() && SupabaseBridge.init()) {
+  if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.isConfigured() && SupabaseBridge.getClient()) {
     DataStore.provider = 'supabase';
     if (window.SUPABASE_CONFIG?.url) {
       APP_CONFIG.supabase.url = window.SUPABASE_CONFIG.url;
