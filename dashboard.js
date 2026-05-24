@@ -138,12 +138,12 @@
     const msgEl = $('status-banner-message');
     const titleEl = $('status-banner-title');
     if (!el) return;
-    el.classList.remove('hidden', 'alert-glass--error');
+    el.classList.remove('hidden', 'alert-banner--error');
     if (type === 'warning') {
-      el.classList.remove('alert-glass--error');
+      el.classList.remove('alert-banner--error');
       if (titleEl) titleEl.textContent = title || 'تنبيه';
     } else {
-      el.classList.add('alert-glass--error');
+      el.classList.add('alert-banner--error');
       if (titleEl) titleEl.textContent = title || 'تعذّر الاتصال بقاعدة البيانات';
     }
     if (msgEl) msgEl.textContent = message;
@@ -219,9 +219,10 @@
       salesChart = null;
     }
 
+    const EMERALD_500 = '#10b981';
     const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-    gradient.addColorStop(0, 'rgba(13, 148, 136, 0.22)');
-    gradient.addColorStop(1, 'rgba(13, 148, 136, 0.02)');
+    gradient.addColorStop(0, 'rgba(16, 185, 129, 0.25)');
+    gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
 
     salesChart = new Chart(ctx, {
       type: 'line',
@@ -230,15 +231,15 @@
         datasets: [{
           label: 'الإيرادات (AUD)',
           data: values,
-          borderColor: '#0d9488',
+          borderColor: EMERALD_500,
           backgroundColor: gradient,
           borderWidth: 2.5,
           fill: true,
           tension: 0.35,
           pointRadius: 4,
           pointHoverRadius: 6,
-          pointBackgroundColor: '#b8862e',
-          pointBorderColor: '#fff',
+          pointBackgroundColor: EMERALD_500,
+          pointBorderColor: '#ffffff',
           pointBorderWidth: 2,
         }],
       },
@@ -284,7 +285,7 @@
     const legend = $('chart-legend');
     if (legend) {
       const peak = Math.max(...values, 0);
-      legend.innerHTML = `أعلى يوم: <strong style="color:#b8862e">${formatAud(peak)}</strong>`;
+      legend.innerHTML = `أعلى يوم: <strong class="text-emerald-500" style="color:#10b981">${formatAud(peak)}</strong>`;
     }
   }
 
@@ -352,9 +353,9 @@
       tbody.innerHTML = `
         <tr>
           <td colspan="7" class="dash-empty">
-            <p class="dash-empty__icon" aria-hidden="true">☁️</p>
+            <p class="text-2xl mb-2" aria-hidden="true">☁️</p>
             <p class="dash-empty__title">لا تتوفر بيانات حالياً</p>
-            <p class="text-sm">تحقق من supabase.config.js وسياسات RLS، ثم اضغط «تحديث».</p>
+            <p class="text-sm text-slate-600">تحقق من supabase.config.js وسياسات RLS، ثم اضغط «تحديث».</p>
           </td>
         </tr>
       `;

@@ -9,46 +9,41 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="dashboard.css?v=20260524-light">
+  <link rel="stylesheet" href="dashboard.css?v=20260524-modern-light">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="dashboard-page antialiased min-h-screen">
-  <div class="dashboard-bg" aria-hidden="true">
-    <div class="dashboard-bg__orb dashboard-bg__orb--gold"></div>
-    <div class="dashboard-bg__orb dashboard-bg__orb--teal"></div>
-  </div>
-
+<body class="dashboard-page bg-slate-50 text-slate-900 antialiased min-h-screen">
   <div id="app" class="flex min-h-screen">
-    <div id="sidebar-overlay" class="dash-overlay fixed inset-0 z-40 backdrop-blur-sm lg:hidden hidden" aria-hidden="true"></div>
+    <div id="sidebar-overlay" class="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-sm lg:hidden hidden" aria-hidden="true"></div>
 
-    <aside id="sidebar" class="glass-sidebar fixed inset-y-0 start-0 z-50 w-72 -translate-x-full rtl:translate-x-full lg:translate-x-0 rtl:lg:translate-x-0 flex flex-col transition-transform duration-300 lg:static lg:z-auto">
+    <aside id="sidebar" class="dash-sidebar fixed inset-y-0 start-0 z-50 w-72 -translate-x-full rtl:translate-x-full lg:translate-x-0 rtl:lg:translate-x-0 flex flex-col transition-transform duration-300 lg:static lg:z-auto">
       <div class="flex items-center gap-3 px-6 py-6 border-b border-slate-200">
         <div class="dash-brand__logo" aria-hidden="true">P</div>
         <div>
-          <p class="dash-brand__title">Prestige Abaya</p>
-          <p class="dash-brand__sub">نظام ERP للمبيعات</p>
+          <p class="text-sm font-bold text-slate-900">Prestige Abaya</p>
+          <p class="text-xs text-slate-500">نظام ERP للمبيعات</p>
         </div>
       </div>
 
       <nav class="flex-1 px-3 py-5 space-y-1" aria-label="التنقل الرئيسي">
         <a href="dashboard.html" class="sidebar-link active">
-          <span aria-hidden="true">📊</span>
+          <span class="text-teal-600" aria-hidden="true">📊</span>
           لوحة التحكم
         </a>
         <a href="index.html#sales" class="sidebar-link">
-          <span aria-hidden="true">🛒</span>
+          <span class="text-teal-600" aria-hidden="true">🛒</span>
           المبيعات
         </a>
         <a href="index.html#inventory" class="sidebar-link">
-          <span aria-hidden="true">📦</span>
+          <span class="text-teal-600" aria-hidden="true">📦</span>
           المخزون
         </a>
         <a href="index.html#dashboard" class="sidebar-link">
-          <span aria-hidden="true">📈</span>
+          <span class="text-teal-600" aria-hidden="true">📈</span>
           التقارير
         </a>
         <a href="index.html#settings" class="sidebar-link">
-          <span aria-hidden="true">⚙️</span>
+          <span class="text-teal-600" aria-hidden="true">⚙️</span>
           الإعدادات
         </a>
       </nav>
@@ -59,15 +54,15 @@
     </aside>
 
     <div class="flex flex-1 flex-col min-w-0">
-      <header class="glass-header sticky top-0 z-30">
+      <header class="dash-header-bar sticky top-0 z-30">
         <div class="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div class="flex items-center gap-3 min-w-0">
-            <button type="button" id="sidebar-toggle" class="btn-dash-ghost lg:hidden shrink-0" aria-label="فتح القائمة">
+            <button type="button" id="sidebar-toggle" class="btn-icon lg:hidden shrink-0" aria-label="فتح القائمة">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
             <div class="min-w-0">
-              <h1 class="dash-header__title truncate">لوحة تحكم المبيعات</h1>
-              <p class="dash-header__sub truncate">ملخص مباشر من قاعدة البيانات</p>
+              <h1 class="text-lg sm:text-xl font-bold text-slate-900 truncate">لوحة تحكم المبيعات</h1>
+              <p class="text-xs sm:text-sm text-slate-600 truncate">ملخص مباشر من قاعدة البيانات</p>
             </div>
           </div>
           <div class="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -75,7 +70,7 @@
               <span class="conn-badge__dot" aria-hidden="true"></span>
               <span id="connection-badge-text">متصل</span>
             </span>
-            <button type="button" id="refresh-btn" class="btn-dash-primary">
+            <button type="button" id="refresh-btn" class="btn-teal">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
               <span class="hidden sm:inline">تحديث</span>
             </button>
@@ -83,65 +78,65 @@
         </div>
       </header>
 
-      <main class="dash-main flex-1 space-y-6">
-        <div id="status-banner" class="alert-glass alert-glass--error hidden" role="alert" aria-live="polite">
-          <div class="alert-glass__icon" aria-hidden="true">⚠️</div>
-          <div class="alert-glass__body">
-            <p class="alert-glass__title" id="status-banner-title">تعذّر الاتصال بقاعدة البيانات</p>
-            <p class="alert-glass__text" id="status-banner-message"></p>
+      <main class="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
+        <div id="status-banner" class="alert-banner alert-banner--error hidden" role="alert" aria-live="polite">
+          <div class="text-lg shrink-0" aria-hidden="true">⚠️</div>
+          <div class="flex-1 min-w-0">
+            <p class="alert-banner__title" id="status-banner-title">تعذّر الاتصال بقاعدة البيانات</p>
+            <p class="alert-banner__text" id="status-banner-message"></p>
           </div>
-          <button type="button" id="status-banner-close" class="alert-glass__close" aria-label="إغلاق التنبيه">×</button>
+          <button type="button" id="status-banner-close" class="alert-banner__close" aria-label="إغلاق التنبيه">×</button>
         </div>
 
         <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label="ملخص سريع">
-          <article class="glass-panel glass-panel--gold glass-kpi">
-            <span class="glass-kpi__icon" aria-hidden="true">💰</span>
-            <p class="glass-kpi__label">إجمالي الإيرادات</p>
-            <p id="kpi-revenue" class="glass-kpi__value">—</p>
-            <p class="glass-kpi__hint glass-kpi__hint--gold">AUD · كل المبيعات المحمّلة</p>
+          <article class="dash-card dash-card--kpi bg-white rounded-xl shadow-md">
+            <span class="dash-kpi__icon" aria-hidden="true">💰</span>
+            <p class="dash-kpi__label">إجمالي الإيرادات</p>
+            <p id="kpi-revenue" class="dash-kpi__value">—</p>
+            <p class="dash-kpi__hint dash-kpi__hint--accent">AUD · كل المبيعات المحمّلة</p>
           </article>
-          <article class="glass-panel glass-kpi">
-            <span class="glass-kpi__icon glass-kpi__icon--blue" aria-hidden="true">🧾</span>
-            <p class="glass-kpi__label">عدد العمليات</p>
-            <p id="kpi-count" class="glass-kpi__value">—</p>
-            <p class="glass-kpi__hint">عملية بيع مسجّلة</p>
+          <article class="dash-card dash-card--kpi bg-white rounded-xl shadow-md">
+            <span class="dash-kpi__icon" aria-hidden="true">🧾</span>
+            <p class="dash-kpi__label">عدد العمليات</p>
+            <p id="kpi-count" class="dash-kpi__value">—</p>
+            <p class="dash-kpi__hint">عملية بيع مسجّلة</p>
           </article>
-          <article class="glass-panel glass-kpi">
-            <span class="glass-kpi__icon" aria-hidden="true">📅</span>
-            <p class="glass-kpi__label">آخر 7 أيام</p>
-            <p id="kpi-week-revenue" class="glass-kpi__value">—</p>
-            <p class="glass-kpi__hint">إيرادات الأسبوع</p>
+          <article class="dash-card dash-card--kpi bg-white rounded-xl shadow-md">
+            <span class="dash-kpi__icon" aria-hidden="true">📅</span>
+            <p class="dash-kpi__label">آخر 7 أيام</p>
+            <p id="kpi-week-revenue" class="dash-kpi__value">—</p>
+            <p class="dash-kpi__hint">إيرادات الأسبوع</p>
           </article>
-          <article class="glass-panel glass-kpi">
-            <span class="glass-kpi__icon glass-kpi__icon--blue" aria-hidden="true">📊</span>
-            <p class="glass-kpi__label">متوسط قيمة الطلب</p>
-            <p id="kpi-avg" class="glass-kpi__value">—</p>
-            <p class="glass-kpi__hint">AUD لكل عملية</p>
+          <article class="dash-card dash-card--kpi bg-white rounded-xl shadow-md">
+            <span class="dash-kpi__icon" aria-hidden="true">📊</span>
+            <p class="dash-kpi__label">متوسط قيمة الطلب</p>
+            <p id="kpi-avg" class="dash-kpi__value">—</p>
+            <p class="dash-kpi__hint">AUD لكل عملية</p>
           </article>
         </section>
 
-        <section class="glass-panel glass-panel--accent p-5 sm:p-6">
+        <section class="dash-card bg-white rounded-xl shadow-md p-5 sm:p-6">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
             <div>
-              <h2 class="dash-section__title">مبيعات آخر 7 أيام</h2>
-              <p class="dash-section__sub">إجمالي الإيرادات اليومية (AUD)</p>
+              <h2 class="text-base sm:text-lg font-bold text-slate-900">مبيعات آخر 7 أيام</h2>
+              <p class="text-sm text-slate-600 mt-0.5">إجمالي الإيرادات اليومية (AUD)</p>
             </div>
-            <div id="chart-legend" class="text-xs text-slate-400"></div>
+            <div id="chart-legend" class="text-xs text-slate-600"></div>
           </div>
           <div class="chart-wrap">
             <canvas id="sales-chart" role="img" aria-label="رسم بياني خطي لمبيعات آخر سبعة أيام"></canvas>
           </div>
         </section>
 
-        <section class="glass-panel glass-table-wrap">
+        <section class="dash-card bg-white rounded-xl shadow-md overflow-hidden">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 sm:px-6 py-5 border-b border-slate-200">
             <div>
-              <h2 class="dash-section__title">آخر 10 عمليات بيع</h2>
-              <p class="dash-section__sub">من جدول <code>sales</code> في Supabase</p>
+              <h2 class="text-base sm:text-lg font-bold text-slate-900">آخر 10 عمليات بيع</h2>
+              <p class="text-sm text-slate-600 mt-0.5">من جدول <code class="text-teal-600 font-semibold">sales</code> في Supabase</p>
             </div>
-            <span id="table-updated" class="text-xs text-slate-600"></span>
+            <span id="table-updated" class="text-xs text-slate-500"></span>
           </div>
-          <div class="glass-table-scroll">
+          <div class="dash-table-scroll">
             <table class="dash-table" aria-label="آخر المبيعات">
               <thead>
                 <tr>
@@ -156,15 +151,15 @@
               </thead>
               <tbody id="sales-tbody">
                 <tr>
-                  <td colspan="7" class="dash-empty">جاري تحميل البيانات…</td>
+                  <td colspan="7" class="dash-empty text-slate-600">جاري تحميل البيانات…</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <div id="table-empty" class="dash-empty hidden">
-            <p class="dash-empty__icon" aria-hidden="true">📭</p>
+            <p class="text-2xl mb-2" aria-hidden="true">📭</p>
             <p class="dash-empty__title">لا توجد مبيعات لعرضها</p>
-            <p class="text-sm">ستظهر العمليات هنا عند توفر بيانات في Supabase.</p>
+            <p class="text-sm text-slate-600">ستظهر العمليات هنا عند توفر بيانات في Supabase.</p>
           </div>
         </section>
       </main>
@@ -178,6 +173,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="supabase.config.js"></script>
-  <script src="dashboard.js?v=20260524-light"></script>
+  <script src="dashboard.js?v=20260524-modern-light"></script>
 </body>
 </html>
