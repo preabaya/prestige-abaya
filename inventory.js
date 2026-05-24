@@ -97,7 +97,7 @@
   async function fetchInventory() {
     let query = supabase
       .from(TABLE)
-      .select('id, product_name, stock_quantity, min_threshold, cost_price, selling_price, last_updated, tenant_id')
+      .select('*')
       .order('product_name', { ascending: true });
 
     const tenantId = getTenantId();
