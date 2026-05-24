@@ -27,6 +27,10 @@
   }
 
   function initSupabase() {
+    if (window.DbHelper?.getClient) {
+      const client = window.DbHelper.getClient();
+      if (client) return client;
+    }
     const cfg = getConfig();
     if (!cfg.url || !cfg.anonKey) {
       throw new Error('أكمل إعداد supabase.config.js (url و anonKey)');

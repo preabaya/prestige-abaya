@@ -180,6 +180,14 @@ const SupabaseBridge = {
    * @returns {import('@supabase/supabase-js').SupabaseClient | null}
    */
   getClient() {
+    if (typeof window !== 'undefined' && window.DbHelper?.getClient) {
+      const shared = window.DbHelper.getClient();
+      if (shared) {
+        _sharedClient = shared;
+        _sharedConfigKey = this._configKey();
+        return shared;
+      }
+    }
     if (_sharedClient && _sharedConfigKey === this._configKey()) {
       return _sharedClient;
     }
@@ -190,6 +198,14 @@ const SupabaseBridge = {
    * Idempotent init — never calls createClient more than once per config.
    */
   init() {
+    if (typeof window !== 'undefined' && window.DbHelper?.getClient) {
+      const shared = window.DbHelper.getClient();
+      if (shared) {
+        _sharedClient = shared;
+        _sharedConfigKey = this._configKey();
+        return true;
+      }
+    }
     if (typeof supabase === 'undefined') {
       console.warn('[Supabase] Load https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
       return false;
