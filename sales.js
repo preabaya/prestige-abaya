@@ -1,6 +1,6 @@
 /**
  * Prestige Abaya — Sales tab bootstrap (#sales)
- * Requires: supabase.config.js, supabase-bridge.js, script.js (loaded before this file)
+ * Requires: supabase.config.js, db-helper.js, supabase-bridge.js, script.js
  */
 (function () {
   'use strict';
@@ -64,6 +64,23 @@
     });
   }
 
+  async function loadCatalog() {
+    if (typeof window.loadInventoryForSales === 'function') {
+      await window.loadInventoryForSales();
+      return;
+    }
+    if (typeof DbHelper !== 'undefined' && typeof DbHelper.getProducts === 'function') {
+      const res = await DbHelper.getProducts();
+      if (!res.ok) {
+        console.warn('[Sales] DbHelper.getProducts:', res.error);
+        return;
+      }
+      if (typeof window.populateSaleSelect === 'function') {
+        window.populateSaleSelect();
+      }
+    }
+  }
+
   async function ensureSalesShell() {
     if (typeof window.renderApp === 'function') {
       window.renderApp(SALES_TAB);
@@ -79,11 +96,7 @@
       section.classList.add('panel--active');
     }
 
-    if (typeof window.loadInventoryForSales === 'function') {
-      await window.loadInventoryForSales();
-    } else if (typeof window.populateSaleSelect === 'function') {
-      window.populateSaleSelect();
-    }
+    await loadCatalog();
   }
 
   async function boot() {
@@ -99,9 +112,7 @@
 
     if (!isConfigReady()) showConfigBanner();
 
-    if (typeof window.loadInventoryForSales === 'function') {
-      await window.loadInventoryForSales();
-    }
+    await loadCatalog();
   }
 
   window.PrestigeSalesPage = {
