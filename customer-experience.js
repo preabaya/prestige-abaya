@@ -104,6 +104,74 @@
   }
 
   /**
+   * Tenant-wide average customer satisfaction from all feedback.
+   */
+  async function getOverallCustomerSatisfaction() {
+    const client = getClient();
+    if (!client) {
+      return { ok: false, error: 'Supabase غير مهيأ', averageRating: null, feedbackCount: 0 };
+    }
+
+    const tenantId = resolveTenantId();
+    let query = client
+      .from('customer_feedback')
+      .select('rating, sentiment')
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (tenantId) query = query.eq('tenant_id', tenantId);
+
+    const { data, error } = await query;
+    if (error) {
+      return { ok: false, error: error.message, averageRating: null, feedbackCount: 0 };
+    }
+
+    const rows = data || [];
+    if (!rows.length) {
+      return {
+        ok: true,
+        averageRating: null,
+        feedbackCount: 0,
+        sentiment: 'neutral',
+        label: 'لا توجد تقييمات',
+      };
+    }
+
+    const ratings = rows
+      .map((r) => parseInt(r.rating, 10))
+      .filter((n) => Number.isFinite(n) && n >= 1 && n <= 5);
+
+    const averageRating = ratings.length
+      ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+      : null;
+
+    const storedCounts = { happy: 0, angry: 0, neutral: 0 };
+    rows.forEach((r) => {
+      const s = r.sentiment || 'neutral';
+      if (storedCounts[s] != null) storedCounts[s] += 1;
+    });
+
+    let sentiment = 'neutral';
+    if (storedCounts.happy > storedCounts.angry) sentiment = 'happy';
+    if (storedCounts.angry > storedCounts.happy) sentiment = 'angry';
+    if (averageRating != null) {
+      if (averageRating >= 4) sentiment = 'happy';
+      if (averageRating <= 2.5) sentiment = 'angry';
+    }
+
+    const label = sentiment === 'happy' ? 'راضٍ' : sentiment === 'angry' ? 'غاضب' : 'محايد';
+
+    return {
+      ok: true,
+      averageRating,
+      feedbackCount: rows.length,
+      sentiment,
+      label,
+      storedCounts,
+    };
+  }
+
+  /**
    * Aggregate sentiment for a customer from their feedback history.
    */
   async function getCustomerSentiment(customerId) {
@@ -271,6 +339,7 @@
   const CustomerExperience = {
     logCustomerFeedback,
     getCustomerSentiment,
+    getOverallCustomerSatisfaction,
     renderFeedbackWidget,
     analyzeSentiment,
   };
