@@ -772,11 +772,72 @@ const SupabaseBridge = {
     if (!target) return null;
     const tid = tenantId ? String(tenantId).trim() : null;
     return (rows || []).find((r) => {
-      if (this.normalizeProductName(r.product_name) !== target) return false;
+      const rowName = r.product_name ?? r.name;
+      if (this.normalizeProductName(rowName) !== target) return false;
       if (!tid) return true;
       const rowTid = r.tenant_id != null ? String(r.tenant_id) : null;
       return !rowTid || rowTid === tid;
     }) || null;
+  },
+
+  filterInventoryRowsForTenant(rows, tenantId) {
+    let list = rows || [];
+    const tid = tenantId ? String(tenantId).trim() : null;
+    if (tid && list.some((r) => r.tenant_id != null)) {
+      const scoped = list.filter((r) => !r.tenant_id || String(r.tenant_id) === tid);
+      if (scoped.length) list = scoped;
+    }
+    return list;
+  },
+
+  async fetchInventoryRows() {
+    const client = this.getClient();
+    if (!client) return { ok: false, data: [], error: 'No client' };
+
+    const { data, error } = await client
+      .from('inventory')
+      .select('id, product_name, stock_quantity, tenant_id');
+
+    if (error) return { ok: false, data: [], error: error.message };
+
+    const tenantId = this.resolveTenantIdForInventory({});
+    return { ok: true, data: this.filterInventoryRowsForTenant(data || [], tenantId) };
+  },
+
+  /**
+   * Payload for insert_sale_with_inventory RPC — required keys only.
+   */
+  prepareSaleRpcPayload(row) {
+    const tenantId = this.resolveTenantIdForInventory(row);
+    const qty = Math.max(1, parseInt(row?.quantity, 10) || 1);
+    const price = roundAud(Number(row?.price) || 0);
+    const lineTotal = roundAud(
+      row?.line_total_aud != null ? Number(row.line_total_aud) : price * qty
+    );
+    const productName = String(row?.product_name || '').trim();
+    const ts = row?.created_at || row?.createdAt || new Date().toISOString();
+
+    const payload = {
+      id: row?.id != null ? String(row.id) : String(Date.now() + Math.floor(Math.random() * 1000)),
+      product_name: productName,
+      quantity: qty,
+      price,
+      line_total_aud: lineTotal,
+      created_at: ts,
+      updated_at: row?.updated_at || row?.updatedAt || ts,
+      customer_name: String(row?.customer_name || row?.customer || 'POS Guest').trim() || 'POS Guest',
+      customer: String(row?.customer || row?.customer_name || 'POS Guest').trim() || 'POS Guest',
+      created_by: String(row?.created_by || row?.createdBy || 'guest').trim() || 'guest',
+      invoice_number: String(row?.invoice_number || row?.invoiceNumber || ''),
+      status: String(row?.status || 'completed'),
+    };
+
+    if (tenantId) payload.tenant_id = String(tenantId);
+    if (row?.batch_id != null && String(row.batch_id).trim() !== '') {
+      payload.batch_id = String(row.batch_id);
+    }
+
+    return payload;
   },
 
   /**
@@ -791,16 +852,10 @@ const SupabaseBridge = {
     if (!name) return { ok: false, error: 'اسم المنتج مطلوب' };
 
     const tenantId = this.resolveTenantIdForInventory({});
-    let query = client.from('inventory').select('id, product_name, stock_quantity, tenant_id');
+    const fetched = await this.fetchInventoryRows();
+    if (!fetched.ok) return { ok: false, error: fetched.error };
 
-    if (tenantId) {
-      query = query.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
-    }
-
-    const { data, error } = await query;
-    if (error) return { ok: false, error: error.message };
-
-    const row = this.matchInventoryRow(data, name, tenantId);
+    const row = this.matchInventoryRow(fetched.data, name, tenantId);
     if (!row) {
       return { ok: false, error: 'المنتج غير موجود في المخزون' };
     }
@@ -916,10 +971,12 @@ const SupabaseBridge = {
     const client = this.getClient();
     if (!client) return { ok: false, error: 'No client' };
 
-    const tenantId = this.resolveTenantIdForInventory(row);
-    const payload = tenantId && !row.tenant_id
-      ? { ...row, tenant_id: String(tenantId) }
-      : row;
+    const payload = this.prepareSaleRpcPayload(row);
+    const tenantId = payload.tenant_id || this.resolveTenantIdForInventory(row);
+
+    if (!payload.product_name) {
+      return { ok: false, error: 'اسم المنتج مطلوب', code: 'MISSING_PRODUCT_NAME' };
+    }
 
     const hookResult = await this.runPreSaveHooks('sales', payload, tenantId);
 

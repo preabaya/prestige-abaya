@@ -3420,6 +3420,16 @@ async function refreshInventoryCatalog() {
   return loadInventoryForSales({ force: true });
 }
 
+/** Alias — load inventory into sales product list (select + picker). */
+async function loadInventoryProducts(options) {
+  return loadInventoryForSales(options);
+}
+
+function inventoryProductName(productOrLine) {
+  const name = productOrLine?.name ?? productOrLine?.product_name ?? productOrLine?.productName;
+  return String(name || '').trim();
+}
+
 function tabFromLocationHash() {
   const raw = (location.hash || '').replace(/^#/, '').trim().toLowerCase();
   if (!raw || !NAV_TABS.includes(raw)) return null;
@@ -5893,9 +5903,11 @@ async function saveSale(data, options = {}) {
   if (!p) return showToast('No product', 'error');
 
   const qty = data.quantity;
+  const saleProductName = inventoryProductName(p);
 
   if (DataStore.usesCloud()) {
-    const inv = await ensureCloudInventoryForSale(p.name, qty);
+    await loadInventoryForSales({ force: true });
+    const inv = await ensureCloudInventoryForSale(saleProductName, qty);
     if (!inv.ok) {
       showToast(inv.error || INSUFFICIENT_STOCK_MSG, 'error');
       return;
@@ -5910,7 +5922,7 @@ async function saveSale(data, options = {}) {
   const sale = withRecordTimestamps({
     id: uid(),
     productId: data.productId,
-    productName: p.name,
+    productName: saleProductName,
     productCode: p.code,
     productColor: p.color,
     productStyle: p.style || 'classic',
@@ -5932,17 +5944,25 @@ async function saveSale(data, options = {}) {
   }, { isNew: true });
 
   if (DataStore.usesCloud()) {
+    let tenantId;
+    try {
+      tenantId = resolveTenantIdForSale();
+    } catch (e) {
+      showToast(e.message, 'error');
+      return;
+    }
     const row = buildSalesInsertRow({
       id: sale.id,
       createdAt: sale.createdAt,
       customerName: sale.customer,
-      productName: sale.productName,
+      productName: saleProductName,
       price: sale.unitPriceAud,
       quantity: sale.quantity,
       createdBy: sale.createdBy,
       invoiceNumber: sale.invoiceNumber,
       lineTotalAud: sale.lineTotalAud,
       status: 'completed',
+      tenantId,
     });
     const cloud = await addSale(row);
     if (!cloud.ok) {
@@ -6153,18 +6173,33 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
   if (!lines.length) return false;
   if (!UserSession.requireUser()) return false;
 
+  let cloudTenantId = null;
+
   if (DataStore.usesCloud()) {
-    const batchItems = lines
-      .map((line) => {
-        const p = getProduct(line.productId);
-        return p ? { productName: p.name, quantity: line.qty } : null;
-      })
-      .filter(Boolean);
     const ready = await DataStore._cloudReady();
     if (!ready.ok) {
       reportCloudSaveError('POS sale', ready);
       return false;
     }
+
+    await loadInventoryForSales({ force: true });
+
+    try {
+      cloudTenantId = resolveTenantIdForSale();
+    } catch (e) {
+      showToast(e.message, 'error');
+      return false;
+    }
+
+    const batchItems = lines
+      .map((line) => {
+        const p = getProduct(line.productId);
+        const productName = inventoryProductName(p || line);
+        if (!productName) return null;
+        return { productName, quantity: line.qty };
+      })
+      .filter(Boolean);
+
     const batchCheck = await SupabaseBridge.validateInventoryBatch(batchItems);
     if (!batchCheck.ok) {
       showToast(batchCheck.error || INSUFFICIENT_STOCK_MSG, 'error');
@@ -6196,15 +6231,22 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
 
   for (const line of lines) {
     const p = getProduct(line.productId);
+    if (!p) {
+      showToast(`${line.name || t('product')}: ${t('noData')}`, 'error');
+      return false;
+    }
+    const saleProductName = inventoryProductName(p) || inventoryProductName(line);
     const lineSub = line.lineSubtotal ?? CurrencyEngine.round(line.unitPrice * line.qty + (line.extraShipping || 0));
     const lineTotal = line.lineTotal ?? lineSub;
     const lineCustomer = (line.customer || batchCustomer).trim() || batchCustomer;
     const saleId = uid();
+    const unitPrice = CurrencyEngine.round(lineTotal / Math.max(1, line.qty));
+    const saleQty = Math.max(1, parseInt(line.qty, 10) || 1);
 
     const localSale = withRecordTimestamps({
       id: saleId,
       productId: line.productId,
-      productName: p.name,
+      productName: saleProductName,
       productCode: p.code,
       productColor: p.color,
       productStyle: p.style || 'classic',
@@ -6233,14 +6275,15 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
         id: saleId,
         createdAt: localSale.createdAt,
         customerName: lineCustomer,
-        productName: p.name,
-        price: CurrencyEngine.round(lineTotal / line.qty),
-        quantity: parseInt(line.qty, 10) || 1,
+        productName: saleProductName,
+        price: unitPrice,
+        quantity: saleQty,
         createdBy,
         invoiceNumber,
         lineTotalAud: lineTotal,
         batchId: batchIdForCloud,
         status: 'completed',
+        tenantId: cloudTenantId,
       });
 
       const cloud = await addSale(row);
@@ -7420,9 +7463,12 @@ function renderSalesHTML() {
       <form id="sale-form">
         <div class="form-grid">
           <div class="form-field form-field--wide product-picker-wrap">
-            <label>${t('product')}</label>
+            <label for="sale-product-select">${t('product')}</label>
+            <select id="sale-product-select" class="inv-input" required>
+              <option value="">— ${t('product')} —</option>
+            </select>
             <input type="hidden" id="sale-product" value="">
-            <button type="button" id="sale-product-trigger" class="product-picker__trigger" aria-haspopup="listbox" aria-expanded="false">
+            <button type="button" id="sale-product-trigger" class="product-picker__trigger product-picker__trigger--secondary" aria-haspopup="listbox" aria-expanded="false" hidden>
               <span class="product-picker__placeholder">${t('product')}</span>
             </button>
             <ul id="sale-product-menu" class="product-picker__menu" role="listbox" hidden></ul>
@@ -7935,9 +7981,12 @@ const SaleProductPicker = {
 
   select(productId) {
     const hidden = document.getElementById('sale-product');
-    if (!hidden) return;
-    hidden.value = productId || '';
-    const p = productId ? getProduct(productId) : null;
+    const selectEl = document.getElementById('sale-product-select');
+    if (!hidden && !selectEl) return;
+    const id = productId ? String(productId) : '';
+    if (hidden) hidden.value = id;
+    if (selectEl && selectEl.value !== id) selectEl.value = id;
+    const p = id ? getProduct(id) : null;
     this.renderTrigger(p);
     const priceEl = document.getElementById('sale-price');
     const qtyEl = document.getElementById('sale-qty');
@@ -7958,35 +8007,66 @@ const SaleProductPicker = {
 };
 
 function populateSaleSelect() {
+  const select = document.getElementById('sale-product-select');
   const menu = document.getElementById('sale-product-menu');
-  if (!menu) return;
-  const prev = document.getElementById('sale-product')?.value || '';
+  const prev = document.getElementById('sale-product')?.value
+    || select?.value
+    || '';
+
   const products = getSaleCatalogProducts();
 
-  if (!products.length) {
-    menu.innerHTML = `<li role="presentation"><span class="product-picker__empty">${t('noData')}</span></li>`;
-    SaleProductPicker.select('');
-    return;
+  if (select) {
+    if (!products.length) {
+      select.innerHTML = `<option value="">— ${t('noData')} —</option>`;
+    } else {
+      select.innerHTML = [
+        `<option value="">— ${t('product')} —</option>`,
+        ...products.map((p) => {
+          const stock = p.quantity ?? 0;
+          const label = `${p.name} · ${t('qty')}: ${stock} · ${formatAUD(p.price)}`;
+          return `<option value="${String(p.id)}">${escapeHtml(label)}</option>`;
+        }),
+      ].join('');
+    }
   }
 
-  menu.innerHTML = products.map((p) => {
-    const out = (p.quantity ?? 0) <= 0;
-    return `
-    <li role="presentation">
-      <button type="button" class="product-picker__option${out ? ' product-picker__option--out' : ''}" role="option" data-sale-pick="${String(p.id)}"${out ? ' disabled' : ''}>
-        <span class="product-picker__option-left">
-          <span class="product-picker__option-name">${escapeHtml(p.name)}</span>
-          <span class="product-picker__option-meta">${t('qty')}: ${formatNum(p.quantity, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} · ${t('costAud')}: ${formatAUD(p.cost)}</span>
-        </span>
-        <span class="product-picker__option-price num-digits">${formatAUD(p.price)}</span>
-      </button>
-    </li>`;
-  }).join('');
-  if (prev && products.some((p) => String(p.id) === String(prev))) SaleProductPicker.select(prev);
-  else {
+  if (menu) {
+    if (!products.length) {
+      menu.innerHTML = `<li role="presentation"><span class="product-picker__empty">${t('noData')}</span></li>`;
+    } else {
+      menu.innerHTML = products.map((p) => {
+        const low = (p.quantity ?? 0) <= 0;
+        return `
+        <li role="presentation">
+          <button type="button" class="product-picker__option${low ? ' product-picker__option--out' : ''}" role="option" data-sale-pick="${String(p.id)}">
+            <span class="product-picker__option-left">
+              <span class="product-picker__option-name">${escapeHtml(p.name)}</span>
+              <span class="product-picker__option-meta">${t('qty')}: ${formatNum(p.quantity, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} · ${t('costAud')}: ${formatAUD(p.cost)}</span>
+            </span>
+            <span class="product-picker__option-price num-digits">${formatAUD(p.price)}</span>
+          </button>
+        </li>`;
+      }).join('');
+    }
+  }
+
+  if (prev && products.some((p) => String(p.id) === String(prev))) {
+    if (select) select.value = String(prev);
+    SaleProductPicker.select(prev);
+  } else {
+    if (select) select.value = '';
     SaleProductPicker.select('');
     updateSaleProductMeta();
   }
+}
+
+function onSaleProductSelectChange(productId) {
+  const id = productId != null ? String(productId) : '';
+  const hidden = document.getElementById('sale-product');
+  const select = document.getElementById('sale-product-select');
+  if (hidden) hidden.value = id;
+  if (select && select.value !== id) select.value = id;
+  SaleProductPicker.select(id);
 }
 
 function renderSalePreview() {
@@ -8380,6 +8460,12 @@ function bindEvents() {
 
   bindSupplierInvoiceProcessorEvents();
 
+  document.addEventListener('change', (e) => {
+    if (e.target.id === 'sale-product-select') {
+      onSaleProductSelectChange(e.target.value);
+    }
+  });
+
   document.getElementById('product-image-input')?.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -8515,8 +8601,13 @@ function bindEvents() {
     const dpApply = e.target.closest('[data-dp-apply]')?.dataset.dpApply;
     if (dpApply) DynamicPricingUI.applyTier(dpApply);
 
-    const salePick = e.target.closest('[data-sale-pick]')?.dataset.salePick;
-    if (salePick) SaleProductPicker.select(salePick);
+    const salePickBtn = e.target.closest('button[data-sale-pick]');
+    if (salePickBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      onSaleProductSelectChange(salePickBtn.getAttribute('data-sale-pick'));
+      return;
+    }
 
     if (e.target.id === 'sale-product-trigger') {
       SaleProductPicker.toggleMenu();
@@ -8956,3 +9047,5 @@ window.populateSaleSelect = populateSaleSelect;
 window.resolveRouteTab = resolveRouteTab;
 window.getSaleFormEl = getSaleFormEl;
 window.getSalesPanelRoot = getSalesPanelRoot;
+window.loadInventoryProducts = loadInventoryProducts;
+window.onSaleProductSelectChange = onSaleProductSelectChange;
