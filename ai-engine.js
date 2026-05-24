@@ -7,13 +7,13 @@
 
   window.AIEngine = {
     
-    // تحليل عملية بيع والبحث عن أنماط غير طبيعية
+    // 1. تحليل عملية بيع والبحث عن أنماط غير طبيعية
     async analyzeSale(saleData) {
       console.log('[AI Engine] Analyzing sale:', saleData.id);
       
       const alerts = [];
 
-      // 1. فحص القيمة العالية (High Value Transaction)
+      // فحص القيمة العالية (High Value Transaction)
       if (saleData.line_total_aud > 5000) {
         alerts.push({
           type: 'HIGH_VALUE',
@@ -22,7 +22,7 @@
         });
       }
 
-      // 2. تحليل المخزون (Inventory Logic)
+      // تحليل المخزون (Inventory Logic)
       if (saleData.quantity > 10) {
         alerts.push({
           type: 'BULK_ORDER',
@@ -31,7 +31,7 @@
         });
       }
 
-      // 3. حفظ التنبيهات في قاعدة البيانات إذا وجدنا شيئاً
+      // حفظ التنبيهات في قاعدة البيانات إذا وجدنا شيئاً
       if (alerts.length > 0) {
         await this.saveAlerts(saleData, alerts);
       }
@@ -39,7 +39,7 @@
       return alerts;
     },
 
-    // ربط التنبيهات بـ Supabase
+    // 2. ربط التنبيهات بـ Supabase
     async saveAlerts(sale, alerts) {
       if (typeof window.SupabaseBridge === 'undefined') return;
       
@@ -53,6 +53,39 @@
           severity: alert.severity
         });
       }
+    },
+
+    // 3. التنبؤ بأفضل منتج مبيعاً
+    async predictBestSellingProduct() {
+      const client = window.SupabaseBridge.getClient();
+      if (!client) return null;
+
+      // جلب آخر 50 عملية بيع لتحليلها
+      const { data, error } = await client
+        .from('sales')
+        .select('product_name, quantity')
+        .limit(50);
+
+      if (error || !data || data.length === 0) return null;
+
+      // حساب مجموع الكميات لكل منتج
+      const salesCount = {};
+      data.forEach(sale => {
+        const name = sale.product_name;
+        salesCount[name] = (salesCount[name] || 0) + (parseInt(sale.quantity) || 1);
+      });
+
+      // إيجاد المنتج الأكثر مبيعاً
+      let bestProduct = null;
+      let maxQty = 0;
+      for (const product in salesCount) {
+        if (salesCount[product] > maxQty) {
+          maxQty = salesCount[product];
+          bestProduct = product;
+        }
+      }
+
+      return { product: bestProduct, totalSold: maxQty };
     }
   };
 
