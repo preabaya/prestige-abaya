@@ -75,6 +75,18 @@
 
   <div id="toast" class="toast" aria-live="polite"></div>
 
+  <aside class="notifications-center" id="notifications-center" aria-label="مركز التنبيهات">
+    <button type="button" class="notifications-center__toggle" id="notifications-center-toggle" aria-expanded="true" aria-controls="notifications-list-wrap">
+      <span aria-hidden="true">🔔</span>
+      <span id="notifications-count" class="notifications-center__badge" hidden>0</span>
+    </button>
+    <div id="notifications-list-wrap" class="notifications-center__panel">
+      <h2 class="notifications-center__title">مركز التنبيهات</h2>
+      <ul id="notifications-list" class="notifications-list" role="list"></ul>
+    </div>
+  </aside>
+  <div id="notifications-toast-stack" class="notifications-toast-stack" aria-live="assertive"></div>
+
   <!-- AI Intelligence Widget — يُعرض داخل لوحة التحكم عبر script.js -->
   <template id="ai-best-seller-widget-source">
     <article id="ai-best-seller-widget" class="ai-intel-widget card" aria-live="polite">
@@ -164,5 +176,6 @@
   <script src="sales.js?v=20260530-db-helper"></script>
   <script src="ai-engine.js"></script>
   <script src="inventory-manager.js?v=20260524"></script>
+  <script src="notifications-center.js?v=20260524"></script>
 </body>
 </html>

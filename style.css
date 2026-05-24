@@ -2125,6 +2125,201 @@ body.user-modal-open .fab {
 .toast--show { transform: translateX(-50%) translateY(0); }
 .toast--error { background: var(--danger); }
 
+/* ─── Notifications Center (ai_alerts) ─── */
+.notifications-center {
+  position: fixed;
+  inset-inline-end: 1rem;
+  bottom: 1rem;
+  z-index: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  max-width: min(22rem, calc(100vw - 2rem));
+}
+
+.notifications-center__toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.notifications-center__badge {
+  min-width: 1.25rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.notifications-center__panel {
+  width: 100%;
+  max-height: min(50vh, 22rem);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-hover);
+}
+
+.notifications-center__title {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.notifications-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.notifications-list__status {
+  padding: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.notifications-list__status--error {
+  color: var(--danger);
+}
+
+.notifications-list__item {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.notifications-list__item:last-child {
+  border-bottom: none;
+}
+
+.notifications-list__item--warning {
+  border-inline-start: 3px solid #d97706;
+  background: #fffbeb;
+}
+
+.notifications-list__item--critical {
+  border-inline-start: 3px solid var(--danger);
+  background: #fef2f2;
+}
+
+.notifications-list__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.notifications-list__message {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.notifications-list__time {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.notifications-toast-stack {
+  position: fixed;
+  inset-inline-end: 1rem;
+  top: 5.5rem;
+  z-index: 650;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: min(20rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.notifications-toast {
+  position: relative;
+  padding: 0.85rem 2rem 0.85rem 0.85rem;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-hover);
+  transform: translateX(120%);
+  opacity: 0;
+  transition: transform 0.35s ease, opacity 0.35s ease;
+  pointer-events: auto;
+}
+
+[dir="rtl"] .notifications-toast {
+  transform: translateX(-120%);
+  padding: 0.85rem 0.85rem 0.85rem 2rem;
+}
+
+.notifications-toast--show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.notifications-toast--warning {
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+}
+
+.notifications-toast--critical {
+  background: #fef2f2;
+  border: 1px solid var(--danger);
+  color: #991b1b;
+}
+
+.notifications-toast__title {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 800;
+  margin-bottom: 0.2rem;
+  text-transform: uppercase;
+}
+
+.notifications-toast__message {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.notifications-toast__close {
+  position: absolute;
+  top: 0.35rem;
+  inset-inline-end: 0.35rem;
+  border: none;
+  background: transparent;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.notifications-toast__close:hover {
+  opacity: 1;
+}
+
 .supabase-badge {
   display: inline-block;
   margin-top: var(--space-sm);
