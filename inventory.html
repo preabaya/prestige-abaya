@@ -8,115 +8,73 @@
   <title>إدارة المخزون | Prestige Abaya ERP</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="dashboard.css?v=20260525-inventory-v3">
-  <link rel="stylesheet" href="inventory.css?v=20260525-inventory-v3">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="inventory.css?v=20260525-inventory-v4">
 </head>
-<body class="dashboard-page bg-slate-50 text-slate-900 antialiased min-h-screen">
-  <div id="app" class="flex min-h-screen">
-    <div id="sidebar-overlay" class="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-sm lg:hidden hidden" aria-hidden="true"></div>
+<body class="inv-page">
+  <div id="app">
+    <div id="sidebar-overlay" class="inv-overlay" aria-hidden="true"></div>
 
-    <aside id="sidebar" class="dash-sidebar fixed inset-y-0 start-0 z-50 w-72 -translate-x-full rtl:translate-x-full lg:translate-x-0 rtl:lg:translate-x-0 flex flex-col transition-transform duration-300 lg:static lg:z-auto">
-      <div class="flex items-center gap-3 px-6 py-6 border-b border-slate-200">
-        <div class="dash-brand__logo" aria-hidden="true">P</div>
+    <aside id="sidebar" class="inv-sidebar">
+      <div class="inv-sidebar__brand inv-flex">
+        <div class="inv-sidebar__logo" aria-hidden="true">P</div>
         <div>
-          <p class="text-sm font-bold text-slate-900">Prestige Abaya</p>
-          <p class="text-xs text-slate-500">نظام ERP للمبيعات</p>
+          <p class="text-sm font-bold m-0" style="color:#1e293b">Prestige Abaya</p>
+          <p class="text-xs m-0" style="color:#64748b">المخزون</p>
         </div>
       </div>
-
-      <nav class="flex-1 px-3 py-5 space-y-1" aria-label="التنقل الرئيسي">
-        <a href="dashboard.html" class="sidebar-link">
-          <span class="text-teal-600" aria-hidden="true">📊</span>
-          لوحة التحكم
-        </a>
-        <a href="index.html#sales" class="sidebar-link">
-          <span class="text-teal-600" aria-hidden="true">🛒</span>
-          المبيعات
-        </a>
-        <a href="inventory.html" class="sidebar-link active">
-          <span class="text-teal-600" aria-hidden="true">📦</span>
-          المخزون
-        </a>
-        <a href="index.html#dashboard" class="sidebar-link">
-          <span class="text-teal-600" aria-hidden="true">📈</span>
-          التقارير
-        </a>
-        <a href="index.html#settings" class="sidebar-link">
-          <span class="text-teal-600" aria-hidden="true">⚙️</span>
-          الإعدادات
-        </a>
+      <nav class="inv-nav" aria-label="التنقل">
+        <a href="dashboard.html">لوحة التحكم</a>
+        <a href="index.html">المبيعات</a>
+        <a href="inventory.html" class="active">المخزون</a>
+        <a href="index.html">الإعدادات</a>
       </nav>
-
-      <div class="px-4 py-5 border-t border-slate-200">
-        <a href="index.html" class="dash-link-back">← العودة للتطبيق الرئيسي</a>
+      <div style="padding:1rem;border-top:1px solid #e2e8f0">
+        <a href="index.html" class="inv-btn" style="width:100%;text-decoration:none">← التطبيق الرئيسي</a>
       </div>
     </aside>
 
-    <div class="flex flex-1 flex-col min-w-0">
-      <header class="dash-header-bar sticky top-0 z-30">
-        <div class="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div class="flex items-center gap-3 min-w-0">
-            <button type="button" id="sidebar-toggle" class="btn-icon lg:hidden shrink-0" aria-label="فتح القائمة">
-              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-            </button>
-            <div class="min-w-0">
-              <h1 class="text-lg sm:text-xl font-bold text-slate-900 truncate">إدارة المخزون</h1>
-              <p class="text-xs sm:text-sm text-slate-600 truncate">جدول <code class="text-teal-600">inventory</code> في Supabase</p>
-            </div>
+    <div class="inv-main">
+      <header class="inv-header">
+        <div class="inv-flex">
+          <button type="button" id="sidebar-toggle" class="inv-btn inv-btn-menu" aria-label="القائمة">☰</button>
+          <div>
+            <h1>إدارة المخزون</h1>
+            <p>بيانات من جدول inventory</p>
           </div>
-          <div class="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
-            <span id="connection-badge" class="conn-badge conn-badge--online" role="status">
-              <span class="conn-badge__dot" aria-hidden="true"></span>
-              <span id="connection-badge-text">متصل</span>
-            </span>
-            <button type="button" id="add-product-btn" class="inv-btn-add">
-              Add Product
-            </button>
-            <button type="button" id="refresh-btn" class="btn-teal">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-              <span class="hidden sm:inline">تحديث</span>
-            </button>
-          </div>
+        </div>
+        <div class="inv-flex" style="flex-wrap:wrap">
+          <button type="button" id="add-product-btn" class="inv-btn inv-btn--primary">Add Product</button>
+          <button type="button" id="refresh-btn" class="inv-btn inv-btn--primary">تحديث</button>
         </div>
       </header>
 
-      <main class="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
-        <div id="status-banner" class="alert-banner alert-banner--error hidden" role="alert" aria-live="polite">
-          <div class="text-lg shrink-0" aria-hidden="true">⚠️</div>
-          <div class="flex-1 min-w-0">
-            <p class="alert-banner__title" id="status-banner-title">تعذّر الاتصال</p>
-            <p class="alert-banner__text" id="status-banner-message"></p>
-          </div>
-          <button type="button" id="status-banner-close" class="alert-banner__close" aria-label="إغلاق">×</button>
+      <div class="inv-content">
+        <div class="inv-kpi-grid">
+          <article class="inv-card inv-kpi">
+            <p class="inv-kpi__label">المنتجات</p>
+            <p id="inv-kpi-total" class="inv-kpi__value">—</p>
+          </article>
+          <article class="inv-card inv-kpi">
+            <p class="inv-kpi__label">إجمالي القطع</p>
+            <p id="inv-kpi-units" class="inv-kpi__value">—</p>
+          </article>
+          <article class="inv-card inv-kpi">
+            <p class="inv-kpi__label">تحت حد التنبيه</p>
+            <p id="inv-kpi-low" class="inv-kpi__value inv-kpi__value--low">—</p>
+          </article>
         </div>
 
-        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4" aria-label="ملخص المخزون">
-          <article class="bg-white rounded-xl shadow-md border border-slate-200 p-5">
-            <p class="dash-kpi__label">إجمالي المنتجات</p>
-            <p id="inv-kpi-total" class="dash-kpi__value">—</p>
-          </article>
-          <article class="bg-white rounded-xl shadow-md border border-slate-200 p-5">
-            <p class="dash-kpi__label">إجمالي القطع</p>
-            <p id="inv-kpi-units" class="dash-kpi__value">—</p>
-          </article>
-          <article class="bg-white rounded-xl shadow-md border border-slate-200 p-5">
-            <p class="dash-kpi__label">تحت حد التنبيه</p>
-            <p id="inv-kpi-low" class="dash-kpi__value text-red-600">—</p>
-          </article>
-        </section>
-
-        <section class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 sm:px-6 py-5 border-b border-slate-200">
+        <section class="inv-card">
+          <div style="padding:1rem 1.25rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
             <div>
-              <h2 class="text-base sm:text-lg font-bold text-slate-900">قائمة المخزون</h2>
-              <p class="text-sm text-slate-600 mt-0.5">صف أحمر عندما تكون الكمية أقل من <code class="text-teal-600">min_threshold</code></p>
+              <h2 style="margin:0;font-size:1rem;font-weight:800;color:#1e293b">قائمة المخزون</h2>
+              <p style="margin:0.2rem 0 0;font-size:0.8rem;color:#64748b">صف أحمر إذا الكمية أقل من min_threshold</p>
             </div>
-            <span id="inv-updated" class="text-xs text-slate-500"></span>
+            <span id="inv-updated" style="font-size:0.75rem;color:#94a3b8"></span>
           </div>
-          <div class="dash-table-scroll">
-            <table class="dash-table inv-table" aria-label="المخزون">
+          <div class="inv-table-wrap">
+            <table class="inv-table">
               <thead>
                 <tr>
                   <th>اسم المنتج</th>
@@ -124,103 +82,84 @@
                   <th>حد التنبيه</th>
                   <th>التكلفة</th>
                   <th>البيع</th>
-                  <th>حالة التنبيه</th>
+                  <th>التنبيه</th>
                   <th>آخر تحديث</th>
-                  <th>إجراء</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody id="inventory-tbody">
                 <tr>
-                  <td colspan="8" class="dash-empty text-slate-600">جاري تحميل المخزون…</td>
+                  <td colspan="8" class="inv-empty">جاري التحميل…</td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <p id="inventory-empty" class="dash-empty hidden">
-            <span class="text-2xl block mb-2" aria-hidden="true">📭</span>
-            <span class="dash-empty__title block text-slate-900">لا توجد منتجات — اضغط Add Product</span>
-          </p>
+          <p id="inventory-empty" class="inv-empty hidden">لا توجد منتجات — استخدم Add Product</p>
         </section>
-      </main>
+      </div>
 
-      <footer class="dash-footer">
-        Prestige Abaya ERP · <span id="footer-year"></span>
-      </footer>
+      <footer class="inv-footer">Prestige Abaya ERP · <span id="footer-year"></span></footer>
     </div>
   </div>
 
-  <!-- Add Product -->
-  <div id="add-modal" class="inv-modal hidden" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
+  <div id="add-modal" class="inv-modal hidden" role="dialog" aria-labelledby="add-modal-title">
     <div class="inv-modal__backdrop" data-close-modal></div>
-    <div class="inv-modal__panel bg-white rounded-xl shadow-md">
-      <h2 id="add-modal-title" class="text-lg font-bold text-slate-900">Add Product</h2>
-      <p class="text-sm text-slate-600 mt-1">إضافة منتج جديد إلى جدول inventory</p>
-      <form id="add-product-form" class="mt-4 space-y-3">
-        <label class="block text-sm font-medium text-slate-800">
-          اسم المنتج *
-          <input type="text" name="product_name" required class="inv-input mt-1 w-full" autocomplete="off">
+    <div class="inv-modal__panel">
+      <h2 id="add-modal-title" style="margin:0;font-size:1.05rem;font-weight:800">Add Product</h2>
+      <form id="add-product-form" style="margin-top:1rem">
+        <label class="inv-label">اسم المنتج *
+          <input type="text" name="product_name" required class="inv-input">
         </label>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="block text-sm font-medium text-slate-800">
-            الكمية
-            <input type="number" name="stock_quantity" min="0" step="1" value="0" class="inv-input mt-1 w-full">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-top:0.75rem">
+          <label class="inv-label">الكمية
+            <input type="number" name="stock_quantity" min="0" value="0" class="inv-input">
           </label>
-          <label class="block text-sm font-medium text-slate-800">
-            حد التنبيه
-            <input type="number" name="min_threshold" min="0" step="1" value="5" class="inv-input mt-1 w-full">
+          <label class="inv-label">حد التنبيه
+            <input type="number" name="min_threshold" min="0" value="5" class="inv-input">
           </label>
         </div>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="block text-sm font-medium text-slate-800">
-            سعر التكلفة (AUD)
-            <input type="number" name="cost_price" min="0" step="0.01" value="0" class="inv-input mt-1 w-full">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-top:0.75rem">
+          <label class="inv-label">سعر التكلفة
+            <input type="number" name="cost_price" min="0" step="0.01" value="0" class="inv-input">
           </label>
-          <label class="block text-sm font-medium text-slate-800">
-            سعر البيع (AUD)
-            <input type="number" name="selling_price" min="0" step="0.01" value="0" class="inv-input mt-1 w-full">
+          <label class="inv-label">سعر البيع
+            <input type="number" name="selling_price" min="0" step="0.01" value="0" class="inv-input">
           </label>
         </div>
-        <p id="add-modal-error" class="text-sm text-red-600 hidden"></p>
-        <div class="flex flex-wrap gap-2 pt-2 justify-end">
-          <button type="button" class="inv-btn inv-btn--ghost" data-close-modal>إلغاء</button>
-          <button type="submit" class="btn-teal">حفظ المنتج</button>
+        <p id="add-modal-error" class="inv-form-error hidden"></p>
+        <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+          <button type="button" class="inv-btn" data-close-modal>إلغاء</button>
+          <button type="submit" class="inv-btn inv-btn--primary">حفظ</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Update Stock -->
-  <div id="stock-modal" class="inv-modal hidden" role="dialog" aria-modal="true" aria-labelledby="stock-modal-title">
+  <div id="stock-modal" class="inv-modal hidden" role="dialog" aria-labelledby="stock-modal-title">
     <div class="inv-modal__backdrop" data-close-modal></div>
-    <div class="inv-modal__panel bg-white rounded-xl shadow-md">
-      <h2 id="stock-modal-title" class="text-lg font-bold text-slate-900">Update Stock</h2>
-      <p id="stock-modal-product" class="text-sm text-slate-600 mt-1"></p>
-      <p class="text-sm text-slate-800 mt-2">
-        الكمية الحالية: <strong id="stock-modal-current">0</strong>
-        · حد التنبيه: <strong id="stock-modal-threshold">5</strong>
+    <div class="inv-modal__panel">
+      <h2 id="stock-modal-title" style="margin:0;font-size:1.05rem;font-weight:800">Update Stock</h2>
+      <p id="stock-modal-product" style="margin:0.35rem 0 0;font-size:0.85rem;color:#64748b"></p>
+      <p style="font-size:0.85rem;color:#475569;margin-top:0.5rem">
+        الحالية: <strong id="stock-modal-current">0</strong> · الحد: <strong id="stock-modal-threshold">5</strong>
       </p>
-      <div class="mt-4 space-y-3">
-        <label class="block text-sm font-medium text-slate-800">
-          تعديل (+ / −)
-          <input type="number" id="stock-modal-delta" class="inv-input mt-1 w-full" placeholder="مثال: 20 أو -5" step="1">
-        </label>
-        <p class="text-xs text-slate-500 text-center">أو</p>
-        <label class="block text-sm font-medium text-slate-800">
-          كمية جديدة (مطلقة)
-          <input type="number" id="stock-modal-absolute" class="inv-input mt-1 w-full" min="0" step="1">
-        </label>
-      </div>
-      <p id="stock-modal-preview" class="text-sm font-semibold text-teal-600 mt-3"></p>
-      <p id="stock-modal-error" class="text-sm text-red-600 mt-2 hidden"></p>
-      <div class="flex flex-wrap gap-2 mt-5 justify-end">
-        <button type="button" class="inv-btn inv-btn--ghost" data-close-modal>إلغاء</button>
-        <button type="button" id="stock-modal-save" class="btn-teal">Update Stock</button>
+      <label class="inv-label" style="margin-top:0.75rem">تعديل (+ / −)
+        <input type="number" id="stock-modal-delta" class="inv-input" placeholder="10 أو -3">
+      </label>
+      <label class="inv-label" style="margin-top:0.5rem">كمية جديدة
+        <input type="number" id="stock-modal-absolute" class="inv-input" min="0">
+      </label>
+      <p id="stock-modal-preview" style="font-size:0.85rem;color:#64748b;margin-top:0.5rem"></p>
+      <p id="stock-modal-error" class="inv-form-error hidden"></p>
+      <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+        <button type="button" class="inv-btn" data-close-modal>إلغاء</button>
+        <button type="button" id="stock-modal-save" class="inv-btn inv-btn--primary">Update Stock</button>
       </div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.config.js"></script>
-  <script src="inventory.js?v=20260525-inventory-v3"></script>
+  <script src="inventory.js?v=20260525-inventory-v4"></script>
 </body>
 </html>

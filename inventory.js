@@ -1,5 +1,6 @@
 /**
- * Prestige Abaya ERP — Inventory (public.inventory table)
+ * Prestige Abaya ERP — Inventory (public.inventory)
+ * Fetch: supabase.from('inventory').select('*') — no required tenant_id filter on query.
  */
 (function () {
   'use strict';
@@ -18,6 +19,7 @@
     return typeof window !== 'undefined' ? window.SUPABASE_CONFIG || {} : {};
   }
 
+  /** Optional — used only when inserting/updating, not required for SELECT */
   function getTenantId() {
     try {
       const stored = localStorage.getItem(CURRENT_TENANT_KEY);
@@ -30,7 +32,7 @@
   function initSupabase() {
     const cfg = getConfig();
     if (!cfg.url || !cfg.anonKey) {
-      throw new Error('أكمل إعداد supabase.config.js (url و anonKey)');
+      throw new Error('أكمل إعداد supabase.config.js');
     }
     if (typeof window.supabase === 'undefined' || !window.supabase.createClient) {
       throw new Error('مكتبة supabase-js غير محمّلة');
@@ -59,13 +61,11 @@
     if (!value) return '—';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return '—';
-    return new Intl.DateTimeFormat('ar-AE', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(d);
+    return new Intl.DateTimeFormat('ar-AE', { dateStyle: 'short', timeStyle: 'short' }).format(d);
   }
 
   function mapRow(row) {
+    if (!row || typeof row !== 'object') return null;
     const stock = Math.max(0, parseInt(row.stock_quantity, 10) || 0);
     const minThreshold = Math.max(0, parseInt(row.min_threshold, 10) || 0);
     return {
@@ -76,7 +76,7 @@
       cost_price: Number(row.cost_price) || 0,
       selling_price: Number(row.selling_price) || 0,
       last_updated: row.last_updated,
-      tenant_id: row.tenant_id,
+      tenant_id: row.tenant_id != null ? String(row.tenant_id) : null,
     };
   }
 
@@ -84,74 +84,73 @@
     return row.stock_quantity < row.min_threshold;
   }
 
-  function alertStatus(row) {
-    if (row.stock_quantity === 0) {
-      return { label: 'نفد المخزون', className: 'inv-alert-pill--out', isLow: true };
-    }
-    if (isLowStock(row)) {
-      return { label: 'تحت حد التنبيه', className: 'inv-alert-pill--low', isLow: true };
-    }
-    return { label: 'طبيعي', className: 'inv-alert-pill--ok', isLow: false };
+  function alertLabel(row) {
+    if (row.stock_quantity === 0) return { text: 'نفد', low: true };
+    if (isLowStock(row)) return { text: 'منخفض', low: true };
+    return { text: 'طبيعي', low: false };
   }
 
+  /**
+   * Load all rows — never applies .eq('tenant_id') on the query.
+   * Optional client-side filter only if every row has tenant_id set.
+   */
   async function fetchInventory() {
-    let query = supabase
-      .from(TABLE)
-      .select('*')
-      .order('product_name', { ascending: true });
+    const { data, error } = await supabase.from(TABLE).select('*');
 
-    const tenantId = getTenantId();
-    if (tenantId) query = query.eq('tenant_id', tenantId);
-
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-    return (data || []).map(mapRow);
-  }
-
-  async function insertProduct(payload) {
-    const tenantId = getTenantId();
-    if (!tenantId) {
-      throw new Error('أضف defaultTenantId في supabase.config.js');
+    if (error) {
+      console.error('[Inventory] select(*):', error);
+      throw error;
     }
 
+    let rows = (data || []).map(mapRow).filter(Boolean);
+
+    const tenantId = getTenantId();
+    if (tenantId && rows.some((r) => r.tenant_id)) {
+      const scoped = rows.filter((r) => !r.tenant_id || r.tenant_id === tenantId);
+      if (scoped.length) rows = scoped;
+    }
+
+    rows.sort((a, b) => a.product_name.localeCompare(b.product_name, 'ar'));
+    return rows;
+  }
+
+  function buildInsertRow(payload) {
     const row = {
       product_name: String(payload.product_name).trim(),
       stock_quantity: Math.max(0, parseInt(payload.stock_quantity, 10) || 0),
       min_threshold: Math.max(0, parseInt(payload.min_threshold, 10) || 5),
       cost_price: Number(payload.cost_price) || 0,
       selling_price: Number(payload.selling_price) || 0,
-      tenant_id: tenantId,
       last_updated: new Date().toISOString(),
     };
+    const tenantId = getTenantId();
+    if (tenantId) row.tenant_id = tenantId;
+    return row;
+  }
 
-    const { error } = await supabase.from(TABLE).insert(row);
-    if (error) throw new Error(error.message);
+  async function insertProduct(payload) {
+    const { error } = await supabase.from(TABLE).insert(buildInsertRow(payload));
+    if (error) throw error;
   }
 
   async function updateStockQuantity(id, newQty) {
     const qty = Math.max(0, Math.trunc(Number(newQty)));
-    const payload = {
-      stock_quantity: qty,
-      last_updated: new Date().toISOString(),
-    };
+    const { error } = await supabase
+      .from(TABLE)
+      .update({
+        stock_quantity: qty,
+        last_updated: new Date().toISOString(),
+      })
+      .eq('id', id);
 
-    let query = supabase.from(TABLE).update(payload).eq('id', id);
-    const tenantId = getTenantId();
-    if (tenantId) query = query.eq('tenant_id', tenantId);
-
-    const { error } = await query;
-    if (error) throw new Error(error.message);
+    if (error) throw error;
     return qty;
   }
 
   function updateKpis(rows) {
-    const total = rows.length;
-    const units = rows.reduce((s, r) => s + r.stock_quantity, 0);
-    const low = rows.filter(isLowStock).length;
-
-    if ($('inv-kpi-total')) $('inv-kpi-total').textContent = String(total);
-    if ($('inv-kpi-units')) $('inv-kpi-units').textContent = String(units);
-    if ($('inv-kpi-low')) $('inv-kpi-low').textContent = String(low);
+    $('inv-kpi-total').textContent = String(rows.length);
+    $('inv-kpi-units').textContent = String(rows.reduce((s, r) => s + r.stock_quantity, 0));
+    $('inv-kpi-low').textContent = String(rows.filter(isLowStock).length);
   }
 
   function renderTable(rows) {
@@ -163,29 +162,25 @@
 
     if (!rows.length) {
       tbody.innerHTML = '';
-      if (empty) empty.classList.remove('hidden');
+      empty?.classList.remove('hidden');
       return;
     }
-    if (empty) empty.classList.add('hidden');
+    empty?.classList.add('hidden');
 
     tbody.innerHTML = rows
       .map((row) => {
-        const status = alertStatus(row);
-        const rowClass = status.isLow ? 'inv-row--low' : '';
+        const alert = alertLabel(row);
+        const rowClass = alert.low ? 'inv-row--low' : '';
         return `
-          <tr class="${rowClass}" data-id="${escapeHtml(row.id)}">
-            <td class="font-medium">${escapeHtml(row.product_name)}</td>
-            <td class="tabular-nums font-bold">${row.stock_quantity}</td>
-            <td class="tabular-nums text-slate-600">${row.min_threshold}</td>
-            <td class="tabular-nums">${escapeHtml(formatAud(row.cost_price))}</td>
-            <td class="tabular-nums">${escapeHtml(formatAud(row.selling_price))}</td>
-            <td><span class="inv-alert-pill ${status.className}">${escapeHtml(status.label)}</span></td>
-            <td class="dash-table__muted text-xs whitespace-nowrap">${escapeHtml(formatDateTime(row.last_updated))}</td>
-            <td>
-              <button type="button" class="inv-btn-update" data-update-stock="${escapeHtml(row.id)}">
-                Update Stock
-              </button>
-            </td>
+          <tr class="${rowClass}">
+            <td>${escapeHtml(row.product_name)}</td>
+            <td>${row.stock_quantity}</td>
+            <td>${row.min_threshold}</td>
+            <td>${escapeHtml(formatAud(row.cost_price))}</td>
+            <td>${escapeHtml(formatAud(row.selling_price))}</td>
+            <td><span class="inv-alert-pill${alert.low ? ' inv-alert-pill--low' : ''}">${escapeHtml(alert.text)}</span></td>
+            <td style="color:#64748b;font-size:0.8rem">${escapeHtml(formatDateTime(row.last_updated))}</td>
+            <td><button type="button" class="inv-btn inv-btn--action" data-update-stock="${escapeHtml(row.id)}">Update Stock</button></td>
           </tr>
         `;
       })
@@ -203,29 +198,6 @@
     if (updated) updated.textContent = `آخر تحديث: ${formatDateTime(new Date())}`;
   }
 
-  function showBanner(message, title) {
-    const el = $('status-banner');
-    if (!el) return;
-    el.classList.add('alert-banner--error');
-    if ($('status-banner-title')) $('status-banner-title').textContent = title || 'تعذّر الاتصال';
-    if ($('status-banner-message')) $('status-banner-message').textContent = message;
-    el.classList.remove('hidden');
-  }
-
-  function hideBanner() {
-    $('status-banner')?.classList.add('hidden');
-  }
-
-  function setConnectionState(online) {
-    const badge = $('connection-badge');
-    const text = $('connection-badge-text');
-    if (!badge) return;
-    badge.classList.add('is-visible');
-    badge.classList.toggle('conn-badge--online', online);
-    badge.classList.toggle('conn-badge--offline', !online);
-    if (text) text.textContent = online ? 'متصل' : 'غير متصل';
-  }
-
   function openModal(id) {
     closeModals();
     activeModal = id;
@@ -241,8 +213,8 @@
   function openAddModal() {
     $('add-product-form')?.reset();
     $('add-modal-error')?.classList.add('hidden');
-    const threshold = $('add-product-form')?.elements?.min_threshold;
-    if (threshold) threshold.value = '5';
+    const t = $('add-product-form')?.elements?.min_threshold;
+    if (t) t.value = '5';
     openModal('add-modal');
   }
 
@@ -262,13 +234,13 @@
     const absRaw = $('stock-modal-absolute')?.value?.trim();
     if (absRaw !== '' && absRaw != null) {
       const abs = parseInt(absRaw, 10);
-      if (!Number.isFinite(abs) || abs < 0) return { error: 'أدخل كمية صحيحة (0 أو أكثر)' };
+      if (!Number.isFinite(abs) || abs < 0) return { error: 'كمية غير صالحة' };
       return { qty: abs };
     }
     const deltaRaw = $('stock-modal-delta')?.value?.trim();
     if (deltaRaw !== '' && deltaRaw != null) {
       const delta = parseInt(deltaRaw, 10);
-      if (!Number.isFinite(delta)) return { error: 'أدخل رقماً صحيحاً (+ أو −)' };
+      if (!Number.isFinite(delta)) return { error: 'رقم غير صالح' };
       return { qty: Math.max(0, (editingRow?.stock_quantity ?? 0) + delta) };
     }
     return { error: 'أدخل تعديلاً أو كمية جديدة' };
@@ -276,16 +248,15 @@
 
   function updateStockPreview() {
     const preview = $('stock-modal-preview');
-    const resolved = resolveNewStock();
-    if (!preview) return;
-    preview.textContent = resolved.error ? '' : `بعد الحفظ: ${resolved.qty} قطعة`;
+    const r = resolveNewStock();
+    if (preview) preview.textContent = r.error ? '' : `بعد الحفظ: ${r.qty}`;
   }
 
   async function saveStockModal() {
     const errEl = $('stock-modal-error');
-    const resolved = resolveNewStock();
-    if (resolved.error) {
-      errEl.textContent = resolved.error;
+    const r = resolveNewStock();
+    if (r.error) {
+      errEl.textContent = r.error;
       errEl.classList.remove('hidden');
       return;
     }
@@ -294,11 +265,11 @@
     const btn = $('stock-modal-save');
     if (btn) btn.disabled = true;
     try {
-      await updateStockQuantity(editingRow.id, resolved.qty);
+      await updateStockQuantity(editingRow.id, r.qty);
       closeModals();
       await loadInventory();
     } catch (err) {
-      errEl.textContent = err.message || 'فشل التحديث';
+      errEl.textContent = err.message || 'فشل الحفظ';
       errEl.classList.remove('hidden');
     } finally {
       if (btn) btn.disabled = false;
@@ -309,8 +280,6 @@
     ev.preventDefault();
     const errEl = $('add-modal-error');
     const form = $('add-product-form');
-    if (!form) return;
-
     const fd = new FormData(form);
     const name = (fd.get('product_name') || '').toString().trim();
     if (!name) {
@@ -319,9 +288,8 @@
       return;
     }
 
-    const submitBtn = form.querySelector('[type="submit"]');
-    if (submitBtn) submitBtn.disabled = true;
-
+    const submit = form.querySelector('[type="submit"]');
+    if (submit) submit.disabled = true;
     try {
       await insertProduct({
         product_name: name,
@@ -333,17 +301,17 @@
       closeModals();
       await loadInventory();
     } catch (err) {
-      errEl.textContent = err.message || 'فشل إضافة المنتج';
+      errEl.textContent = err.message || 'فشل الإضافة';
       errEl.classList.remove('hidden');
     } finally {
-      if (submitBtn) submitBtn.disabled = false;
+      if (submit) submit.disabled = false;
     }
   }
 
   async function loadInventory() {
     const tbody = $('inventory-tbody');
     if (tbody) {
-      tbody.innerHTML = '<tr><td colspan="8" class="dash-empty text-slate-600">جاري تحميل المخزون…</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="inv-empty">جاري التحميل…</td></tr>';
     }
 
     const refreshBtn = $('refresh-btn');
@@ -352,19 +320,14 @@
     try {
       if (!supabase) supabase = initSupabase();
       const rows = await fetchInventory();
-      hideBanner();
       updateKpis(rows);
       renderTable(rows);
-      setConnectionState(true);
     } catch (err) {
       console.error('[Inventory]', err);
-      setConnectionState(false);
-      showBanner(
-        `${err.message || err}. نفّذ supabase/migrate-inventory-table.sql وتأكد من RLS و defaultTenantId.`,
-        'خطأ في الاتصال بقاعدة البيانات'
-      );
-      if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="8" class="dash-empty text-red-600">تعذّر تحميل المخزون</td></tr>';
+      updateKpis([]);
+      renderTable([]);
+      if (tbody && !inventoryRows.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="inv-empty">لا توجد بيانات للعرض حالياً</td></tr>`;
       }
     } finally {
       if (refreshBtn) refreshBtn.disabled = false;
@@ -376,23 +339,19 @@
     const overlay = $('sidebar-overlay');
     const toggle = $('sidebar-toggle');
 
-    function open() {
-      sidebar?.classList.remove('-translate-x-full', 'rtl:translate-x-full');
-      overlay?.classList.remove('hidden');
-    }
-    function close() {
-      sidebar?.classList.add('-translate-x-full', 'rtl:translate-x-full');
-      overlay?.classList.add('hidden');
-    }
-
-    toggle?.addEventListener('click', open);
-    overlay?.addEventListener('click', close);
-    window.addEventListener('resize', () => {
-      if (window.innerWidth >= 1024) close();
+    toggle?.addEventListener('click', () => {
+      sidebar?.classList.add('is-open');
+      overlay?.classList.add('is-visible');
+    });
+    overlay?.addEventListener('click', () => {
+      sidebar?.classList.remove('is-open');
+      overlay?.classList.remove('is-visible');
     });
   }
 
-  function initModals() {
+  document.addEventListener('DOMContentLoaded', () => {
+    $('footer-year').textContent = String(new Date().getFullYear());
+    initSidebar();
     document.querySelectorAll('[data-close-modal]').forEach((el) => {
       el.addEventListener('click', closeModals);
     });
@@ -401,14 +360,7 @@
     $('stock-modal-delta')?.addEventListener('input', updateStockPreview);
     $('stock-modal-absolute')?.addEventListener('input', updateStockPreview);
     $('stock-modal-save')?.addEventListener('click', saveStockModal);
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    $('footer-year').textContent = String(new Date().getFullYear());
-    initSidebar();
-    initModals();
     $('refresh-btn')?.addEventListener('click', loadInventory);
-    $('status-banner-close')?.addEventListener('click', hideBanner);
     loadInventory();
   });
 })();
