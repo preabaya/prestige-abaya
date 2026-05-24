@@ -117,13 +117,19 @@
   }
 
   async function resolveUserRole(user) {
+    console.log('[AuthGuard] 1. Checking role for user ID:', user?.id);
+    
     const fromMeta = roleFromMetadata(user);
+    console.log('[AuthGuard] 2. Metadata role:', fromMeta);
     if (fromMeta) return fromMeta;
 
     const client = getClient();
     const fromProfile = await roleFromProfiles(client, user?.id);
+    console.log('[AuthGuard] 3. Profile role found:', fromProfile);
+    
     if (fromProfile) return fromProfile;
 
+    console.log('[AuthGuard] 4. No role found, defaulting to: client');
     return 'client';
   }
 
