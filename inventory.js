@@ -133,15 +133,12 @@
     if (error) throw error;
   }
 
-  async function updateStockQuantity(id, newQty) {
+  async function updateStockInDb(productId, newQty) {
     const qty = Math.max(0, Math.trunc(Number(newQty)));
     const { error } = await supabase
-      .from(TABLE)
-      .update({
-        stock_quantity: qty,
-        last_updated: new Date().toISOString(),
-      })
-      .eq('id', id);
+      .from('inventory')
+      .update({ stock_quantity: qty })
+      .eq('id', productId);
 
     if (error) throw error;
     return qty;
@@ -180,19 +177,11 @@
             <td>${escapeHtml(formatAud(row.selling_price))}</td>
             <td><span class="inv-alert-pill${alert.low ? ' inv-alert-pill--low' : ''}">${escapeHtml(alert.text)}</span></td>
             <td style="color:#64748b;font-size:0.8rem">${escapeHtml(formatDateTime(row.last_updated))}</td>
-            <td><button type="button" class="inv-btn inv-btn--action" data-update-stock="${escapeHtml(row.id)}">Update Stock</button></td>
+            <td><button type="button" class="inv-btn inv-btn--action" data-update-stock="${String(row.id)}">Update Stock</button></td>
           </tr>
         `;
       })
       .join('');
-
-    tbody.querySelectorAll('[data-update-stock]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-update-stock');
-        const row = inventoryRows.find((r) => String(r.id) === String(id));
-        if (row) openStockModal(row);
-      });
-    });
 
     const updated = $('inv-updated');
     if (updated) updated.textContent = `آخر تحديث: ${formatDateTime(new Date())}`;
@@ -218,62 +207,76 @@
     openModal('add-modal');
   }
 
-  function openStockModal(row) {
+  /** Opens the Update Stock modal for a product row */
+  function openUpdateStockModal(row) {
+    if (!row || row.id == null) return;
+
     editingRow = row;
-    $('stock-modal-product').textContent = row.product_name;
-    $('stock-modal-current').textContent = String(row.stock_quantity);
-    $('stock-modal-threshold').textContent = String(row.min_threshold);
-    $('stock-modal-delta').value = '';
-    $('stock-modal-absolute').value = '';
-    $('stock-modal-error').classList.add('hidden');
-    updateStockPreview();
+    const errEl = $('stock-modal-error');
+    const qtyInput = $('stock-modal-qty');
+
+    if ($('stock-modal-product')) $('stock-modal-product').textContent = row.product_name;
+    if ($('stock-modal-current')) $('stock-modal-current').textContent = String(row.stock_quantity);
+    if (qtyInput) {
+      qtyInput.value = String(row.stock_quantity);
+      qtyInput.focus();
+      qtyInput.select();
+    }
+    if (errEl) {
+      errEl.textContent = '';
+      errEl.classList.add('hidden');
+    }
+
     openModal('stock-modal');
   }
 
-  function resolveNewStock() {
-    const absRaw = $('stock-modal-absolute')?.value?.trim();
-    if (absRaw !== '' && absRaw != null) {
-      const abs = parseInt(absRaw, 10);
-      if (!Number.isFinite(abs) || abs < 0) return { error: 'كمية غير صالحة' };
-      return { qty: abs };
-    }
-    const deltaRaw = $('stock-modal-delta')?.value?.trim();
-    if (deltaRaw !== '' && deltaRaw != null) {
-      const delta = parseInt(deltaRaw, 10);
-      if (!Number.isFinite(delta)) return { error: 'رقم غير صالح' };
-      return { qty: Math.max(0, (editingRow?.stock_quantity ?? 0) + delta) };
-    }
-    return { error: 'أدخل تعديلاً أو كمية جديدة' };
-  }
-
-  function updateStockPreview() {
-    const preview = $('stock-modal-preview');
-    const r = resolveNewStock();
-    if (preview) preview.textContent = r.error ? '' : `بعد الحفظ: ${r.qty}`;
-  }
-
-  async function saveStockModal() {
+  /** Saves new quantity to Supabase inventory row */
+  async function saveStockUpdate() {
     const errEl = $('stock-modal-error');
-    const r = resolveNewStock();
-    if (r.error) {
-      errEl.textContent = r.error;
-      errEl.classList.remove('hidden');
+    const productId = editingRow?.id;
+    if (!productId) return;
+
+    const raw = $('stock-modal-qty')?.value?.trim();
+    const newQty = raw === '' ? NaN : parseInt(raw, 10);
+
+    if (!Number.isFinite(newQty) || newQty < 0) {
+      if (errEl) {
+        errEl.textContent = 'أدخل كمية صحيحة (0 أو أكثر)';
+        errEl.classList.remove('hidden');
+      }
       return;
     }
-    if (!editingRow) return;
 
     const btn = $('stock-modal-save');
     if (btn) btn.disabled = true;
+    if (errEl) errEl.classList.add('hidden');
+
     try {
-      await updateStockQuantity(editingRow.id, r.qty);
+      if (!supabase) supabase = initSupabase();
+      await updateStockInDb(productId, newQty);
       closeModals();
       await loadInventory();
     } catch (err) {
-      errEl.textContent = err.message || 'فشل الحفظ';
-      errEl.classList.remove('hidden');
+      console.error('[Inventory] update stock:', err);
+      if (errEl) {
+        errEl.textContent = err.message || 'فشل الحفظ';
+        errEl.classList.remove('hidden');
+      }
     } finally {
       if (btn) btn.disabled = false;
     }
+  }
+
+  function handleTableClick(ev) {
+    const btn = ev.target.closest?.('button[data-update-stock]');
+    if (!btn) return;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    const productId = btn.getAttribute('data-update-stock');
+    const row = inventoryRows.find((r) => String(r.id) === String(productId));
+    if (row) openUpdateStockModal(row);
   }
 
   async function handleAddProduct(ev) {
@@ -357,9 +360,14 @@
     });
     $('add-product-btn')?.addEventListener('click', openAddModal);
     $('add-product-form')?.addEventListener('submit', handleAddProduct);
-    $('stock-modal-delta')?.addEventListener('input', updateStockPreview);
-    $('stock-modal-absolute')?.addEventListener('input', updateStockPreview);
-    $('stock-modal-save')?.addEventListener('click', saveStockModal);
+    $('inventory-tbody')?.addEventListener('click', handleTableClick);
+    $('stock-modal-save')?.addEventListener('click', saveStockUpdate);
+    $('stock-modal-qty')?.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        saveStockUpdate();
+      }
+    });
     $('refresh-btn')?.addEventListener('click', loadInventory);
     loadInventory();
   });
