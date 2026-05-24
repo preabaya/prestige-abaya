@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
   <!-- GitHub Pages: served from repo root → https://preabaya.github.io/prestige-abaya/ -->
-  <link rel="stylesheet" href="style.css?v=20260523-guest">
+  <link rel="stylesheet" href="style.css?v=20260524-dashboard-ui">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
@@ -54,13 +54,103 @@
             <span class="connection-status__dot" aria-hidden="true"></span>
             <span class="connection-status__label">—</span>
           </div>
+          <button type="button" class="btn btn--outline btn--sm theme-toggle" id="theme-toggle" aria-pressed="false" title="الوضع المظلم">
+            <span class="theme-toggle__label" aria-hidden="true">🌙 مظلم</span>
+          </button>
           <button type="button" class="btn btn--outline btn--sm" id="lang-toggle" aria-label="Toggle language">EN</button>
         </div>
       </div>
       <nav class="site-nav" id="site-nav" aria-label="Main navigation"></nav>
     </header>
 
-    <div id="app"></div>
+    <div class="dashboard-shell">
+      <section class="dashboard-grid" id="dashboard-grid" aria-label="لوحة الوحدات">
+        <article class="dash-card dash-card--chart" id="dash-card-sales">
+          <header class="dash-card__head">
+            <h2 class="dash-card__title">رسم بياني للمبيعات</h2>
+            <p class="dash-card__subtitle">آخر 7 أيام</p>
+          </header>
+          <div class="dash-card__body dash-card__body--chart">
+            <canvas id="chart-dash-sales" height="200" aria-label="مبيعات الأسبوع"></canvas>
+          </div>
+          <p class="dash-card__meta" id="chart-dash-sales-meta">جاري التحميل…</p>
+        </article>
+
+        <article class="dash-card dash-card--chart" id="dash-card-customer">
+          <header class="dash-card__head">
+            <h2 class="dash-card__title">رسم بياني لتقييم العملاء</h2>
+            <p class="dash-card__subtitle">توزيع النجوم والمشاعر</p>
+          </header>
+          <div class="dash-card__body dash-card__body--chart">
+            <canvas id="chart-dash-customer-ratings" height="200" aria-label="تقييمات العملاء"></canvas>
+          </div>
+          <p class="dash-card__meta" id="chart-dash-customer-meta">جاري التحميل…</p>
+        </article>
+
+        <article class="dash-card" id="dash-card-executive">
+          <header class="dash-card__head">
+            <h2 class="dash-card__title">نظرة تنفيذية</h2>
+          </header>
+          <div class="dash-card__body" id="executive-overview-host"></div>
+        </article>
+
+        <article class="dash-card" id="dash-card-feedback">
+          <header class="dash-card__head">
+            <h2 class="dash-card__title">تجربة العملاء</h2>
+          </header>
+          <div class="dash-card__body" id="customer-feedback-host"></div>
+        </article>
+
+        <article class="dash-card" id="dash-card-operations">
+          <header class="dash-card__head">
+            <h2 class="dash-card__title">العمليات والفروع</h2>
+          </header>
+          <div class="dash-card__body" id="dash-operations-slot">
+            <p class="dash-mini-hint">جاري التحميل…</p>
+          </div>
+        </article>
+
+        <article class="dash-card" id="dash-card-inventory">
+          <header class="dash-card__head">
+            <h2 class="dash-card__title">المخزون</h2>
+          </header>
+          <div class="dash-card__body" id="dash-inventory-slot">
+            <p class="dash-mini-hint">جاري التحميل…</p>
+          </div>
+        </article>
+
+        <article class="dash-card" id="dash-card-security">
+          <header class="dash-card__head">
+            <h2 class="dash-card__title">الأمان</h2>
+          </header>
+          <div class="dash-card__body" id="dash-security-slot">
+            <p class="dash-mini-hint">جاري التحميل…</p>
+          </div>
+        </article>
+
+        <article class="dash-card" id="dash-card-automation">
+          <header class="dash-card__head">
+            <h2 class="dash-card__title">الأتمتة</h2>
+          </header>
+          <div class="dash-card__body" id="dash-automation-slot">
+            <p class="dash-mini-hint">جاري التحميل…</p>
+          </div>
+        </article>
+
+        <article class="dash-card" id="dash-card-notifications">
+          <header class="dash-card__head">
+            <h2 class="dash-card__title">التنبيهات</h2>
+          </header>
+          <div class="dash-card__body" id="dash-notifications-slot">
+            <p class="dash-mini-hint">جاري التحميل…</p>
+          </div>
+        </article>
+      </section>
+
+      <main class="dashboard-shell__main" id="dashboard-shell__main">
+        <div id="app"></div>
+      </main>
+    </div>
   </div>
 
   <div class="fab" id="fab" aria-label="Quick actions">
@@ -86,9 +176,6 @@
     </div>
   </aside>
   <div id="notifications-toast-stack" class="notifications-toast-stack" aria-live="assertive"></div>
-
-  <div id="customer-feedback-host" class="customer-feedback-host"></div>
-  <div id="executive-overview-host" class="executive-overview-host"></div>
 
   <!-- AI Intelligence Widget — يُعرض داخل لوحة التحكم عبر script.js -->
   <template id="ai-best-seller-widget-source">
@@ -185,5 +272,6 @@
   <script src="executive-dashboard.js?v=20260524"></script>
   <script src="security-center.js?v=20260524"></script>
   <script src="automation-center.js?v=20260524"></script>
+  <script src="dashboard-ui.js?v=20260524"></script>
 </body>
 </html>
