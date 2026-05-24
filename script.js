@@ -8411,7 +8411,10 @@ async function navigateToTab(tab) {
   const section = document.getElementById(tab);
   if (section) section.classList.add('panel--active');
 
-  window.scrollTo({ top: 0, behavior: tab === 'pos' ? 'auto' : 'smooth' });
+  const scrollRoot = document.getElementById('app-scroll');
+  const scrollOpts = { top: 0, behavior: tab === 'pos' ? 'auto' : 'smooth' };
+  if (scrollRoot) scrollRoot.scrollTo(scrollOpts);
+  else window.scrollTo(scrollOpts);
   if (tab === 'pos') PosUI.initPanel();
   if (tab === 'sales') await loadInventoryForSales();
   if (tab === 'returns') renderReturnsLog();

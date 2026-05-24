@@ -18,60 +18,86 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
   <!-- GitHub Pages: served from repo root → https://preabaya.github.io/prestige-abaya/ -->
-  <link rel="stylesheet" href="style.css?v=20260524-dashboard-ui">
+  <link rel="stylesheet" href="style.css?v=20260524-app-shell">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 </head>
 <body>
-  <div id="root" class="root">
-    <header class="site-header">
-      <div class="site-header__top">
-        <div class="site-header__brand">
-          <img id="brand-logo" class="site-header__logo" src="" alt="Prestige Abaya" hidden>
-          <div class="site-header__text">
-            <h1 class="site-header__title">Prestige Abaya</h1>
-            <p class="site-header__subtitle" data-i18n="subtitle">النظام المالي والمخزوني المتكامل</p>
+  <div class="app-layout" id="app-layout">
+    <aside class="app-sidebar" aria-label="الشريط الجانبي">
+      <div class="app-toolbar" aria-label="شريط الأدوات">
+        <aside class="notifications-center notifications-center--toolbar" id="notifications-center" aria-label="مركز التنبيهات">
+          <button type="button" class="app-toolbar__btn notifications-center__toggle" id="notifications-center-toggle" aria-expanded="false" aria-controls="notifications-list-wrap" title="التنبيهات">
+            <span aria-hidden="true">🔔</span>
+            <span id="notifications-count" class="notifications-center__badge" hidden>0</span>
+          </button>
+          <div id="notifications-list-wrap" class="notifications-center__panel" hidden>
+            <h2 class="notifications-center__title">مركز التنبيهات</h2>
+            <ul id="notifications-list" class="notifications-list" role="list"></ul>
+          </div>
+        </aside>
+        <button type="button" class="app-toolbar__btn theme-toggle" id="theme-toggle" aria-pressed="false" title="الوضع المظلم">
+          <span class="theme-toggle__label" aria-hidden="true">🌙</span>
+        </button>
+        <button type="button" class="app-toolbar__btn" id="lang-toggle" aria-label="Toggle language">EN</button>
+        <div class="user-menu user-menu--toolbar" id="user-menu-wrap">
+          <button type="button" class="app-toolbar__btn user-session-btn" id="user-menu-btn" aria-expanded="false" aria-haspopup="true" title="الحساب">
+            <span class="user-session-btn__icon" aria-hidden="true">👤</span>
+            <span class="user-session-btn__name" id="user-current-name">—</span>
+          </button>
+          <div id="user-menu-dropdown" class="user-menu__dropdown" hidden>
+            <div class="user-menu__header">
+              <span class="user-menu__label" data-i18n="userCurrent">المستخدم الحالي</span>
+              <strong id="user-menu-display-name" class="user-menu__name">—</strong>
+            </div>
+            <button type="button" class="user-menu__logout btn btn--outline btn--sm" id="user-logout-btn" data-i18n="authLogout">تسجيل خروج</button>
           </div>
         </div>
-        <div class="site-header__actions">
-          <div class="user-menu" id="user-menu-wrap">
-            <button type="button" class="user-session-btn" id="user-menu-btn" aria-expanded="false" aria-haspopup="true" title="">
-              <span class="user-session-btn__icon" aria-hidden="true">👤</span>
-              <span class="user-session-btn__name" id="user-current-name">—</span>
-              <span class="user-menu__caret" aria-hidden="true">▾</span>
-            </button>
-            <div id="user-menu-dropdown" class="user-menu__dropdown" hidden>
-              <div class="user-menu__header">
-                <span class="user-menu__label" data-i18n="userCurrent">المستخدم الحالي</span>
-                <strong id="user-menu-display-name" class="user-menu__name">—</strong>
-              </div>
-              <button type="button" class="user-menu__logout btn btn--outline btn--sm" id="user-logout-btn" data-i18n="authLogout">تسجيل خروج</button>
-            </div>
-          </div>
-          <div class="connection-status connection-status--local" id="connection-status" title="">
-            <span class="connection-status__dot" aria-hidden="true"></span>
-            <span class="connection-status__label">—</span>
-          </div>
-          <button type="button" class="btn btn--outline btn--sm theme-toggle" id="theme-toggle" aria-pressed="false" title="الوضع المظلم">
-            <span class="theme-toggle__label" aria-hidden="true">🌙 مظلم</span>
-          </button>
-          <button type="button" class="btn btn--outline btn--sm" id="lang-toggle" aria-label="Toggle language">EN</button>
+        <div class="connection-status connection-status--toolbar connection-status--local" id="connection-status" title="">
+          <span class="connection-status__dot" aria-hidden="true"></span>
+          <span class="connection-status__label">—</span>
         </div>
       </div>
-      <nav class="site-nav" id="site-nav" aria-label="Main navigation"></nav>
-    </header>
 
-    <div class="dashboard-shell">
+      <nav class="site-nav site-nav--sidebar" id="site-nav" aria-label="Main navigation"></nav>
+
+      <div class="app-sidebar__fab fab fab--sidebar" id="fab" aria-label="Quick actions">
+        <div class="fab__menu" id="fab-menu" hidden>
+          <button type="button" class="fab__item" data-fab="pos" data-i18n="fabPos">نقطة بيع</button>
+          <button type="button" class="fab__item" data-fab="expense" data-i18n="fabExpense">مصروف</button>
+          <button type="button" class="fab__item" data-fab="sale" data-i18n="fabSale">بيع</button>
+          <button type="button" class="fab__item" data-fab="product" data-i18n="fabProduct">منتج</button>
+        </div>
+        <button type="button" class="fab__main" id="fab-toggle" aria-expanded="false">+</button>
+      </div>
+    </aside>
+
+    <div class="app-main">
+      <header class="site-header site-header--fixed">
+        <div class="site-header__top">
+          <div class="site-header__brand">
+            <img id="brand-logo" class="site-header__logo" src="" alt="Prestige Abaya" hidden>
+            <div class="site-header__text">
+              <h1 class="site-header__title">Prestige Abaya</h1>
+              <p class="site-header__subtitle" data-i18n="subtitle">النظام المالي والمخزوني المتكامل</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="app-scroll" id="app-scroll">
+        <div id="root" class="root">
+          <div class="dashboard-shell">
       <section class="dashboard-grid" id="dashboard-grid" aria-label="لوحة الوحدات">
-        <article class="dash-card dash-card--chart" id="dash-card-sales">
+        <article class="dash-card dash-card--chart dash-card--sales-chart" id="dash-card-sales">
           <header class="dash-card__head">
             <h2 class="dash-card__title">رسم بياني للمبيعات</h2>
             <p class="dash-card__subtitle">آخر 7 أيام</p>
           </header>
-          <div class="dash-card__body dash-card__body--chart">
-            <canvas id="chart-dash-sales" height="200" aria-label="مبيعات الأسبوع"></canvas>
+          <div class="dash-card__body dash-card__body--chart dash-card__chart-wrap">
+            <canvas id="chart-dash-sales" aria-label="مبيعات الأسبوع"></canvas>
           </div>
           <p class="dash-card__meta" id="chart-dash-sales-meta">جاري التحميل…</p>
         </article>
@@ -150,31 +176,13 @@
       <main class="dashboard-shell__main" id="dashboard-shell__main">
         <div id="app"></div>
       </main>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
-
-  <div class="fab" id="fab" aria-label="Quick actions">
-    <div class="fab__menu" id="fab-menu" hidden>
-      <button type="button" class="fab__item" data-fab="pos" data-i18n="fabPos">نقطة بيع</button>
-      <button type="button" class="fab__item" data-fab="expense" data-i18n="fabExpense">مصروف</button>
-      <button type="button" class="fab__item" data-fab="sale" data-i18n="fabSale">بيع</button>
-      <button type="button" class="fab__item" data-fab="product" data-i18n="fabProduct">منتج</button>
-    </div>
-    <button type="button" class="fab__main" id="fab-toggle" aria-expanded="false">+</button>
   </div>
 
   <div id="toast" class="toast" aria-live="polite"></div>
-
-  <aside class="notifications-center" id="notifications-center" aria-label="مركز التنبيهات">
-    <button type="button" class="notifications-center__toggle" id="notifications-center-toggle" aria-expanded="true" aria-controls="notifications-list-wrap">
-      <span aria-hidden="true">🔔</span>
-      <span id="notifications-count" class="notifications-center__badge" hidden>0</span>
-    </button>
-    <div id="notifications-list-wrap" class="notifications-center__panel">
-      <h2 class="notifications-center__title">مركز التنبيهات</h2>
-      <ul id="notifications-list" class="notifications-list" role="list"></ul>
-    </div>
-  </aside>
   <div id="notifications-toast-stack" class="notifications-toast-stack" aria-live="assertive"></div>
 
   <!-- AI Intelligence Widget — يُعرض داخل لوحة التحكم عبر script.js -->
