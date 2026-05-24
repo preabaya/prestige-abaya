@@ -14,7 +14,7 @@ const SALES_ANOMALY_RECENT_COUNT = 10;
 const SALES_ANOMALY_MIN_SAMPLES = 3;
 /** Fixed high-value threshold (AUD) — logs HIGH_VALUE_TRANSACTION to ai_alerts */
 const SALES_HIGH_VALUE_THRESHOLD_AUD = 5000;
-const INSUFFICIENT_STOCK_MSG = 'عفواً، الكمية غير كافية!';
+const BRIDGE_INSUFFICIENT_STOCK_MSG = 'عفواً، الكمية غير كافية!';
 const ERP_SALES_CHANNEL = 'prestige-erp-sales';
 
 /** @type {import('@supabase/supabase-js').SupabaseClient | null} */
@@ -809,7 +809,7 @@ const SupabaseBridge = {
     if (qty > available) {
       return {
         ok: false,
-        error: INSUFFICIENT_STOCK_MSG,
+        error: BRIDGE_INSUFFICIENT_STOCK_MSG,
         code: 'INSUFFICIENT_STOCK',
         available,
       };
@@ -899,7 +899,7 @@ const SupabaseBridge = {
       }
       return {
         ok: false,
-        error: deductRes.error || INSUFFICIENT_STOCK_MSG,
+        error: deductRes.error || BRIDGE_INSUFFICIENT_STOCK_MSG,
         code: deductRes.code || 'INSUFFICIENT_STOCK',
       };
     }
@@ -934,7 +934,7 @@ const SupabaseBridge = {
       const msg = error.message || 'Database error';
       return {
         ok: false,
-        error: this.isInsufficientStockMessage(msg) ? INSUFFICIENT_STOCK_MSG : msg,
+        error: this.isInsufficientStockMessage(msg) ? BRIDGE_INSUFFICIENT_STOCK_MSG : msg,
         code: this.isInsufficientStockMessage(msg) ? 'INSUFFICIENT_STOCK' : undefined,
       };
     }

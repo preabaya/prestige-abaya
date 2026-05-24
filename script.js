@@ -3344,8 +3344,21 @@ let _salesCatalogLoadPromise = null;
 /**
  * Load public.inventory from Supabase, then fill the sales dropdown (awaits before paint).
  */
+function getSalesPanelRoot() {
+  return document.getElementById('sales-panel') || document.getElementById('sales');
+}
+
+function getSaleFormEl() {
+  const root = getSalesPanelRoot();
+  if (root) {
+    const form = root.querySelector('#sale-form');
+    if (form) return form;
+  }
+  return document.getElementById('sale-form');
+}
+
 async function loadInventoryForSales({ force = false } = {}) {
-  if (!document.getElementById('sale-form')) {
+  if (!getSaleFormEl()) {
     renderApp('sales');
   }
 
@@ -7401,6 +7414,7 @@ function renderInventoryHTML() {
 
 function renderSalesHTML() {
   return `
+    <div id="sales-panel" class="sales-panel">
     <div class="card">
       <h2 class="card__title">${t('recordSale')}</h2>
       <form id="sale-form">
@@ -7432,8 +7446,9 @@ function renderSalesHTML() {
       <div class="table-wrap">
         <table class="table"><thead><tr>
           <th>${t('invoiceNumber')}</th><th>${t('date')}</th><th>${t('product')}</th><th>${t('saleColor')}</th><th>${t('abayaStyle')}</th><th>${t('qty')}</th><th>${t('revenueAud')}</th><th>${t('profitAud')}</th><th>${t('saleSource')}</th><th>${t('paymentMethodCol')}</th><th>${t('status')}</th><th>${t('actions')}</th>
-        </tr></thead><tbody id="sale-tbody"></tbody></table>
+        </tr></thead>              <tbody id="sale-tbody"></tbody></table>
       </div>
+    </div>
     </div>`;
 }
 
@@ -8939,3 +8954,5 @@ window.renderApp = renderApp;
 window.loadInventoryForSales = loadInventoryForSales;
 window.populateSaleSelect = populateSaleSelect;
 window.resolveRouteTab = resolveRouteTab;
+window.getSaleFormEl = getSaleFormEl;
+window.getSalesPanelRoot = getSalesPanelRoot;

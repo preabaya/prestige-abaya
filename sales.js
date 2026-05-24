@@ -8,7 +8,7 @@
   const SALES_TAB = 'sales';
 
   function getConfig() {
-    return typeof window !== 'undefined' ? window.SUPABASE_CONFIG || {} : {};
+    return typeof window !== 'undefined' ? window.SUPABASE_CONFIG || {};
   }
 
   function isConfigReady() {
@@ -21,8 +21,27 @@
     return raw === SALES_TAB ? SALES_TAB : null;
   }
 
+  function getSalesRoot() {
+    return (
+      document.getElementById('sales-panel')
+      || document.getElementById(SALES_TAB)
+    );
+  }
+
+  function getSaleFormEl() {
+    if (typeof window.getSaleFormEl === 'function') {
+      return window.getSaleFormEl();
+    }
+    const root = getSalesRoot();
+    if (root) {
+      const form = root.querySelector('#sale-form');
+      if (form) return form;
+    }
+    return document.getElementById('sale-form');
+  }
+
   function showConfigBanner() {
-    const panel = document.getElementById(SALES_TAB);
+    const panel = getSalesRoot();
     if (!panel || panel.querySelector('[data-sales-config-banner]')) return;
     panel.insertAdjacentHTML(
       'afterbegin',
@@ -33,11 +52,11 @@
     );
   }
 
-  function waitForSalesDom(maxMs = 12000) {
+  function waitForSalesDom(maxMs = 15000) {
     return new Promise((resolve) => {
       const start = Date.now();
       const tick = () => {
-        if (document.getElementById('sale-form')) return resolve(true);
+        if (getSaleFormEl()) return resolve(true);
         if (Date.now() - start > maxMs) return resolve(false);
         requestAnimationFrame(tick);
       };
@@ -45,7 +64,10 @@
     });
   }
 
-  async function activateSalesTab() {
+  async function ensureSalesShell() {
+    if (typeof window.renderApp === 'function') {
+      window.renderApp(SALES_TAB);
+    }
     if (typeof window.navigateToTab === 'function') {
       await window.navigateToTab(SALES_TAB);
       return;
@@ -67,27 +89,26 @@
   async function boot() {
     if (hashTab() !== SALES_TAB) return;
 
+    await ensureSalesShell();
+
     const ready = await waitForSalesDom();
     if (!ready) {
-      if (typeof window.renderApp === 'function') {
-        window.renderApp(SALES_TAB);
-        await waitForSalesDom();
-      }
-    }
-
-    if (!document.getElementById('sale-form')) {
-      console.error('[Sales] sale-form not found — check renderApp / #sales panel');
+      console.error('[Sales] sale-form not found inside #sales / #sales-panel — app may still be loading');
       return;
     }
 
     if (!isConfigReady()) showConfigBanner();
 
-    await activateSalesTab();
+    if (typeof window.loadInventoryForSales === 'function') {
+      await window.loadInventoryForSales();
+    }
   }
 
   window.PrestigeSalesPage = {
     boot,
     isConfigReady,
+    getSaleFormEl,
+    getSalesRoot,
     SALES_TAB,
   };
 
@@ -98,12 +119,4 @@
   window.addEventListener('hashchange', () => {
     void boot();
   });
-
-  if (hashTab() === SALES_TAB) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => void boot());
-    } else {
-      void boot();
-    }
-  }
 })();
