@@ -2,161 +2,207 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="Prestige Abaya ERP — إدارة المخزون">
-  <meta name="theme-color" content="#f8fafc">
-  <title>إدارة المخزون | Prestige Abaya ERP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>المخزن | Prestige Abaya</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="inventory.css?v=20260525-inventory-v4">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --card: #fff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #0f766e;
+      --danger: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Tajawal', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 2.5rem;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+    .sub { margin: 0.15rem 0 0; font-size: 0.875rem; color: var(--muted); }
+    .nav a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      margin-inline-start: 0.75rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+    }
+    .card h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      align-items: end;
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+    input {
+      width: 100%;
+      padding: 0.5rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font: inherit;
+      background: #fff;
+    }
+    input:focus {
+      outline: 2px solid #99f6e4;
+      border-color: var(--accent);
+    }
+    button {
+      font: inherit;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 1rem;
+      font-weight: 600;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-ghost {
+      background: #fff;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 0.65rem 0.5rem;
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 2rem 0.5rem;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+    #status {
+      font-size: 0.8rem;
+      color: var(--muted);
+      min-height: 1.25rem;
+    }
+    #status.is-error { color: var(--danger); }
+    #status.is-ok { color: var(--accent); }
+    .num { font-variant-numeric: tabular-nums; }
+  </style>
 </head>
-<body class="inv-page">
-  <div id="app">
-    <div id="sidebar-overlay" class="inv-overlay" aria-hidden="true"></div>
-
-    <aside id="sidebar" class="inv-sidebar">
-      <div class="inv-sidebar__brand inv-flex">
-        <div class="inv-sidebar__logo" aria-hidden="true">P</div>
-        <div>
-          <p class="text-sm font-bold m-0" style="color:#1e293b">Prestige Abaya</p>
-          <p class="text-xs m-0" style="color:#64748b">المخزون</p>
-        </div>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>المخزن</h1>
+        <p class="sub">إدارة المنتجات من جدول inventory</p>
       </div>
-      <nav class="inv-nav" aria-label="التنقل">
-        <a href="dashboard.html">لوحة التحكم</a>
+      <nav class="nav" aria-label="روابط">
         <a href="index.html">المبيعات</a>
-        <a href="inventory.html" class="active">المخزون</a>
-        <a href="index.html">الإعدادات</a>
+        <a href="dashboard.html">لوحة التحكم</a>
       </nav>
-      <div style="padding:1rem;border-top:1px solid #e2e8f0">
-        <a href="index.html" class="inv-btn" style="width:100%;text-decoration:none">← التطبيق الرئيسي</a>
-      </div>
-    </aside>
+    </header>
 
-    <div class="inv-main">
-      <header class="inv-header">
-        <div class="inv-flex">
-          <button type="button" id="sidebar-toggle" class="inv-btn inv-btn-menu" aria-label="القائمة">☰</button>
-          <div>
-            <h1>إدارة المخزون</h1>
-            <p>بيانات من جدول inventory</p>
-          </div>
+    <section class="card" aria-labelledby="add-heading">
+      <h2 id="add-heading">إضافة منتج</h2>
+      <form id="add-form" class="form-grid" novalidate>
+        <div>
+          <label for="product_name">اسم المنتج</label>
+          <input id="product_name" name="product_name" type="text" required autocomplete="off" placeholder="مثال: عباية سوداء">
         </div>
-        <div class="inv-flex" style="flex-wrap:wrap">
-          <button type="button" id="add-product-btn" class="inv-btn inv-btn--primary">Add Product</button>
-          <button type="button" id="refresh-btn" class="inv-btn inv-btn--primary">تحديث</button>
+        <div>
+          <label for="price">السعر (AUD)</label>
+          <input id="price" name="price" type="number" min="0" step="0.01" required value="0">
         </div>
-      </header>
-
-      <div class="inv-content">
-        <div class="inv-kpi-grid">
-          <article class="inv-card inv-kpi">
-            <p class="inv-kpi__label">المنتجات</p>
-            <p id="inv-kpi-total" class="inv-kpi__value">—</p>
-          </article>
-          <article class="inv-card inv-kpi">
-            <p class="inv-kpi__label">إجمالي القطع</p>
-            <p id="inv-kpi-units" class="inv-kpi__value">—</p>
-          </article>
-          <article class="inv-card inv-kpi">
-            <p class="inv-kpi__label">تحت حد التنبيه</p>
-            <p id="inv-kpi-low" class="inv-kpi__value inv-kpi__value--low">—</p>
-          </article>
+        <div>
+          <label for="stock_quantity">الكمية</label>
+          <input id="stock_quantity" name="stock_quantity" type="number" min="0" step="1" required value="0">
         </div>
-
-        <section class="inv-card">
-          <div style="padding:1rem 1.25rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
-            <div>
-              <h2 style="margin:0;font-size:1rem;font-weight:800;color:#1e293b">قائمة المخزون</h2>
-              <p style="margin:0.2rem 0 0;font-size:0.8rem;color:#64748b">صف أحمر إذا الكمية أقل من min_threshold</p>
-            </div>
-            <span id="inv-updated" style="font-size:0.75rem;color:#94a3b8"></span>
-          </div>
-          <div class="inv-table-wrap">
-            <table class="inv-table">
-              <thead>
-                <tr>
-                  <th>اسم المنتج</th>
-                  <th>الكمية</th>
-                  <th>حد التنبيه</th>
-                  <th>التكلفة</th>
-                  <th>البيع</th>
-                  <th>التنبيه</th>
-                  <th>آخر تحديث</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="inventory-tbody">
-                <tr>
-                  <td colspan="8" class="inv-empty">جاري التحميل…</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p id="inventory-empty" class="inv-empty hidden">لا توجد منتجات — استخدم Add Product</p>
-        </section>
-      </div>
-
-      <footer class="inv-footer">Prestige Abaya ERP · <span id="footer-year"></span></footer>
-    </div>
-  </div>
-
-  <div id="add-modal" class="inv-modal hidden" role="dialog" aria-labelledby="add-modal-title">
-    <div class="inv-modal__backdrop" data-close-modal></div>
-    <div class="inv-modal__panel">
-      <h2 id="add-modal-title" style="margin:0;font-size:1.05rem;font-weight:800">Add Product</h2>
-      <form id="add-product-form" style="margin-top:1rem">
-        <label class="inv-label">اسم المنتج *
-          <input type="text" name="product_name" required class="inv-input">
-        </label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-top:0.75rem">
-          <label class="inv-label">الكمية
-            <input type="number" name="stock_quantity" min="0" value="0" class="inv-input">
-          </label>
-          <label class="inv-label">حد التنبيه
-            <input type="number" name="min_threshold" min="0" value="5" class="inv-input">
-          </label>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-top:0.75rem">
-          <label class="inv-label">سعر التكلفة
-            <input type="number" name="cost_price" min="0" step="0.01" value="0" class="inv-input">
-          </label>
-          <label class="inv-label">سعر البيع
-            <input type="number" name="selling_price" min="0" step="0.01" value="0" class="inv-input">
-          </label>
-        </div>
-        <p id="add-modal-error" class="inv-form-error hidden"></p>
-        <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
-          <button type="button" class="inv-btn" data-close-modal>إلغاء</button>
-          <button type="submit" class="inv-btn inv-btn--primary">حفظ</button>
+        <div>
+          <button type="submit" class="btn-primary" id="submit-btn">إضافة</button>
         </div>
       </form>
-    </div>
-  </div>
+      <p id="status" role="status" aria-live="polite"></p>
+    </section>
 
-  <div id="stock-modal" class="inv-modal hidden" role="dialog" aria-modal="true" aria-labelledby="stock-modal-title">
-    <div class="inv-modal__backdrop" data-close-modal></div>
-    <div class="inv-modal__panel">
-      <h2 id="stock-modal-title" style="margin:0;font-size:1.05rem;font-weight:800">Update Stock</h2>
-      <p id="stock-modal-product" style="margin:0.35rem 0 0;font-size:0.85rem;color:#64748b"></p>
-      <p style="font-size:0.85rem;color:#475569;margin-top:0.5rem">
-        الكمية الحالية: <strong id="stock-modal-current">0</strong>
-      </p>
-      <label class="inv-label" style="margin-top:0.75rem">الكمية الجديدة
-        <input type="number" id="stock-modal-qty" class="inv-input" min="0" step="1" required>
-      </label>
-      <p id="stock-modal-error" class="inv-form-error hidden" role="alert"></p>
-      <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
-        <button type="button" class="inv-btn" data-close-modal>إلغاء</button>
-        <button type="button" id="stock-modal-save" class="inv-btn inv-btn--primary">حفظ</button>
+    <section class="card" aria-labelledby="list-heading">
+      <div class="toolbar">
+        <h2 id="list-heading" style="margin:0">قائمة المخزون</h2>
+        <button type="button" class="btn-ghost" id="refresh-btn">تحديث</button>
       </div>
-    </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>اسم المنتج</th>
+              <th>السعر</th>
+              <th>الكمية</th>
+            </tr>
+          </thead>
+          <tbody id="inventory-body">
+            <tr><td colspan="3" class="empty">جاري التحميل…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.config.js"></script>
   <script src="db-helper.js?v=20260520-db-helper"></script>
-  <script src="inventory.js?v=20260525-inventory-v5"></script>
+  <script src="inventory.js?v=20260520-warehouse"></script>
 </body>
 </html>

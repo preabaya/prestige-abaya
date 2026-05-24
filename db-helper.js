@@ -4,6 +4,7 @@
  *
  * Usage:
  *   const { data } = await getProducts();
+ *   await addProduct({ product_name: 'عباية سوداء', price: 120, stock_quantity: 10 });
  *   await saveSale({ product_name: 'عباية سوداء', quantity: 1, price: 120 });
  */
 (function (global) {
@@ -114,6 +115,51 @@
   }
 
   /**
+   * Add inventory row — product_name, price (selling_price), stock_quantity only.
+   * @param {{ product_name: string, price: number, stock_quantity: number, tenant_id?: string }} item
+   */
+  async function addProduct(item) {
+    const client = getClient();
+    if (!client) {
+      return { ok: false, error: 'Supabase غير مهيأ — راجع supabase.config.js' };
+    }
+
+    const productName = normalizeProductName(item?.product_name);
+    const price = roundMoney(item?.price);
+    const stockQuantity = Math.max(0, parseInt(item?.stock_quantity, 10) || 0);
+
+    if (!productName) {
+      return { ok: false, error: 'اسم المنتج مطلوب', code: 'MISSING_PRODUCT_NAME' };
+    }
+
+    const tenantId = item?.tenant_id ? String(item.tenant_id).trim() : resolveTenantId();
+    const row = {
+      product_name: productName,
+      selling_price: price,
+      stock_quantity: stockQuantity,
+    };
+    if (tenantId) row.tenant_id = tenantId;
+
+    const { data, error } = await client
+      .from('inventory')
+      .insert(row)
+      .select('id, product_name, selling_price, stock_quantity')
+      .single();
+
+    if (error) return { ok: false, error: error.message };
+
+    return {
+      ok: true,
+      data: {
+        id: data.id,
+        product_name: normalizeProductName(data.product_name),
+        price: roundMoney(data.selling_price),
+        stock_quantity: Math.max(0, parseInt(data.stock_quantity, 10) || 0),
+      },
+    };
+  }
+
+  /**
    * Record a sale via insert_sale_with_inventory (product_name, quantity, price + tenant_id).
    * @param {{ product_name: string, quantity: number, price: number, tenant_id?: string }} sale
    * @returns {Promise<{ ok: boolean, data?: object, error?: string, code?: string }>}
@@ -177,6 +223,7 @@
   const DbHelper = {
     getClient,
     getProducts,
+    addProduct,
     saveSale,
     resolveTenantId,
     isConfigured,
@@ -184,5 +231,6 @@
 
   global.DbHelper = DbHelper;
   global.getProducts = getProducts;
+  global.addProduct = addProduct;
   global.saveSale = saveSale;
 })(typeof window !== 'undefined' ? window : global);
