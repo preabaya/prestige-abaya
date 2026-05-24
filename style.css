@@ -6161,6 +6161,64 @@ html[data-theme="dark"] .exec-kpi {
   background: linear-gradient(160deg, var(--surface-2) 0%, var(--bg-soft) 100%);
 }
 
+/* ─── Auth guard & login pages ─── */
+html.auth-guard-pending:not(.auth-guard-ready) body {
+  visibility: hidden;
+}
+
+.auth-page-body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: var(--space-md);
+}
+
+.auth-page {
+  width: 100%;
+  max-width: 26rem;
+}
+
+.auth-page__card {
+  padding: var(--space-lg);
+}
+
+.auth-page__title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.auth-page__subtitle {
+  margin: 0.35rem 0 var(--space-md);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.auth-page__hint {
+  margin: 0 0 var(--space-md);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.auth-page__footer {
+  margin: var(--space-md) 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.auth-page__footer a {
+  color: var(--accent);
+}
+
+.auth-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: var(--space-md);
+}
+
 /* تقليل الحركة لمن يفضّل ذلك (إمكانية الوصول) */
 @media (prefers-reduced-motion: reduce) {
   *,

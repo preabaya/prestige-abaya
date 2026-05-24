@@ -16,6 +16,11 @@ window.SUPABASE_CONFIG = {
    */
   skipAuth: true,
   skipAuthForSales: true,
+  /**
+   * false + enforceAuthGuard: true = AuthGuard يحمي index.html حتى مع skipAuth
+   * للإنتاج: skipAuth: false و skipAuthGuard: false
+   */
+  skipAuthGuard: true,
 };
 
 /** Super Admin panel: /admin/index.html — set Auth user app_metadata: { "role": "super_admin" } */

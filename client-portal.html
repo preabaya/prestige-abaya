@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-auth-guard="authenticated">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>بوابة العملاء | Prestige Abaya</title>
+  <link rel="stylesheet" href="style.css?v=20260524-dashboard-ui">
+</head>
+<body class="auth-page-body">
+  <main class="auth-page">
+    <div class="auth-page__card card">
+      <h1 class="auth-page__title">بوابة العملاء</h1>
+      <p class="auth-page__subtitle" id="portal-welcome">مرحباً بك</p>
+      <p class="auth-page__hint" id="portal-role"></p>
+      <div class="auth-page__actions">
+        <a class="btn btn--outline" href="login.html">تبديل الحساب</a>
+        <button type="button" class="btn btn--primary" id="portal-signout">تسجيل خروج</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.config.js"></script>
+  <script src="db-helper.js"></script>
+  <script src="supabase-bridge.js"></script>
+  <script src="auth-guard.js?v=20260524"></script>
+  <script>
+    (function () {
+      document.getElementById('portal-signout')?.addEventListener('click', async () => {
+        if (window.SupabaseBridge?.signOut) await window.SupabaseBridge.signOut();
+        location.replace('login.html');
+      });
+
+      document.addEventListener('DOMContentLoaded', async () => {
+        const session = await AuthGuard.getSession();
+        const user = session?.user;
+        const welcome = document.getElementById('portal-welcome');
+        const roleEl = document.getElementById('portal-role');
+        if (user && welcome) {
+          const name = user.user_metadata?.display_name || user.email || 'عميل';
+          welcome.textContent = `مرحباً، ${name}`;
+        }
+        if (user && roleEl) {
+          const role = await AuthGuard.resolveUserRole(user);
+          roleEl.textContent = role === 'admin' ? 'صلاحية: مدير (عرض البوابة)' : 'صلاحية: عميل';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
