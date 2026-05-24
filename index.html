@@ -75,6 +75,22 @@
 
   <div id="toast" class="toast" aria-live="polite"></div>
 
+  <!-- AI Intelligence Widget — يُعرض داخل لوحة التحكم عبر script.js -->
+  <template id="ai-best-seller-widget-source">
+    <article id="ai-best-seller-widget" class="ai-intel-widget card" aria-live="polite">
+      <div class="ai-intel-widget__head">
+        <span class="ai-intel-widget__icon" aria-hidden="true">✦</span>
+        <div>
+          <h3 class="ai-intel-widget__title">البطاقة الذكية</h3>
+          <p class="ai-intel-widget__subtitle">المنتج الأكثر مبيعاً</p>
+        </div>
+      </div>
+      <div class="ai-intel-widget__body">
+        <p class="ai-intel-widget__message">جاري التحميل…</p>
+      </div>
+    </article>
+  </template>
+
   <div id="auth-overlay" class="auth-overlay auth-overlay--disabled" hidden role="dialog" aria-modal="true" aria-hidden="true">
     <div class="auth-overlay__backdrop"></div>
     <div class="auth-overlay__panel">
@@ -144,7 +160,7 @@
   </script>
   <script src="db-helper.js?v=20260520-db-helper"></script>
   <script src="supabase-bridge.js?v=20260520-no-image"></script>
-  <script src="script.js?v=20260520-no-image"></script>
+  <script src="script.js?v=20260524-ai-widget"></script>
   <script src="sales.js?v=20260530-db-helper"></script>
   <script src="ai-engine.js"></script>
 </body>

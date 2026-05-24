@@ -1107,6 +1107,111 @@ body.user-modal-open .fab {
   font-weight: 700;
 }
 
+/* ─── AI Intelligence Widget (best seller) ─── */
+.ai-intel-widget {
+  margin-bottom: var(--space-lg);
+  border: 1px solid rgba(15, 118, 110, 0.28);
+  background: linear-gradient(135deg, #f0fdfa 0%, var(--surface) 55%, #ecfdf5 100%);
+  box-shadow: var(--shadow);
+}
+
+.ai-intel-widget__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.ai-intel-widget__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, #0f766e, #14b8a6);
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.ai-intel-widget__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ai-intel-widget__subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.ai-intel-widget__body {
+  padding: var(--space-md);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(15, 118, 110, 0.12);
+}
+
+.ai-intel-widget__message {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.ai-intel-widget__label {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #0f766e;
+}
+
+.ai-intel-widget__product {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.35;
+}
+
+.ai-intel-widget__stat {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.ai-intel-widget__stat strong {
+  color: #0f766e;
+  font-size: 1.05rem;
+}
+
+.ai-intel-widget--loading .ai-intel-widget__body {
+  border-style: dashed;
+}
+
+.ai-intel-widget--ok .ai-intel-widget__body {
+  border-color: rgba(15, 118, 110, 0.35);
+}
+
+.ai-intel-widget--empty .ai-intel-widget__body,
+.ai-intel-widget--error .ai-intel-widget__body {
+  border-color: rgba(220, 38, 38, 0.2);
+  background: #fef2f2;
+}
+
+.ai-intel-widget--empty .ai-intel-widget__message {
+  color: #92400e;
+}
+
+.ai-intel-widget--error .ai-intel-widget__message {
+  color: #b91c1c;
+}
+
 .smart-dashboard__grid {
   display: grid;
   gap: var(--space-md);

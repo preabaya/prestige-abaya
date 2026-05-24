@@ -100,6 +100,14 @@ const TRANSLATIONS = {
     profitAud: 'صافي الأرباح (AUD)', revenueAud: 'الإيرادات (AUD)', expensesAud: 'المصاريف (AUD)',
     costDist: 'توزيع التكاليف', profitForecast: 'توقعات الأرباح', topProducts: 'أكثر المنتجات مبيعاً',
     shippingShare: 'نسبة الشحن', abayaShare: 'نسبة العبايات', aiInsights: 'رؤى ذكية',
+    aiWidgetTitle: 'البطاقة الذكية',
+    aiWidgetSubtitle: 'المنتج الأكثر مبيعاً (آخر 50 عملية)',
+    aiWidgetLoading: 'جاري تحليل المبيعات…',
+    aiWidgetNoData: 'لا توجد بيانات مبيعات كافية للتحليل.',
+    aiWidgetError: 'تعذر تحميل التحليل. حاول التحديث لاحقاً.',
+    aiWidgetUnavailable: 'محرك الذكاء الاصطناعي غير متاح.',
+    aiBestSeller: 'الأكثر مبيعاً',
+    aiTotalSold: 'إجمالي القطع المباعة',
     noData: 'لا توجد بيانات', saved: 'تم الحفظ', deleted: 'تم الحذف', confirmDelete: 'تأكيد الحذف؟',
     customer: 'العميل', payment: 'الدفع', product: 'المنتج', date: 'التاريخ', notes: 'ملاحظات',
     totalProducts: 'المنتجات', totalStock: 'المخزون', totalSales: 'المبيعات',
@@ -503,6 +511,14 @@ const TRANSLATIONS = {
     profitAud: 'Net Profit (AUD)', revenueAud: 'Revenue (AUD)', expensesAud: 'Expenses (AUD)',
     costDist: 'Cost Distribution', profitForecast: 'Profit Forecast', topProducts: 'Top Products',
     shippingShare: 'Shipping %', abayaShare: 'Abayas %', aiInsights: 'AI Insights',
+    aiWidgetTitle: 'AI Intelligence',
+    aiWidgetSubtitle: 'Best seller (last 50 sales)',
+    aiWidgetLoading: 'Analyzing sales…',
+    aiWidgetNoData: 'Not enough sales data to analyze.',
+    aiWidgetError: 'Could not load analysis. Try again later.',
+    aiWidgetUnavailable: 'AI engine is not available.',
+    aiBestSeller: 'Top seller',
+    aiTotalSold: 'Units sold',
     noData: 'No data', saved: 'Saved', deleted: 'Deleted', confirmDelete: 'Confirm delete?',
     customer: 'Customer', payment: 'Payment', product: 'Product', date: 'Date', notes: 'Notes',
     totalProducts: 'Products', totalStock: 'Stock', totalSales: 'Sales',
@@ -6979,6 +6995,68 @@ function renderUsersHTML() {
     </div>`;
 }
 
+function getAiBestSellerWidgetHTML() {
+  const tpl = document.getElementById('ai-best-seller-widget-source');
+  if (tpl?.innerHTML?.trim()) return tpl.innerHTML.trim();
+  return `
+    <article id="ai-best-seller-widget" class="ai-intel-widget card" aria-live="polite">
+      <div class="ai-intel-widget__head">
+        <span class="ai-intel-widget__icon" aria-hidden="true">✦</span>
+        <div>
+          <h3 class="ai-intel-widget__title">${t('aiWidgetTitle')}</h3>
+          <p class="ai-intel-widget__subtitle">${t('aiWidgetSubtitle')}</p>
+        </div>
+      </div>
+      <div class="ai-intel-widget__body">
+        <p class="ai-intel-widget__message">${t('aiWidgetLoading')}</p>
+      </div>
+    </article>`;
+}
+
+async function refreshAIDashboardWidgets() {
+  const widget = document.getElementById('ai-best-seller-widget');
+  if (!widget) return;
+
+  const body = widget.querySelector('.ai-intel-widget__body');
+  const setState = (html, state) => {
+    widget.classList.remove('ai-intel-widget--loading', 'ai-intel-widget--ok', 'ai-intel-widget--empty', 'ai-intel-widget--error');
+    if (state) widget.classList.add(`ai-intel-widget--${state}`);
+    if (body) body.innerHTML = html;
+  };
+
+  const titleEl = widget.querySelector('.ai-intel-widget__title');
+  const subEl = widget.querySelector('.ai-intel-widget__subtitle');
+  if (titleEl) titleEl.textContent = t('aiWidgetTitle');
+  if (subEl) subEl.textContent = t('aiWidgetSubtitle');
+
+  if (typeof window.AIEngine === 'undefined' || typeof window.AIEngine.predictBestSellingProduct !== 'function') {
+    setState(`<p class="ai-intel-widget__message">${t('aiWidgetUnavailable')}</p>`, 'error');
+    return;
+  }
+
+  setState(`<p class="ai-intel-widget__message">${t('aiWidgetLoading')}</p>`, 'loading');
+
+  try {
+    const result = await window.AIEngine.predictBestSellingProduct();
+    if (!result?.product) {
+      setState(`<p class="ai-intel-widget__message">${t('aiWidgetNoData')}</p>`, 'empty');
+      return;
+    }
+
+    const name = escapeHtml(String(result.product));
+    const qty = Math.max(0, parseInt(result.totalSold, 10) || 0);
+    setState(
+      `<p class="ai-intel-widget__label">${t('aiBestSeller')}</p>
+       <p class="ai-intel-widget__product">${name}</p>
+       <p class="ai-intel-widget__stat">${t('aiTotalSold')}: <strong>${qty}</strong></p>`,
+      'ok'
+    );
+  } catch (err) {
+    console.warn('[AI Widget]', err);
+    setState(`<p class="ai-intel-widget__message">${t('aiWidgetError')}</p>`, 'error');
+  }
+}
+
 function renderDashboardHTML() {
   return `
     <section class="activity-feed card" id="activity-feed-panel" aria-live="polite">
@@ -7000,6 +7078,7 @@ function renderDashboardHTML() {
         <h2 class="card__title smart-dashboard__title">✦ ${t('smartDashboard')}</h2>
         <span class="smart-dashboard__badge">${t('aiInsights')}</span>
       </div>
+      ${getAiBestSellerWidgetHTML()}
       <div class="smart-dashboard__grid">
         <article class="smart-metric" id="turnover-metric">
           <span class="smart-metric__label">${t('inventoryTurnover')}</span>
@@ -7827,6 +7906,8 @@ function renderDashboard() {
 
   const ai = document.getElementById('analytics-insights');
   if (ai) ai.innerHTML = insights?.innerHTML || '';
+
+  void refreshAIDashboardWidgets();
 }
 
 function renderExpensePreview() {
@@ -9112,7 +9193,14 @@ async function init() {
 
 document.addEventListener('DOMContentLoaded', init);
 
+document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('prestige-app-ready', () => {
+    void refreshAIDashboardWidgets();
+  }, { once: true });
+});
+
 window.navigateToTab = navigateToTab;
+window.refreshAIDashboardWidgets = refreshAIDashboardWidgets;
 window.renderApp = renderApp;
 window.loadInventoryForSales = loadInventoryForSales;
 window.populateSaleSelect = populateSaleSelect;
