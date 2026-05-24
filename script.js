@@ -3345,37 +3345,54 @@ let _salesCatalogLoadPromise = null;
  * Load public.inventory from Supabase, then fill the sales dropdown (awaits before paint).
  */
 async function loadInventoryForSales({ force = false } = {}) {
+  if (!document.getElementById('sale-form')) {
+    renderApp('sales');
+  }
+
   const menu = document.getElementById('sale-product-menu');
   if (!menu) return { ok: false, reason: 'no-dom' };
 
   if (_salesCatalogLoadPromise && !force) return _salesCatalogLoadPromise;
 
   _salesCatalogLoadPromise = (async () => {
-    menu.innerHTML = '<li role="presentation"><span class="product-picker__loading">جاري التحميل…</span></li>';
+    try {
+      menu.innerHTML = '<li role="presentation"><span class="product-picker__loading">جاري التحميل…</span></li>';
 
-    if (DataStore.usesCloud() && typeof SupabaseBridge !== 'undefined' && SupabaseBridge.fetchInventory) {
-      const ready = await DataStore._cloudReady();
-      if (!ready.ok) {
+      const cfg = typeof window !== 'undefined' ? window.SUPABASE_CONFIG || {} : {};
+      if (!cfg.url || !cfg.anonKey) {
+        console.warn('[Sales] supabase.config.js missing url/anonKey');
         populateSaleSelect();
-        return { ok: false, error: ready.error };
+        return { ok: false, error: 'Supabase config missing' };
       }
-      const res = await SupabaseBridge.fetchInventory();
-      if (res.ok) {
-        state.products = res.data;
-        console.info('[Sales] Loaded', res.data.length, 'items from inventory');
-      } else {
-        console.error('[Sales] inventory select failed:', res.error);
-        populateSaleSelect();
-        return { ok: false, error: res.error };
-      }
-    }
 
-    populateSaleSelect();
-    PosEngine.syncCacheFromState();
-    if (document.getElementById('inv-tbody')) {
-      renderInventoryTable(document.getElementById('inv-search')?.value || '');
+      if (DataStore.usesCloud() && typeof SupabaseBridge !== 'undefined' && SupabaseBridge.fetchInventory) {
+        const ready = await DataStore._cloudReady();
+        if (!ready.ok) {
+          populateSaleSelect();
+          return { ok: false, error: ready.error };
+        }
+        const res = await SupabaseBridge.fetchInventory();
+        if (res.ok) {
+          state.products = res.data;
+          console.info('[Sales] Loaded', res.data.length, 'items from inventory');
+        } else {
+          console.error('[Sales] inventory select failed:', res.error);
+          populateSaleSelect();
+          return { ok: false, error: res.error };
+        }
+      }
+
+      populateSaleSelect();
+      PosEngine.syncCacheFromState();
+      if (document.getElementById('inv-tbody')) {
+        renderInventoryTable(document.getElementById('inv-search')?.value || '');
+      }
+      return { ok: true, count: state.products.length };
+    } catch (err) {
+      console.error('[Sales] loadInventoryForSales:', err);
+      populateSaleSelect();
+      return { ok: false, error: err.message || String(err) };
     }
-    return { ok: true, count: state.products.length };
   })();
 
   try {
@@ -6764,21 +6781,28 @@ function renderSiteNav(activeTab = 'dashboard') {
 }
 
 function getActiveTab() {
+  const fromHash = tabFromLocationHash();
+  if (fromHash) return fromHash;
   const active = document.querySelector('.site-nav__btn--active');
   return active?.dataset.target || active?.dataset.tab
     || document.querySelector('.panel.panel--active')?.id
     || 'dashboard';
 }
 
-function renderApp() {
+function resolveRouteTab(preferred) {
+  const hashTab = tabFromLocationHash();
+  const candidate = preferred || hashTab || getActiveTab() || 'dashboard';
+  const allowed = navTabsForUser();
+  return allowed.includes(candidate) ? candidate : 'dashboard';
+}
+
+function renderApp(forcedTab) {
   const app = document.getElementById('app');
   if (!app) return;
 
   // if (!AuthSystem.isLoggedIn()) { ... } — login disabled (AUTH_SKIP_LOGIN)
 
-  const activeTab = getActiveTab();
-  const allowed = navTabsForUser();
-  const tab = allowed.includes(activeTab) ? activeTab : 'dashboard';
+  const tab = resolveRouteTab(forcedTab);
   renderSiteNav(tab);
 
   const panel = (id, html) =>
@@ -8118,10 +8142,14 @@ function renderCharts() {
 
 async function navigateToTab(tab) {
   if (!tab || !NAV_TABS.includes(tab)) return;
-  if (!AuthSystem.isLoggedIn()) return;
-  if (!navTabsForUser().includes(tab)) tab = 'dashboard';
+  if (!AUTH_SKIP_LOGIN && !AuthSystem.isLoggedIn()) return;
+  tab = resolveRouteTab(tab);
 
   syncLocationHash(tab);
+
+  if (!document.getElementById(tab)) {
+    renderApp(tab);
+  }
 
   document.querySelectorAll('.site-nav__btn').forEach((btn) => {
     const target = btn.dataset.target || btn.dataset.tab;
@@ -8776,7 +8804,7 @@ async function saveSettings() {
   renderAll();
 }
 
-function setLang(lang) {
+function setLang(lang, options = {}) {
   currentLang = lang;
   state.settings.lang = lang;
   document.documentElement.lang = lang;
@@ -8788,9 +8816,11 @@ function setLang(lang) {
   });
   AuthSystem.refreshAuthI18n();
   DataStore.save();
-  const activeTab = getActiveTab();
-  renderSiteNav(activeTab);
-  renderApp();
+  const activeTab = resolveRouteTab(options.preserveTab || getActiveTab());
+  if (!options.skipAppRender) {
+    renderSiteNav(activeTab);
+    renderApp(activeTab);
+  }
   renderAll();
   document.querySelectorAll('.fab__item').forEach((btn) => {
     const k = btn.dataset.i18n;
@@ -8874,22 +8904,22 @@ async function init() {
 
   seedDemo();
   await NotificationEngine.registerServiceWorker();
-  renderApp();
+
+  const routeTab = resolveRouteTab(tabFromLocationHash());
   bindEvents();
   AuthSystem.bindEvents();
-  setLang(currentLang);
-  // await AuthSystem.ensure(); — login screen removed; enterAsGuest() runs above
-  const routeTab = tabFromLocationHash();
-  if (routeTab) await navigateToTab(routeTab);
-  else await navigateToTab('dashboard');
-
+  renderApp(routeTab);
+  setLang(currentLang, { skipAppRender: true, preserveTab: routeTab });
+  await navigateToTab(routeTab);
   renderAll();
   applyLogos();
   updateConnectionStatus();
 
+  document.dispatchEvent(new CustomEvent('prestige-app-ready', { detail: { tab: routeTab } }));
+
   window.addEventListener('hashchange', () => {
     const tab = tabFromLocationHash();
-    if (tab) navigateToTab(tab);
+    if (tab) void navigateToTab(tab);
   });
 
   LiveCurrencyBridge.fetchRates().then(() => {
@@ -8903,3 +8933,9 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+window.navigateToTab = navigateToTab;
+window.renderApp = renderApp;
+window.loadInventoryForSales = loadInventoryForSales;
+window.populateSaleSelect = populateSaleSelect;
+window.resolveRouteTab = resolveRouteTab;
