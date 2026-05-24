@@ -83,6 +83,20 @@
     return startOfDay(d).toISOString().slice(0, 10);
   }
 
+  function weekStartDate() {
+    const start = startOfDay(new Date());
+    start.setDate(start.getDate() - (CHART_DAYS - 1));
+    return start;
+  }
+
+  function filterRowsLast7Days(rows) {
+    const start = weekStartDate();
+    return rows.filter((row) => {
+      const d = parseDate(row);
+      return d && d >= start;
+    });
+  }
+
   function buildLast7DayBuckets() {
     const buckets = [];
     const today = startOfDay(new Date());
@@ -186,14 +200,148 @@
     return data || [];
   }
 
+  /** Sales rows from Supabase for the last 7 days (for morning report). */
+  async function fetchSalesLast7Days() {
+    const since = weekStartDate().toISOString();
+    let query = supabase
+      .from('sales')
+      .select('id, created_at, customer_name, product_name, price, quantity, line_total_aud, status, tenant_id')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false });
+
+    const tenantId = getTenantId();
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+
+    const { data, error } = await query.limit(1000);
+    if (error) throw new Error(error.message);
+    return data || [];
+  }
+
+  function findTopProductByFrequency(rows) {
+    const freq = new Map();
+    rows.forEach((row) => {
+      const name = String(row.product_name || 'غير محدد').trim() || 'غير محدد';
+      freq.set(name, (freq.get(name) || 0) + 1);
+    });
+    let top = null;
+    freq.forEach((count, name) => {
+      if (!top || count > top.count) top = { name, count };
+    });
+    return top;
+  }
+
+  function buildMorningTip(totalSales, transactionCount) {
+    if (transactionCount === 0) {
+      return 'لا توجد مبيعات مسجّلة خلال الأيام السبعة الماضية. ابدأ بتسجيل عمليات البيع لمتابعة الأداء.';
+    }
+    if (totalSales > 1000) {
+      return 'أداء ممتاز، استمر! إيراداتك خلال الأسبوع قوية جداً.';
+    }
+    if (totalSales >= 500) {
+      return 'أداء جيد جداً. حافظ على وتيرة المبيعات الحالية.';
+    }
+    if (totalSales >= 100) {
+      return 'أداء مستقر. ركّز على المنتجات الأكثر طلباً لرفع الإيرادات.';
+    }
+    return 'نحتاج لزيادة النشاط. جرّب عروضاً على المنتجات الأكثر مبيعاً أو ترويجاً للزبائن.';
+  }
+
+  function analyzeMorningReportRows(rows) {
+    const weekRows = filterRowsLast7Days(rows.length ? rows : []);
+    const totalSales = Math.round(
+      weekRows.reduce((sum, row) => sum + saleAmount(row), 0) * 100
+    ) / 100;
+    const transactionCount = weekRows.length;
+    const topProduct = findTopProductByFrequency(weekRows);
+    const tip = buildMorningTip(totalSales, transactionCount);
+    let tone = 'good';
+    if (transactionCount === 0) tone = 'empty';
+    else if (totalSales > 1000) tone = 'excellent';
+    else if (totalSales < 100) tone = 'low';
+
+    return {
+      ok: true,
+      periodDays: CHART_DAYS,
+      totalSales,
+      transactionCount,
+      topProduct,
+      tip,
+      tone,
+      generatedAt: new Date(),
+    };
+  }
+
+  /**
+   * Fetch last-7-day sales from Supabase and build the morning AI report.
+   * @param {object[]|null} existingRows — optional pre-fetched rows to avoid a second query
+   */
+  async function generateMorningReport(existingRows = null) {
+    if (!supabase) supabase = initSupabase();
+    const rows = existingRows ?? await fetchSalesLast7Days();
+    return analyzeMorningReportRows(rows);
+  }
+
+  function renderMorningReport(report) {
+    const tipEl = $('morning-report-tip');
+    const statsEl = $('morning-report-stats');
+    if (!tipEl) return;
+
+    const r = report || {
+      tip: 'تعذّر إنشاء التقرير. حاول التحديث لاحقاً.',
+      tone: 'empty',
+      totalSales: 0,
+      transactionCount: 0,
+      topProduct: null,
+    };
+
+    tipEl.textContent = r.tip;
+    tipEl.className = 'morning-report__tip text-slate-800 mt-3';
+    if (r.tone === 'excellent') tipEl.classList.add('morning-report__tip--excellent');
+    else if (r.tone === 'good') tipEl.classList.add('morning-report__tip--good');
+    else if (r.tone === 'low') tipEl.classList.add('morning-report__tip--low');
+    else if (r.tone === 'empty') tipEl.classList.add('morning-report__tip--empty');
+
+    if (!statsEl) return;
+
+    const topLabel = r.topProduct
+      ? `${r.topProduct.name} (${r.topProduct.count} عملية)`
+      : '—';
+
+    statsEl.innerHTML = `
+      <div class="morning-report__stat">
+        <p class="morning-report__stat-label">إجمالي المبيعات (7 أيام)</p>
+        <p class="morning-report__stat-value">${escapeHtml(formatAud(r.totalSales))}</p>
+      </div>
+      <div class="morning-report__stat">
+        <p class="morning-report__stat-label">عدد العمليات</p>
+        <p class="morning-report__stat-value">${escapeHtml(String(r.transactionCount ?? 0))}</p>
+      </div>
+      <div class="morning-report__stat">
+        <p class="morning-report__stat-label">المنتج الأكثر تكراراً</p>
+        <p class="morning-report__stat-value">${escapeHtml(topLabel)}</p>
+      </div>
+    `;
+  }
+
+  function renderMorningReportLoading() {
+    const tipEl = $('morning-report-tip');
+    const statsEl = $('morning-report-stats');
+    if (tipEl) {
+      tipEl.textContent = 'جاري تحليل بيانات آخر 7 أيام…';
+      tipEl.className = 'morning-report__tip text-slate-600 mt-3';
+    }
+    if (statsEl) statsEl.innerHTML = '';
+  }
+
   function updateKpis(rows) {
     const amounts = rows.map(saleAmount);
     const totalRevenue = amounts.reduce((s, n) => s + n, 0);
     const count = rows.length;
     const avg = count ? totalRevenue / count : 0;
 
-    const weekStart = startOfDay(new Date());
-    weekStart.setDate(weekStart.getDate() - (CHART_DAYS - 1));
+    const weekStart = weekStartDate();
     const weekRevenue = rows.reduce((sum, row) => {
       const d = parseDate(row);
       if (!d || d < weekStart) return sum;
@@ -344,6 +492,7 @@
     const emptyRows = [];
     updateKpis(emptyRows);
     renderChart(emptyRows);
+    renderMorningReport(analyzeMorningReportRows(emptyRows));
 
     const empty = $('table-empty');
     if (empty) empty.classList.add('hidden');
@@ -371,6 +520,7 @@
 
   async function loadDashboard() {
     setLoadingTable();
+    renderMorningReportLoading();
     const btn = $('refresh-btn');
     if (btn) btn.disabled = true;
 
@@ -385,6 +535,8 @@
       });
 
       hideBanner();
+      const morningReport = await generateMorningReport();
+      renderMorningReport(morningReport);
       updateKpis(sorted);
       renderChart(sorted);
       renderTable(sorted);

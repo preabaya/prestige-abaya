@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="dashboard.css?v=20260524-modern-light">
+  <link rel="stylesheet" href="dashboard.css?v=20260524-morning-report">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="dashboard-page bg-slate-50 text-slate-900 antialiased min-h-screen">
@@ -87,6 +87,18 @@
           </div>
           <button type="button" id="status-banner-close" class="alert-banner__close" aria-label="إغلاق التنبيه">×</button>
         </div>
+
+        <section id="morning-report-card" class="morning-report dash-card bg-white rounded-xl shadow-md p-5 sm:p-6" aria-labelledby="morning-report-heading">
+          <div class="flex flex-col sm:flex-row sm:items-start gap-4">
+            <div class="morning-report__badge" aria-hidden="true">✨</div>
+            <div class="flex-1 min-w-0">
+              <h2 id="morning-report-heading" class="text-lg font-bold text-slate-900">نصيحة الذكاء الاصطناعي اليومية</h2>
+              <p class="text-xs text-slate-500 mt-0.5">تحليل آلي لمبيعات آخر 7 أيام</p>
+              <p id="morning-report-tip" class="morning-report__tip text-slate-800 mt-3">جاري تحليل البيانات…</p>
+              <dl id="morning-report-stats" class="morning-report__stats mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3"></dl>
+            </div>
+          </div>
+        </section>
 
         <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label="ملخص سريع">
           <article class="dash-card dash-card--kpi bg-white rounded-xl shadow-md">
@@ -173,6 +185,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="supabase.config.js"></script>
-  <script src="dashboard.js?v=20260524-modern-light"></script>
+  <script src="dashboard.js?v=20260524-morning-report"></script>
 </body>
 </html>
