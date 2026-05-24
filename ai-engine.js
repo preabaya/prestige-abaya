@@ -183,6 +183,40 @@
         message,
       };
     },
+
+    /**
+     * Simple text sentiment (Arabic + English keywords). Returns happy | angry | neutral.
+     */
+    analyzeTextSentiment(text) {
+      const raw = String(text || '').trim();
+      if (!raw) {
+        return { sentiment: 'neutral', score: 0, label: 'محايد' };
+      }
+
+      const lower = raw.toLowerCase();
+      const positive = [
+        'شكر', 'ممتاز', 'رائع', 'جميل', 'سعيد', 'راض', 'رضا', 'أحب', 'احب', 'good', 'great', 'love', 'happy', 'excellent',
+      ];
+      const negative = [
+        'غاضب', 'سيء', 'رديء', 'شكوى', 'مشكلة', 'زعلان', 'محبط', 'أسوأ', 'اسوأ', 'bad', 'angry', 'hate', 'terrible', 'complaint',
+      ];
+
+      let score = 0;
+      positive.forEach((word) => {
+        if (lower.includes(word)) score += 1;
+      });
+      negative.forEach((word) => {
+        if (lower.includes(word)) score -= 1;
+      });
+
+      if (score > 0) {
+        return { sentiment: 'happy', score, label: 'راضٍ' };
+      }
+      if (score < 0) {
+        return { sentiment: 'angry', score, label: 'غاضب' };
+      }
+      return { sentiment: 'neutral', score: 0, label: 'محايد' };
+    },
   };
 
   console.log('[AI Engine] Ready to think.');

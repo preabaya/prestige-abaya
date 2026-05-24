@@ -2320,6 +2320,96 @@ body.user-modal-open .fab {
   opacity: 1;
 }
 
+/* ─── Customer Experience (feedback widget) ─── */
+.customer-feedback-host {
+  max-width: 28rem;
+  margin: 1rem auto 2rem;
+  padding: 0 1rem;
+}
+
+.cx-feedback__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.cx-feedback__hint {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.cx-feedback__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.cx-feedback__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.cx-feedback__input,
+.cx-feedback__textarea {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  background: var(--surface);
+}
+
+.cx-feedback__rating {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cx-feedback__stars {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.cx-feedback__star {
+  cursor: pointer;
+  font-size: 1.75rem;
+  color: #cbd5e1;
+  line-height: 1;
+}
+
+.cx-feedback__star input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cx-feedback__star:has(input:checked) {
+  color: #f59e0b;
+}
+
+.cx-feedback__submit {
+  margin-top: 0.25rem;
+}
+
+.cx-feedback__status {
+  margin: 0;
+  font-size: 0.85rem;
+  min-height: 1.25rem;
+  color: var(--text-muted);
+}
+
+.cx-feedback__status--ok {
+  color: #0f766e;
+}
+
+.cx-feedback__status--error {
+  color: var(--danger);
+}
+
 .supabase-badge {
   display: inline-block;
   margin-top: var(--space-sm);
