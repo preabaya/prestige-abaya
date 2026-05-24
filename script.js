@@ -3425,9 +3425,43 @@ async function loadInventoryProducts(options) {
   return loadInventoryForSales(options);
 }
 
+/** Exact inventory product_name for RPC (trim + single spaces). */
+function normalizeInventoryName(name) {
+  return String(name ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function inventoryProductName(productOrLine) {
   const name = productOrLine?.name ?? productOrLine?.product_name ?? productOrLine?.productName;
-  return String(name || '').trim();
+  return normalizeInventoryName(name);
+}
+
+/** Read product id + inventory name from #sale-product-select (and hidden fields). */
+function readSaleFormSelection() {
+  const select = document.getElementById('sale-product-select');
+  const hiddenId = document.getElementById('sale-product');
+  const hiddenName = document.getElementById('sale-product-name');
+
+  const productId = normalizeInventoryName(select?.value || hiddenId?.value || '');
+  const selectedOpt = select?.selectedOptions?.[0];
+  const nameFromOption = selectedOpt?.getAttribute('data-product-name')
+    || selectedOpt?.dataset?.productName
+    || '';
+  const nameFromHidden = hiddenName?.value || '';
+
+  let product = productId ? getProduct(productId) : null;
+  let productName = normalizeInventoryName(nameFromOption || nameFromHidden || inventoryProductName(product));
+
+  if (!productName && productId) {
+    product = getProduct(productId);
+    productName = inventoryProductName(product);
+  }
+
+  if (productId && hiddenId) hiddenId.value = productId;
+  if (productName && hiddenName) hiddenName.value = productName;
+
+  return { productId, productName, product };
 }
 
 function tabFromLocationHash() {
@@ -5899,11 +5933,26 @@ function saleSourceLabel(source) {
 
 async function saveSale(data, options = {}) {
   if (!UserSession.requireUser()) return;
-  const p = getProduct(data.productId);
-  if (!p) return showToast('No product', 'error');
+
+  const formSel = readSaleFormSelection();
+  const productId = normalizeInventoryName(data.productId || formSel.productId);
+  let saleProductName = normalizeInventoryName(data.productName || formSel.productName);
+  let p = productId ? getProduct(productId) : formSel.product;
+
+  if (!saleProductName && p) saleProductName = inventoryProductName(p);
+  if (!saleProductName) {
+    showToast(t('product'), 'error');
+    return;
+  }
+  if (!p) {
+    p = state.products.find((item) => inventoryProductName(item) === saleProductName) || null;
+  }
+  if (!p) {
+    showToast(t('product'), 'error');
+    return;
+  }
 
   const qty = data.quantity;
-  const saleProductName = inventoryProductName(p);
 
   if (DataStore.usesCloud()) {
     await loadInventoryForSales({ force: true });
@@ -6194,7 +6243,9 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
     const batchItems = lines
       .map((line) => {
         const p = getProduct(line.productId);
-        const productName = inventoryProductName(p || line);
+        const productName = normalizeInventoryName(
+          inventoryProductName(p) || inventoryProductName(line) || line.name
+        );
         if (!productName) return null;
         return { productName, quantity: line.qty };
       })
@@ -6235,7 +6286,13 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
       showToast(`${line.name || t('product')}: ${t('noData')}`, 'error');
       return false;
     }
-    const saleProductName = inventoryProductName(p) || inventoryProductName(line);
+    const saleProductName = normalizeInventoryName(
+      inventoryProductName(p) || inventoryProductName(line) || line.name
+    );
+    if (!saleProductName) {
+      showToast(`${line.name || t('product')}: ${t('product')}`, 'error');
+      return false;
+    }
     const lineSub = line.lineSubtotal ?? CurrencyEngine.round(line.unitPrice * line.qty + (line.extraShipping || 0));
     const lineTotal = line.lineTotal ?? lineSub;
     const lineCustomer = (line.customer || batchCustomer).trim() || batchCustomer;
@@ -7468,6 +7525,7 @@ function renderSalesHTML() {
               <option value="">— ${t('product')} —</option>
             </select>
             <input type="hidden" id="sale-product" value="">
+            <input type="hidden" id="sale-product-name" value="">
             <button type="button" id="sale-product-trigger" class="product-picker__trigger product-picker__trigger--secondary" aria-haspopup="listbox" aria-expanded="false" hidden>
               <span class="product-picker__placeholder">${t('product')}</span>
             </button>
@@ -7981,12 +8039,15 @@ const SaleProductPicker = {
 
   select(productId) {
     const hidden = document.getElementById('sale-product');
+    const hiddenName = document.getElementById('sale-product-name');
     const selectEl = document.getElementById('sale-product-select');
     if (!hidden && !selectEl) return;
     const id = productId ? String(productId) : '';
     if (hidden) hidden.value = id;
     if (selectEl && selectEl.value !== id) selectEl.value = id;
     const p = id ? getProduct(id) : null;
+    const invName = inventoryProductName(p);
+    if (hiddenName) hiddenName.value = invName;
     this.renderTrigger(p);
     const priceEl = document.getElementById('sale-price');
     const qtyEl = document.getElementById('sale-qty');
@@ -8002,6 +8063,10 @@ const SaleProductPicker = {
   },
 
   reset() {
+    const hiddenName = document.getElementById('sale-product-name');
+    if (hiddenName) hiddenName.value = '';
+    const selectEl = document.getElementById('sale-product-select');
+    if (selectEl) selectEl.value = '';
     this.select('');
   },
 };
@@ -8023,8 +8088,9 @@ function populateSaleSelect() {
         `<option value="">— ${t('product')} —</option>`,
         ...products.map((p) => {
           const stock = p.quantity ?? 0;
-          const label = `${p.name} · ${t('qty')}: ${stock} · ${formatAUD(p.price)}`;
-          return `<option value="${String(p.id)}">${escapeHtml(label)}</option>`;
+          const invName = inventoryProductName(p);
+          const label = `${invName} · ${t('qty')}: ${stock} · ${formatAUD(p.price)}`;
+          return `<option value="${String(p.id)}" data-product-name="${escapeHtml(invName)}">${escapeHtml(label)}</option>`;
         }),
       ].join('');
     }
@@ -8061,11 +8127,21 @@ function populateSaleSelect() {
 }
 
 function onSaleProductSelectChange(productId) {
-  const id = productId != null ? String(productId) : '';
-  const hidden = document.getElementById('sale-product');
   const select = document.getElementById('sale-product-select');
+  const id = productId != null ? String(productId) : (select?.value || '');
+  const hidden = document.getElementById('sale-product');
+  const hiddenName = document.getElementById('sale-product-name');
+  const selectedOpt = select?.selectedOptions?.[0];
+  const invName = normalizeInventoryName(
+    selectedOpt?.getAttribute('data-product-name')
+    || selectedOpt?.dataset?.productName
+    || inventoryProductName(id ? getProduct(id) : null)
+  );
+
   if (hidden) hidden.value = id;
-  if (select && select.value !== id) select.value = id;
+  if (select && id && select.value !== id) select.value = id;
+  if (hiddenName) hiddenName.value = invName;
+
   SaleProductPicker.select(id);
 }
 
@@ -8824,14 +8900,16 @@ function bindEvents() {
       toggleExchangeField();
     }
     if (e.target.id === 'sale-form') {
-      const productId = document.getElementById('sale-product')?.value;
-      if (!productId) {
+      const selection = readSaleFormSelection();
+      if (!selection.productId || !selection.productName) {
         showToast(t('product'), 'error');
-        SaleProductPicker.toggleMenu(true);
+        const sel = document.getElementById('sale-product-select');
+        sel?.focus();
         return;
       }
       await saveSale({
-        productId,
+        productId: selection.productId,
+        productName: selection.productName,
         quantity: parseInt(document.getElementById('sale-qty').value, 10),
         unitPriceAud: parseFloat(document.getElementById('sale-price').value),
         customer: document.getElementById('sale-customer').value,
@@ -9049,3 +9127,5 @@ window.getSaleFormEl = getSaleFormEl;
 window.getSalesPanelRoot = getSalesPanelRoot;
 window.loadInventoryProducts = loadInventoryProducts;
 window.onSaleProductSelectChange = onSaleProductSelectChange;
+window.readSaleFormSelection = readSaleFormSelection;
+window.normalizeInventoryName = normalizeInventoryName;

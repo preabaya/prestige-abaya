@@ -741,7 +741,7 @@ const SupabaseBridge = {
   },
 
   normalizeProductName(name) {
-    return String(name || '').trim().toLowerCase();
+    return String(name || '').replace(/\s+/g, ' ').trim().toLowerCase();
   },
 
   isInsufficientStockMessage(message) {
@@ -814,8 +814,18 @@ const SupabaseBridge = {
     const lineTotal = roundAud(
       row?.line_total_aud != null ? Number(row.line_total_aud) : price * qty
     );
-    const productName = String(row?.product_name || '').trim();
+    const productName = String(row?.product_name || row?.productName || '')
+      .replace(/\s+/g, ' ')
+      .trim();
     const ts = row?.created_at || row?.createdAt || new Date().toISOString();
+    const tenantIdStr = tenantId ? String(tenantId).trim() : '';
+
+    if (!productName) {
+      return { error: 'MISSING_PRODUCT_NAME', product_name: '' };
+    }
+    if (!tenantIdStr) {
+      return { error: 'MISSING_TENANT_ID', product_name: productName };
+    }
 
     const payload = {
       id: row?.id != null ? String(row.id) : String(Date.now() + Math.floor(Math.random() * 1000)),
@@ -832,7 +842,7 @@ const SupabaseBridge = {
       status: String(row?.status || 'completed'),
     };
 
-    if (tenantId) payload.tenant_id = String(tenantId);
+    payload.tenant_id = tenantIdStr;
     if (row?.batch_id != null && String(row.batch_id).trim() !== '') {
       payload.batch_id = String(row.batch_id);
     }
@@ -972,11 +982,19 @@ const SupabaseBridge = {
     if (!client) return { ok: false, error: 'No client' };
 
     const payload = this.prepareSaleRpcPayload(row);
-    const tenantId = payload.tenant_id || this.resolveTenantIdForInventory(row);
 
-    if (!payload.product_name) {
+    if (payload.error === 'MISSING_PRODUCT_NAME') {
       return { ok: false, error: 'اسم المنتج مطلوب', code: 'MISSING_PRODUCT_NAME' };
     }
+    if (payload.error === 'MISSING_TENANT_ID') {
+      return {
+        ok: false,
+        error: 'إعداد tenant_id غير مكتمل في supabase.config.js',
+        code: 'MISSING_TENANT_ID',
+      };
+    }
+
+    const tenantId = payload.tenant_id;
 
     const hookResult = await this.runPreSaveHooks('sales', payload, tenantId);
 
