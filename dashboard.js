@@ -220,8 +220,8 @@
     }
 
     const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-    gradient.addColorStop(0, 'rgba(212, 160, 74, 0.38)');
-    gradient.addColorStop(1, 'rgba(91, 141, 239, 0.02)');
+    gradient.addColorStop(0, 'rgba(13, 148, 136, 0.22)');
+    gradient.addColorStop(1, 'rgba(13, 148, 136, 0.02)');
 
     salesChart = new Chart(ctx, {
       type: 'line',
@@ -230,14 +230,14 @@
         datasets: [{
           label: 'الإيرادات (AUD)',
           data: values,
-          borderColor: '#e8c878',
+          borderColor: '#0d9488',
           backgroundColor: gradient,
           borderWidth: 2.5,
           fill: true,
           tension: 0.35,
           pointRadius: 4,
           pointHoverRadius: 6,
-          pointBackgroundColor: '#d4a04a',
+          pointBackgroundColor: '#b8862e',
           pointBorderColor: '#fff',
           pointBorderWidth: 2,
         }],
@@ -250,10 +250,10 @@
           legend: { display: false },
           tooltip: {
             rtl: true,
-            backgroundColor: 'rgba(18, 26, 46, 0.92)',
-            titleColor: '#f1f5f9',
-            bodyColor: '#cbd5e1',
-            borderColor: 'rgba(212, 160, 74, 0.35)',
+            backgroundColor: '#ffffff',
+            titleColor: '#0f172a',
+            bodyColor: '#475569',
+            borderColor: '#e2e8f0',
             borderWidth: 1,
             padding: 12,
             callbacks: {
@@ -265,14 +265,14 @@
         },
         scales: {
           x: {
-            grid: { color: 'rgba(255, 255, 255, 0.06)' },
-            ticks: { color: '#94a3b8', font: { family: 'Tajawal' } },
+            grid: { color: 'rgba(226, 232, 240, 0.9)' },
+            ticks: { color: '#64748b', font: { family: 'Tajawal' } },
           },
           y: {
             beginAtZero: true,
-            grid: { color: 'rgba(255, 255, 255, 0.06)' },
+            grid: { color: 'rgba(226, 232, 240, 0.9)' },
             ticks: {
-              color: '#94a3b8',
+              color: '#64748b',
               font: { family: 'Tajawal' },
               callback: (v) => `$${v}`,
             },
@@ -284,7 +284,7 @@
     const legend = $('chart-legend');
     if (legend) {
       const peak = Math.max(...values, 0);
-      legend.innerHTML = `أعلى يوم: <strong style="color:#e8c878">${formatAud(peak)}</strong>`;
+      legend.innerHTML = `أعلى يوم: <strong style="color:#b8862e">${formatAud(peak)}</strong>`;
     }
   }
 

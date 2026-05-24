@@ -429,7 +429,7 @@ const SupabaseBridge = {
     const customer = (sale.customer_name ?? sale.customerName ?? sale.customer ?? 'POS Guest');
     const customerStr = String(customer).trim() || 'POS Guest';
     const lineTotal = roundAud(
-      sale.line_total_aud ?? sale.lineTotalAud ?? sale.total_amount ?? sale.totalAmount ?? 0
+      sale.line_total_aud ?? sale.lineTotalAud ?? 0
     );
     const qtyRaw = sale.quantity ?? sale.qty;
     const qtyParsed = parseInt(qtyRaw, 10);
@@ -520,7 +520,7 @@ const SupabaseBridge = {
   },
 
   rowToSale(row) {
-    const lineTotal = Number(row.line_total_aud) || Number(row.total_amount) || 0;
+    const lineTotal = Number(row.line_total_aud) || 0;
     const qty = Math.max(1, Math.round(Number(row.quantity) || 1));
     const price = Number(row.price) || (qty ? lineTotal / qty : lineTotal);
     const createdAt = timestamptzFromDb(row.created_at);
@@ -530,7 +530,6 @@ const SupabaseBridge = {
       customer,
       customerName: row.customer_name ?? customer,
       productName: row.product_name,
-      totalAmount: lineTotal,
       lineTotalAud: lineTotal,
       createdAt,
       saleDate: createdAt,
@@ -569,7 +568,7 @@ const SupabaseBridge = {
 
   saleAmountFromRow(row) {
     return roundAud(
-      row?.line_total_aud ?? row?.total_amount ?? row?.lineTotalAud ?? row?.totalAmount ?? 0
+      row?.line_total_aud ?? row?.lineTotalAud ?? 0
     );
   },
 
@@ -579,7 +578,7 @@ const SupabaseBridge = {
 
     const { data, error } = await client
       .from('sales')
-      .select('line_total_aud, total_amount')
+      .select('line_total_aud')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(limit);

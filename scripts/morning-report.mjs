@@ -37,7 +37,7 @@ function roundAud(n) {
 }
 
 function saleAmount(row) {
-  return Number(row.line_total_aud ?? row.total_amount ?? 0) || 0;
+  return Number(row.line_total_aud ?? 0) || 0;
 }
 
 function aggregateByTenant(sales) {
@@ -92,7 +92,7 @@ async function fetchTenantReports(supabase) {
 
   const { data, error } = await supabase
     .from("sales")
-    .select("tenant_id, product_name, line_total_aud, total_amount, quantity, created_at")
+    .select("tenant_id, product_name, line_total_aud, quantity, created_at")
     .gte("created_at", since)
     .not("tenant_id", "is", null);
 

@@ -24,7 +24,6 @@ type SaleRow = {
   tenant_id: string | null;
   product_name: string | null;
   line_total_aud: number | null;
-  total_amount: number | null;
   quantity: number | null;
   created_at: string;
 };
@@ -47,7 +46,7 @@ function roundAud(n: number): number {
 }
 
 function saleAmount(row: SaleRow): number {
-  return Number(row.line_total_aud ?? row.total_amount ?? 0) || 0;
+  return Number(row.line_total_aud ?? 0) || 0;
 }
 
 function aggregateByTenant(sales: SaleRow[]): TenantReport[] {
@@ -140,7 +139,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: sales, error } = await supabase
       .from("sales")
-      .select("tenant_id, product_name, line_total_aud, total_amount, quantity, created_at")
+      .select("tenant_id, product_name, line_total_aud, quantity, created_at")
       .gte("created_at", since)
       .not("tenant_id", "is", null)
       .returns<SaleRow[]>();

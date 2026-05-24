@@ -6,7 +6,7 @@ Edge function for the **AI Morning Report**: last 24 hours of `sales`, grouped b
 
 Per tenant:
 
-- `total_sales_aud` — sum of `line_total_aud` (fallback `total_amount`)
+- `total_sales_aud` — sum of `line_total_aud`
 - `transaction_count`
 - `top_selling_products` — top 5 by revenue
 

@@ -4,29 +4,29 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Prestige Abaya ERP — لوحة تحكم المبيعات">
-  <meta name="theme-color" content="#0c1220">
+  <meta name="theme-color" content="#f8fafc">
   <title>لوحة التحكم | Prestige Abaya ERP</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="dashboard.css?v=20260524-glass">
+  <link rel="stylesheet" href="dashboard.css?v=20260524-light">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="dashboard-page antialiased min-h-screen">
   <div class="dashboard-bg" aria-hidden="true">
     <div class="dashboard-bg__orb dashboard-bg__orb--gold"></div>
-    <div class="dashboard-bg__orb dashboard-bg__orb--blue"></div>
+    <div class="dashboard-bg__orb dashboard-bg__orb--teal"></div>
   </div>
 
   <div id="app" class="flex min-h-screen">
-    <div id="sidebar-overlay" class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden hidden" aria-hidden="true"></div>
+    <div id="sidebar-overlay" class="dash-overlay fixed inset-0 z-40 backdrop-blur-sm lg:hidden hidden" aria-hidden="true"></div>
 
     <aside id="sidebar" class="glass-sidebar fixed inset-y-0 start-0 z-50 w-72 -translate-x-full rtl:translate-x-full lg:translate-x-0 rtl:lg:translate-x-0 flex flex-col transition-transform duration-300 lg:static lg:z-auto">
-      <div class="flex items-center gap-3 px-6 py-6 border-b border-white/10">
+      <div class="flex items-center gap-3 px-6 py-6 border-b border-slate-200">
         <div class="dash-brand__logo" aria-hidden="true">P</div>
         <div>
-          <p class="text-sm font-bold text-white tracking-wide">Prestige Abaya</p>
-          <p class="text-xs text-slate-500">نظام ERP للمبيعات</p>
+          <p class="dash-brand__title">Prestige Abaya</p>
+          <p class="dash-brand__sub">نظام ERP للمبيعات</p>
         </div>
       </div>
 
@@ -53,7 +53,7 @@
         </a>
       </nav>
 
-      <div class="px-4 py-5 border-t border-white/10">
+      <div class="px-4 py-5 border-t border-slate-200">
         <a href="index.html" class="dash-link-back">← العودة للتطبيق الرئيسي</a>
       </div>
     </aside>
@@ -66,8 +66,8 @@
               <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
             <div class="min-w-0">
-              <h1 class="text-lg sm:text-xl font-bold text-white truncate">لوحة تحكم المبيعات</h1>
-              <p class="text-xs sm:text-sm text-slate-500 truncate">ملخص مباشر من قاعدة البيانات</p>
+              <h1 class="dash-header__title truncate">لوحة تحكم المبيعات</h1>
+              <p class="dash-header__sub truncate">ملخص مباشر من قاعدة البيانات</p>
             </div>
           </div>
           <div class="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -120,7 +120,7 @@
           </article>
         </section>
 
-        <section class="glass-panel glass-panel--blue p-5 sm:p-6">
+        <section class="glass-panel glass-panel--accent p-5 sm:p-6">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
             <div>
               <h2 class="dash-section__title">مبيعات آخر 7 أيام</h2>
@@ -134,7 +134,7 @@
         </section>
 
         <section class="glass-panel glass-table-wrap">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 sm:px-6 py-5 border-b border-white/10">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 sm:px-6 py-5 border-b border-slate-200">
             <div>
               <h2 class="dash-section__title">آخر 10 عمليات بيع</h2>
               <p class="dash-section__sub">من جدول <code>sales</code> في Supabase</p>
@@ -178,6 +178,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="supabase.config.js"></script>
-  <script src="dashboard.js?v=20260524-glass"></script>
+  <script src="dashboard.js?v=20260524-light"></script>
 </body>
 </html>
