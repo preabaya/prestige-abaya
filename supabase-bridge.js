@@ -45,6 +45,7 @@ const SALES_DB_COLUMNS_FALLBACK = [
 const _tableColumnsCache = new Map();
 const TABLE_COLUMNS_CACHE_MS = 5 * 60 * 1000;
 
+/** Columns on public.products — no image (not in tenant DB). */
 const PRODUCTS_DB_COLUMNS = [
   'id',
   'code',
@@ -55,13 +56,15 @@ const PRODUCTS_DB_COLUMNS = [
   'cost',
   'price',
   'quantity',
-  'image',
   'created_at',
   'updated_at',
   'created_by',
   'user_id',
   'tenant_id',
 ];
+
+const PRODUCTS_SELECT_COLUMNS =
+  'id, code, name, size, color, style, cost, price, quantity, created_at, updated_at, created_by, tenant_id';
 
 function pickDbColumns(row, allowlist) {
   const out = {};
@@ -416,7 +419,6 @@ const SupabaseBridge = {
       cost: product.cost,
       price: product.price,
       quantity: product.quantity,
-      image: product.image || null,
       user_id: this.isSkipAuth() ? undefined : this.userId(),
       tenant_id: product.tenant_id ?? product.tenantId ?? this.tenantId(),
       ...this.auditRowFields(product),
@@ -1098,7 +1100,7 @@ const SupabaseBridge = {
 
     const { data, error } = await client
       .from('products')
-      .select('*')
+      .select(PRODUCTS_SELECT_COLUMNS)
       .order('created_at', { ascending: false });
 
     if (error) return { ok: false, data: [], error: error.message };
@@ -1114,7 +1116,6 @@ const SupabaseBridge = {
         cost: Number(r.cost),
         price: Number(r.price),
         quantity: r.quantity,
-        image: r.image,
         createdAt: timestamptzFromDb(r.created_at),
         updatedAt: timestamptzFromDb(r.updated_at),
         createdBy: r.created_by,
@@ -1134,6 +1135,7 @@ const SupabaseBridge = {
     }
 
     const row = this.productToRow(product);
+    delete row.image;
 
     const { data, error } = await client.from('products').upsert(row).select('id').single();
     if (error) return { ok: false, error: error.message };

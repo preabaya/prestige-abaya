@@ -3019,7 +3019,8 @@ const DataStore = {
     const ready = await this._cloudReady();
     if (!ready.ok) return ready;
     if (ready.localOnly) return { ok: true, localOnly: true };
-    return SupabaseBridge.upsertProduct(product);
+    const { image, ...forCloud } = product || {};
+    return SupabaseBridge.upsertProduct(forCloud);
   },
 
   async cloudInsertSale(sale, productAfter) {
@@ -8879,7 +8880,6 @@ function bindEvents() {
         cost: parseFloat(document.getElementById('product-cost').value),
         price: parseFloat(document.getElementById('product-price').value),
         quantity: parseInt(document.getElementById('product-qty').value, 10),
-        image: document.getElementById('product-image-data')?.value || null,
       });
       e.target.reset();
       document.getElementById('product-id').value = '';
