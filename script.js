@@ -3020,7 +3020,7 @@ const DataStore = {
     if (!ready.ok) return ready;
     if (ready.localOnly) return { ok: true, localOnly: true };
     const { image, ...forCloud } = product || {};
-    return SupabaseBridge.upsertProduct(forCloud);
+    return SupabaseBridge.upsertInventory(forCloud);
   },
 
   async cloudInsertSale(sale, productAfter) {
@@ -3032,7 +3032,7 @@ const DataStore = {
     if (!saleRes.ok) return saleRes;
 
     if (productAfter) {
-      const prodRes = await SupabaseBridge.upsertProduct(productAfter);
+      const prodRes = await SupabaseBridge.upsertInventory(productAfter);
       if (!prodRes.ok) return prodRes;
     }
     return { ok: true };
@@ -3066,22 +3066,16 @@ const DataStore = {
       return this.load();
     }
 
-    const [salesRes, inventoryRes, productsRes] = await Promise.all([
+    const [salesRes, inventoryRes] = await Promise.all([
       SupabaseBridge.fetchSales(),
       SupabaseBridge.fetchInventory(),
-      SupabaseBridge.fetchProducts(),
     ]);
 
     if (salesRes.ok) state.sales = salesRes.data;
     if (inventoryRes.ok) {
       state.products = inventoryRes.data;
-      if (!inventoryRes.data.length && productsRes.ok && productsRes.data.length) {
-        state.products = productsRes.data;
-        console.warn('[Supabase] inventory empty — using products fallback');
-      }
-    } else if (productsRes.ok) {
-      state.products = productsRes.data;
-      console.warn('[Supabase] inventory fetch failed — using products:', inventoryRes.error);
+    } else {
+      console.warn('[Supabase] inventory fetch failed:', inventoryRes.error);
     }
 
     migrateData();
@@ -3090,7 +3084,7 @@ const DataStore = {
       state.sales.length,
       'sales,',
       state.products.length,
-      inventoryRes.ok && inventoryRes.data.length ? 'inventory items' : 'products'
+      'inventory items'
     );
   },
 
@@ -3098,7 +3092,7 @@ const DataStore = {
     if (typeof SupabaseBridge === 'undefined' || !SupabaseBridge.getClient()) {
       return this.save();
     }
-    /* الحفظ التفصيلي يتم عند كل عملية (insertSale / upsertProduct). */
+    /* الحفظ التفصيلي يتم عند كل عملية (insertSale / upsertInventory). */
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({

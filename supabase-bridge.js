@@ -1139,7 +1139,22 @@ const SupabaseBridge = {
     };
   },
 
-  async upsertProduct(product) {
+  inventoryProductToRow(product) {
+    const productName = String(product?.name ?? product?.product_name ?? '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const row = {
+      product_name: productName,
+      selling_price: roundAud(product?.price ?? product?.selling_price ?? 0),
+      stock_quantity: Math.max(0, parseInt(product?.quantity ?? product?.stock_quantity, 10) || 0),
+      cost_price: roundAud(product?.cost ?? product?.cost_price ?? 0),
+      tenant_id: product?.tenant_id ?? product?.tenantId ?? this.resolveTenantIdForInventory(product),
+    };
+    if (product?.id) row.id = product.id;
+    return row;
+  },
+
+  async upsertInventory(product) {
     const client = this.getClient();
     if (!client) return { ok: false, error: 'No client' };
 
@@ -1150,12 +1165,19 @@ const SupabaseBridge = {
       }
     }
 
-    const row = this.productToRow(product);
-    delete row.image;
+    const row = this.inventoryProductToRow(product);
+    if (!row.product_name) {
+      return { ok: false, error: 'اسم المنتج مطلوب' };
+    }
 
-    const { data, error } = await client.from('products').upsert(row).select('id').single();
+    const { data, error } = await client.from('inventory').upsert(row).select('id').single();
     if (error) return { ok: false, error: error.message };
     return { ok: true, id: data?.id };
+  },
+
+  /** @deprecated Use upsertInventory — public.inventory only */
+  async upsertProduct(product) {
+    return this.upsertInventory(product);
   },
 };
 
