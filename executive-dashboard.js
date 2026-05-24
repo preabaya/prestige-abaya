@@ -31,6 +31,82 @@
     return `${n.toFixed(2)} AUD`;
   }
 
+  const CHART_DAYS = 7;
+
+  function saleRowAmount(row) {
+    const line = row.line_total_aud ?? row.lineTotalAud;
+    if (line != null && Number.isFinite(Number(line))) return Number(line);
+    const price = Number(row.price ?? row.unitPriceAud) || 0;
+    const qty = Math.max(1, parseInt(row.quantity ?? row.qty, 10) || 1);
+    return Math.round(price * qty * 100) / 100;
+  }
+
+  function parseSaleDate(row) {
+    const raw = row.created_at ?? row.createdAt ?? row.sale_date;
+    if (!raw) return null;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function startOfDay(d) {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  }
+
+  function buildDailySalesSeries(rows) {
+    const buckets = [];
+    const today = startOfDay(new Date());
+    for (let i = CHART_DAYS - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      buckets.push({
+        date: d,
+        key: startOfDay(d).toISOString().slice(0, 10),
+        label: new Intl.DateTimeFormat('ar-AE', { weekday: 'short', day: 'numeric' }).format(d),
+        total: 0,
+      });
+    }
+    const weekStart = buckets[0]?.date || today;
+    const map = Object.fromEntries(buckets.map((b) => [b.key, b]));
+
+    (rows || []).forEach((row) => {
+      const d = parseSaleDate(row);
+      if (!d || d < weekStart) return;
+      const key = startOfDay(d).toISOString().slice(0, 10);
+      if (map[key]) map[key].total += saleRowAmount(row);
+    });
+
+    return buckets.map((b) => ({
+      label: b.label,
+      total: Math.round(b.total * 100) / 100,
+    }));
+  }
+
+  async function fetchSalesRowsDetailed() {
+    if (global.SupabaseBridge?.fetchSales) {
+      const res = await global.SupabaseBridge.fetchSales();
+      if (!res.ok) return { ok: false, error: res.error, rows: [] };
+      return { ok: true, rows: res.data || [] };
+    }
+
+    const client = getClient();
+    if (!client) return { ok: false, error: 'Supabase غير مهيأ', rows: [] };
+
+    let query = client
+      .from('sales')
+      .select('id, created_at, price, quantity, line_total_aud, tenant_id')
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    const tenantId = resolveTenantId();
+    if (tenantId) query = query.eq('tenant_id', tenantId);
+
+    const { data, error } = await query;
+    if (error) return { ok: false, error: error.message, rows: [] };
+    return { ok: true, rows: data || [] };
+  }
+
   async function fetchSalesTotals() {
     if (global.SupabaseBridge?.fetchSales) {
       const res = await global.SupabaseBridge.fetchSales();
@@ -87,15 +163,21 @@
       activeBranches: 0,
       totalBranches: 0,
       branches: [],
+      dailySales: [],
+      inventoryHealth: { low: 0, healthy: 0, outOfStock: 0, total: 0 },
       errors: [],
     };
 
-    const salesRes = await fetchSalesTotals();
-    if (salesRes.ok) {
-      summary.totalSalesAud = Math.round(salesRes.totalAud * 100) / 100;
-      summary.salesCount = salesRes.count;
+    const salesRowsRes = await fetchSalesRowsDetailed();
+    if (salesRowsRes.ok) {
+      const rows = salesRowsRes.rows;
+      summary.dailySales = buildDailySalesSeries(rows);
+      summary.totalSalesAud = Math.round(
+        rows.reduce((sum, row) => sum + saleRowAmount(row), 0) * 100
+      ) / 100;
+      summary.salesCount = rows.length;
     } else {
-      summary.errors.push(salesRes.error || 'فشل جلب المبيعات');
+      summary.errors.push(salesRowsRes.error || 'فشل جلب المبيعات');
     }
 
     if (global.OperationsCenter?.getBranchStatus) {
@@ -138,6 +220,29 @@
       }
     } else {
       summary.errors.push('CustomerExperience غير متاح');
+    }
+
+    if (global.InventoryManager?.checkStockLevels) {
+      const stockRes = await global.InventoryManager.checkStockLevels();
+      if (stockRes.ok) {
+        const items = stockRes.data || [];
+        const lowList = stockRes.lowStock || items.filter((i) => i.isLow);
+        const low = lowList.length;
+        let outOfStock = 0;
+        items.forEach((item) => {
+          const q = parseInt(item.stock_quantity, 10);
+          if (Number.isFinite(q) && q === 0) outOfStock += 1;
+        });
+        const total = items.length;
+        summary.inventoryHealth = {
+          low,
+          healthy: Math.max(0, total - low),
+          outOfStock,
+          total,
+        };
+      } else {
+        summary.errors.push(stockRes.error || 'فشل جلب المخزون');
+      }
     }
 
     summary.ok = summary.errors.length === 0 || summary.salesCount > 0 || summary.totalBranches > 0;

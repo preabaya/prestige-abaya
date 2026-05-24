@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
   <!-- GitHub Pages: served from repo root → https://preabaya.github.io/prestige-abaya/ -->
-  <link rel="stylesheet" href="style.css?v=20260524-charts-grid">
+  <link rel="stylesheet" href="style.css?v=20260524-glass-dashboard">
   <!-- Chart.js — رسوم الداشبورد (dashboard-ui.js) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
@@ -91,28 +91,35 @@
       <div class="app-scroll" id="app-scroll">
         <div id="root" class="root">
           <div class="dashboard-shell">
-      <section class="dashboard-grid dashboard-grid--charts" id="dashboard-charts-grid" aria-label="الرسوم البيانية">
-        <article class="dash-card dash-card--chart dash-card--sales-chart" id="dash-card-sales">
-          <header class="dash-card__head">
-            <h2 class="dash-card__title">رسم بياني للمبيعات</h2>
-            <p class="dash-card__subtitle">مؤشرات تنفيذية — Chart.js</p>
-          </header>
-          <div class="dash-card__body dash-card__body--chart dash-card__chart-wrap">
-            <canvas id="chart-dash-sales" aria-label="مبيعات — أعمدة"></canvas>
-          </div>
-          <p class="dash-card__meta" id="chart-dash-sales-meta">جاري التحميل…</p>
-        </article>
+      <section id="interactive-dashboard" class="interactive-dashboard" hidden aria-label="لوحة التحكم التفاعلية">
+        <header class="interactive-dashboard__hero">
+          <h2 class="interactive-dashboard__title">لوحة التحكم التفاعلية</h2>
+          <p class="interactive-dashboard__desc">مبيعات يومية وصحة المخزون — للمدراء فقط</p>
+        </header>
 
-        <article class="dash-card dash-card--chart dash-card--stock-chart" id="dash-card-stock">
-          <header class="dash-card__head">
-            <h2 class="dash-card__title">حالة المخزون</h2>
-            <p class="dash-card__subtitle">منخفض مقابل مكتمل — Chart.js</p>
-          </header>
-          <div class="dash-card__body dash-card__body--chart dash-card__chart-wrap">
-            <canvas id="chart-dash-stock" aria-label="حالة المخزون — دائري"></canvas>
-          </div>
-          <p class="dash-card__meta" id="chart-dash-stock-meta">جاري التحميل…</p>
-        </article>
+        <div class="dashboard-grid dashboard-grid--charts" id="dashboard-charts-grid">
+          <article class="dash-card dash-card--glass dash-card--chart dash-card--sales-chart" id="dash-card-sales">
+            <header class="dash-card__head">
+              <h3 class="dash-card__title">المبيعات اليومية</h3>
+              <p class="dash-card__subtitle">Bar Chart · آخر 7 أيام</p>
+            </header>
+            <div class="dash-card__body dash-card__body--chart dash-card__chart-wrap">
+              <canvas id="chart-dash-sales" aria-label="مبيعات يومية"></canvas>
+            </div>
+            <p class="dash-card__meta" id="chart-dash-sales-meta">جاري التحميل…</p>
+          </article>
+
+          <article class="dash-card dash-card--glass dash-card--chart dash-card--stock-chart" id="dash-card-stock">
+            <header class="dash-card__head">
+              <h3 class="dash-card__title">صحة المخزون</h3>
+              <p class="dash-card__subtitle">Doughnut · Inventory Health</p>
+            </header>
+            <div class="dash-card__body dash-card__body--chart dash-card__chart-wrap">
+              <canvas id="chart-dash-stock" aria-label="توزيع المخزون"></canvas>
+            </div>
+            <p class="dash-card__meta" id="chart-dash-stock-meta">جاري التحميل…</p>
+          </article>
+        </div>
       </section>
 
       <section class="dashboard-grid dashboard-grid--modules" id="dashboard-grid" aria-label="لوحة الوحدات">
@@ -284,9 +291,9 @@
   <script src="notifications-center.js?v=20260524"></script>
   <script src="operations-center.js?v=20260524"></script>
   <script src="customer-experience.js?v=20260524"></script>
-  <script src="executive-dashboard.js?v=20260524"></script>
+  <script src="executive-dashboard.js?v=20260524-daily-sales"></script>
   <script src="security-center.js?v=20260524"></script>
   <script src="automation-center.js?v=20260524"></script>
-  <script src="dashboard-ui.js?v=20260524-charts"></script>
+  <script src="dashboard-ui.js?v=20260524-glass"></script>
 </body>
 </html>

@@ -6110,6 +6110,68 @@ body.iip-integration-lock {
   }
 }
 
+/* ─── Interactive dashboard (glass + charts) ─── */
+.interactive-dashboard {
+  margin-bottom: var(--space-lg);
+}
+
+.interactive-dashboard[hidden] {
+  display: none !important;
+}
+
+.interactive-dashboard__hero {
+  margin-bottom: var(--space-md);
+  padding: var(--space-md) var(--space-md) 0;
+}
+
+.interactive-dashboard__title {
+  margin: 0;
+  font-size: clamp(1.1rem, 3vw, 1.35rem);
+  font-weight: 800;
+  color: var(--text);
+}
+
+.interactive-dashboard__desc {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.dash-card--glass {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow:
+    0 8px 32px rgba(28, 35, 51, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.dash-card--glass .dash-card__head {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(255, 255, 255, 0.35) 100%
+  );
+  border-bottom-color: rgba(226, 230, 237, 0.65);
+}
+
+html[data-theme="dark"] .dash-card--glass {
+  background: rgba(26, 34, 48, 0.72);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .dash-card--glass .dash-card__head {
+  background: linear-gradient(
+    180deg,
+    rgba(40, 50, 68, 0.85) 0%,
+    rgba(26, 34, 48, 0.4) 100%
+  );
+}
+
 /* ─── Dashboard shell (grid + cards) ─── */
 .dashboard-shell {
   display: flex;
