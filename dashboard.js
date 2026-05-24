@@ -115,14 +115,14 @@
   function statusBadge(status) {
     const s = (status || 'completed').toLowerCase();
     const map = {
-      completed: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-      returned: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
-      pending: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+      completed: 'status-pill--completed',
+      returned: 'status-pill--returned',
+      pending: 'status-pill--pending',
     };
     const labels = { completed: 'مكتمل', returned: 'مرتجع', pending: 'قيد الانتظار' };
-    const cls = map[s] || 'bg-slate-500/15 text-slate-400 border-slate-500/30';
+    const cls = map[s] || 'status-pill--default';
     const label = labels[s] || status || '—';
-    return `<span class="inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${cls}">${escapeHtml(label)}</span>`;
+    return `<span class="status-pill ${cls}">${escapeHtml(label)}</span>`;
   }
 
   function escapeHtml(str) {
@@ -133,22 +133,41 @@
       .replace(/"/g, '&quot;');
   }
 
-  function showBanner(type, message) {
+  function showBanner(type, message, title) {
     const el = $('status-banner');
+    const msgEl = $('status-banner-message');
+    const titleEl = $('status-banner-title');
     if (!el) return;
-    el.classList.remove('hidden', 'border-rose-500/40', 'bg-rose-500/10', 'text-rose-300', 'border-amber-500/40', 'bg-amber-500/10', 'text-amber-200');
-    if (type === 'error') {
-      el.classList.add('border-rose-500/40', 'bg-rose-500/10', 'text-rose-300');
+    el.classList.remove('hidden', 'alert-glass--error');
+    if (type === 'warning') {
+      el.classList.remove('alert-glass--error');
+      if (titleEl) titleEl.textContent = title || 'تنبيه';
     } else {
-      el.classList.add('border-amber-500/40', 'bg-amber-500/10', 'text-amber-200');
+      el.classList.add('alert-glass--error');
+      if (titleEl) titleEl.textContent = title || 'تعذّر الاتصال بقاعدة البيانات';
     }
-    el.textContent = message;
+    if (msgEl) msgEl.textContent = message;
     el.classList.remove('hidden');
   }
 
   function hideBanner() {
     const el = $('status-banner');
     if (el) el.classList.add('hidden');
+  }
+
+  function setConnectionState(state) {
+    const badge = $('connection-badge');
+    const text = $('connection-badge-text');
+    if (!badge) return;
+    badge.classList.remove('conn-badge--online', 'conn-badge--offline');
+    badge.classList.add('is-visible');
+    if (state === 'online') {
+      badge.classList.add('conn-badge--online');
+      if (text) text.textContent = 'متصل';
+    } else {
+      badge.classList.add('conn-badge--offline');
+      if (text) text.textContent = 'غير متصل';
+    }
   }
 
   async function fetchSales() {
@@ -201,8 +220,8 @@
     }
 
     const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-    gradient.addColorStop(0, 'rgba(196, 134, 46, 0.35)');
-    gradient.addColorStop(1, 'rgba(196, 134, 46, 0)');
+    gradient.addColorStop(0, 'rgba(212, 160, 74, 0.38)');
+    gradient.addColorStop(1, 'rgba(91, 141, 239, 0.02)');
 
     salesChart = new Chart(ctx, {
       type: 'line',
@@ -211,14 +230,14 @@
         datasets: [{
           label: 'الإيرادات (AUD)',
           data: values,
-          borderColor: '#d9a045',
+          borderColor: '#e8c878',
           backgroundColor: gradient,
           borderWidth: 2.5,
           fill: true,
           tension: 0.35,
           pointRadius: 4,
           pointHoverRadius: 6,
-          pointBackgroundColor: '#c4862e',
+          pointBackgroundColor: '#d4a04a',
           pointBorderColor: '#fff',
           pointBorderWidth: 2,
         }],
@@ -231,10 +250,10 @@
           legend: { display: false },
           tooltip: {
             rtl: true,
-            backgroundColor: '#1c2430',
+            backgroundColor: 'rgba(18, 26, 46, 0.92)',
             titleColor: '#f1f5f9',
             bodyColor: '#cbd5e1',
-            borderColor: '#243040',
+            borderColor: 'rgba(212, 160, 74, 0.35)',
             borderWidth: 1,
             padding: 12,
             callbacks: {
@@ -246,12 +265,12 @@
         },
         scales: {
           x: {
-            grid: { color: 'rgba(36, 48, 64, 0.6)' },
+            grid: { color: 'rgba(255, 255, 255, 0.06)' },
             ticks: { color: '#94a3b8', font: { family: 'Tajawal' } },
           },
           y: {
             beginAtZero: true,
-            grid: { color: 'rgba(36, 48, 64, 0.6)' },
+            grid: { color: 'rgba(255, 255, 255, 0.06)' },
             ticks: {
               color: '#94a3b8',
               font: { family: 'Tajawal' },
@@ -265,7 +284,7 @@
     const legend = $('chart-legend');
     if (legend) {
       const peak = Math.max(...values, 0);
-      legend.innerHTML = `<span>أعلى يوم: <strong class="text-brand-300">${formatAud(peak)}</strong></span>`;
+      legend.innerHTML = `أعلى يوم: <strong style="color:#e8c878">${formatAud(peak)}</strong>`;
     }
   }
 
@@ -291,14 +310,14 @@
         const qty = parseInt(row.quantity, 10) || 1;
         const total = saleAmount(row);
         return `
-          <tr class="border-b border-surface-700/40 hover:bg-surface-800/40 transition-colors">
-            <td class="px-4 py-3.5 sm:px-6 font-mono text-xs text-slate-400">${escapeHtml(row.id)}</td>
-            <td class="px-4 py-3.5 sm:px-6 text-slate-300 whitespace-nowrap">${escapeHtml(formatDateTime(d))}</td>
-            <td class="px-4 py-3.5 sm:px-6 text-white">${escapeHtml(customer)}</td>
-            <td class="px-4 py-3.5 sm:px-6 text-slate-300 max-w-[180px] truncate">${escapeHtml(product)}</td>
-            <td class="px-4 py-3.5 sm:px-6 tabular-nums">${qty}</td>
-            <td class="px-4 py-3.5 sm:px-6 font-semibold text-brand-300 tabular-nums">${escapeHtml(formatAud(total))}</td>
-            <td class="px-4 py-3.5 sm:px-6">${statusBadge(row.status)}</td>
+          <tr>
+            <td class="dash-table__id">${escapeHtml(row.id)}</td>
+            <td class="dash-table__muted whitespace-nowrap">${escapeHtml(formatDateTime(d))}</td>
+            <td>${escapeHtml(customer)}</td>
+            <td class="dash-table__muted max-w-[180px] truncate">${escapeHtml(product)}</td>
+            <td class="tabular-nums">${qty}</td>
+            <td class="dash-table__amount">${escapeHtml(formatAud(total))}</td>
+            <td>${statusBadge(row.status)}</td>
           </tr>
         `;
       })
@@ -312,13 +331,44 @@
 
   function setLoadingTable() {
     const tbody = $('sales-tbody');
+    const empty = $('table-empty');
+    if (empty) empty.classList.add('hidden');
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-slate-500">جاري تحميل البيانات…</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="dash-empty">جاري تحميل البيانات…</td></tr>`;
     }
   }
 
+  /** Keep UI visible with empty data when Supabase is unreachable */
+  function renderFallbackDashboard(errorMessage) {
+    const emptyRows = [];
+    updateKpis(emptyRows);
+    renderChart(emptyRows);
+
+    const empty = $('table-empty');
+    if (empty) empty.classList.add('hidden');
+
+    const tbody = $('sales-tbody');
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="dash-empty">
+            <p class="dash-empty__icon" aria-hidden="true">☁️</p>
+            <p class="dash-empty__title">لا تتوفر بيانات حالياً</p>
+            <p class="text-sm">تحقق من supabase.config.js وسياسات RLS، ثم اضغط «تحديث».</p>
+          </td>
+        </tr>
+      `;
+    }
+
+    setConnectionState('offline');
+    showBanner(
+      'error',
+      errorMessage || 'تعذّر جلب البيانات. تعرض اللوحة قيماً افتراضية حتى يعود الاتصال.',
+      'تعذّر الاتصال بقاعدة البيانات'
+    );
+  }
+
   async function loadDashboard() {
-    hideBanner();
     setLoadingTable();
     const btn = $('refresh-btn');
     if (btn) btn.disabled = true;
@@ -333,19 +383,21 @@
         return db - da;
       });
 
+      hideBanner();
       updateKpis(sorted);
       renderChart(sorted);
       renderTable(sorted);
+      setConnectionState('online');
 
-      const badge = $('connection-badge');
-      if (badge) badge.classList.remove('hidden');
+      const updated = $('table-updated');
+      if (updated) {
+        updated.textContent = `آخر تحديث: ${formatDateTime(new Date())}`;
+      }
     } catch (err) {
       console.error('[Dashboard]', err);
-      showBanner('error', `خطأ في الاتصال بقاعدة البيانات: ${err.message || err}`);
-      const tbody = $('sales-tbody');
-      if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-rose-400/90">تعذّر تحميل البيانات</td></tr>`;
-      }
+      renderFallbackDashboard(
+        `${err.message || err}. يمكنك متابعة استخدام الصفحة وإعادة المحاولة لاحقاً.`
+      );
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -376,6 +428,7 @@
     $('footer-year').textContent = String(new Date().getFullYear());
     initSidebar();
     $('refresh-btn')?.addEventListener('click', () => loadDashboard());
+    $('status-banner-close')?.addEventListener('click', hideBanner);
     loadDashboard();
   });
 })();

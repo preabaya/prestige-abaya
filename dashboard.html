@@ -4,75 +4,26 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Prestige Abaya ERP — لوحة تحكم المبيعات">
-  <meta name="theme-color" content="#0f1419">
+  <meta name="theme-color" content="#0c1220">
   <title>لوحة التحكم | Prestige Abaya ERP</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="dashboard.css?v=20260524-glass">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Tajawal', 'Inter', 'system-ui', 'sans-serif'],
-          },
-          colors: {
-            brand: {
-              50: '#fdf8ef',
-              100: '#f9edd6',
-              200: '#f2d9a8',
-              300: '#e8bf72',
-              400: '#d9a045',
-              500: '#c4862e',
-              600: '#a86a24',
-              700: '#8a5120',
-              800: '#714220',
-              900: '#5e371e',
-            },
-            surface: {
-              950: '#0a0d12',
-              900: '#0f1419',
-              800: '#151b24',
-              700: '#1c2430',
-              600: '#243040',
-            },
-          },
-          boxShadow: {
-            glow: '0 0 40px -12px rgba(212, 160, 74, 0.35)',
-            card: '0 4px 24px -4px rgba(0, 0, 0, 0.45)',
-          },
-        },
-      },
-    };
-  </script>
-  <style>
-    html { scroll-behavior: smooth; }
-    body { font-family: 'Tajawal', 'Inter', system-ui, sans-serif; }
-    .sidebar-link.active {
-      background: linear-gradient(90deg, rgba(196, 134, 46, 0.18), transparent);
-      border-inline-start: 3px solid #c4862e;
-      color: #f2d9a8;
-    }
-    .chart-wrap { position: relative; height: 280px; }
-    @media (min-width: 768px) { .chart-wrap { height: 320px; } }
-    #sales-chart { width: 100% !important; height: 100% !important; }
-    .table-scroll::-webkit-scrollbar { height: 6px; }
-    .table-scroll::-webkit-scrollbar-thumb { background: #243040; border-radius: 3px; }
-    .skeleton { background: linear-gradient(90deg, #1c2430 25%, #243040 50%, #1c2430 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-  </style>
 </head>
-<body class="bg-surface-950 text-slate-200 antialiased min-h-screen">
-  <div id="app" class="flex min-h-screen">
-    <!-- Mobile overlay -->
-    <div id="sidebar-overlay" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden hidden" aria-hidden="true"></div>
+<body class="dashboard-page antialiased min-h-screen">
+  <div class="dashboard-bg" aria-hidden="true">
+    <div class="dashboard-bg__orb dashboard-bg__orb--gold"></div>
+    <div class="dashboard-bg__orb dashboard-bg__orb--blue"></div>
+  </div>
 
-    <!-- Sidebar -->
-    <aside id="sidebar" class="fixed inset-y-0 start-0 z-50 w-72 -translate-x-full rtl:translate-x-full lg:translate-x-0 rtl:lg:translate-x-0 flex flex-col bg-surface-900 border-e border-surface-700/80 transition-transform duration-300 lg:static lg:z-auto">
-      <div class="flex items-center gap-3 px-6 py-6 border-b border-surface-700/60">
-        <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-lg font-bold text-white shadow-glow">P</div>
+  <div id="app" class="flex min-h-screen">
+    <div id="sidebar-overlay" class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden hidden" aria-hidden="true"></div>
+
+    <aside id="sidebar" class="glass-sidebar fixed inset-y-0 start-0 z-50 w-72 -translate-x-full rtl:translate-x-full lg:translate-x-0 rtl:lg:translate-x-0 flex flex-col transition-transform duration-300 lg:static lg:z-auto">
+      <div class="flex items-center gap-3 px-6 py-6 border-b border-white/10">
+        <div class="dash-brand__logo" aria-hidden="true">P</div>
         <div>
           <p class="text-sm font-bold text-white tracking-wide">Prestige Abaya</p>
           <p class="text-xs text-slate-500">نظام ERP للمبيعات</p>
@@ -80,42 +31,38 @@
       </div>
 
       <nav class="flex-1 px-3 py-5 space-y-1" aria-label="التنقل الرئيسي">
-        <a href="dashboard.html" class="sidebar-link active flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-300 hover:bg-surface-800 hover:text-white transition-colors">
-          <span class="text-lg" aria-hidden="true">📊</span>
+        <a href="dashboard.html" class="sidebar-link active">
+          <span aria-hidden="true">📊</span>
           لوحة التحكم
         </a>
-        <a href="index.html#sales" class="sidebar-link flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-400 hover:bg-surface-800 hover:text-white transition-colors">
-          <span class="text-lg" aria-hidden="true">🛒</span>
+        <a href="index.html#sales" class="sidebar-link">
+          <span aria-hidden="true">🛒</span>
           المبيعات
         </a>
-        <a href="index.html#inventory" class="sidebar-link flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-400 hover:bg-surface-800 hover:text-white transition-colors">
-          <span class="text-lg" aria-hidden="true">📦</span>
+        <a href="index.html#inventory" class="sidebar-link">
+          <span aria-hidden="true">📦</span>
           المخزون
         </a>
-        <a href="index.html#dashboard" class="sidebar-link flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-400 hover:bg-surface-800 hover:text-white transition-colors">
-          <span class="text-lg" aria-hidden="true">📈</span>
+        <a href="index.html#dashboard" class="sidebar-link">
+          <span aria-hidden="true">📈</span>
           التقارير
         </a>
-        <a href="index.html#settings" class="sidebar-link flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-400 hover:bg-surface-800 hover:text-white transition-colors">
-          <span class="text-lg" aria-hidden="true">⚙️</span>
+        <a href="index.html#settings" class="sidebar-link">
+          <span aria-hidden="true">⚙️</span>
           الإعدادات
         </a>
       </nav>
 
-      <div class="px-4 py-5 border-t border-surface-700/60">
-        <a href="index.html" class="flex items-center justify-center gap-2 rounded-xl border border-surface-600 bg-surface-800/50 px-4 py-2.5 text-sm font-medium text-slate-300 hover:border-brand-500/40 hover:text-brand-200 transition-colors">
-          ← العودة للتطبيق الرئيسي
-        </a>
+      <div class="px-4 py-5 border-t border-white/10">
+        <a href="index.html" class="dash-link-back">← العودة للتطبيق الرئيسي</a>
       </div>
     </aside>
 
-    <!-- Main -->
     <div class="flex flex-1 flex-col min-w-0">
-      <!-- Header -->
-      <header class="sticky top-0 z-30 border-b border-surface-700/60 bg-surface-900/80 backdrop-blur-xl">
+      <header class="glass-header sticky top-0 z-30">
         <div class="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div class="flex items-center gap-3 min-w-0">
-            <button type="button" id="sidebar-toggle" class="lg:hidden flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-surface-600 bg-surface-800 text-slate-300 hover:text-white" aria-label="فتح القائمة">
+            <button type="button" id="sidebar-toggle" class="btn-dash-ghost lg:hidden shrink-0" aria-label="فتح القائمة">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
             <div class="min-w-0">
@@ -124,11 +71,11 @@
             </div>
           </div>
           <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-            <span id="connection-badge" class="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
-              <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              متصل
+            <span id="connection-badge" class="conn-badge conn-badge--online" role="status">
+              <span class="conn-badge__dot" aria-hidden="true"></span>
+              <span id="connection-badge-text">متصل</span>
             </span>
-            <button type="button" id="refresh-btn" class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-3 py-2 sm:px-4 text-sm font-semibold text-white hover:bg-brand-500 shadow-glow transition-colors">
+            <button type="button" id="refresh-btn" class="btn-dash-primary">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
               <span class="hidden sm:inline">تحديث</span>
             </button>
@@ -136,85 +83,93 @@
         </div>
       </header>
 
-      <main class="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
-        <!-- Status banner -->
-        <div id="status-banner" class="hidden rounded-xl border px-4 py-3 text-sm" role="alert"></div>
+      <main class="dash-main flex-1 space-y-6">
+        <div id="status-banner" class="alert-glass alert-glass--error hidden" role="alert" aria-live="polite">
+          <div class="alert-glass__icon" aria-hidden="true">⚠️</div>
+          <div class="alert-glass__body">
+            <p class="alert-glass__title" id="status-banner-title">تعذّر الاتصال بقاعدة البيانات</p>
+            <p class="alert-glass__text" id="status-banner-message"></p>
+          </div>
+          <button type="button" id="status-banner-close" class="alert-glass__close" aria-label="إغلاق التنبيه">×</button>
+        </div>
 
-        <!-- KPI cards -->
         <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label="ملخص سريع">
-          <article class="rounded-2xl border border-surface-700/80 bg-gradient-to-br from-surface-800 to-surface-900 p-5 shadow-card">
-            <p class="text-xs font-medium uppercase tracking-wider text-slate-500">إجمالي الإيرادات</p>
-            <p id="kpi-revenue" class="mt-2 text-2xl sm:text-3xl font-bold text-white tabular-nums">—</p>
-            <p class="mt-1 text-xs text-brand-400">AUD · كل المبيعات المحمّلة</p>
+          <article class="glass-panel glass-panel--gold glass-kpi">
+            <span class="glass-kpi__icon" aria-hidden="true">💰</span>
+            <p class="glass-kpi__label">إجمالي الإيرادات</p>
+            <p id="kpi-revenue" class="glass-kpi__value">—</p>
+            <p class="glass-kpi__hint glass-kpi__hint--gold">AUD · كل المبيعات المحمّلة</p>
           </article>
-          <article class="rounded-2xl border border-surface-700/80 bg-gradient-to-br from-surface-800 to-surface-900 p-5 shadow-card">
-            <p class="text-xs font-medium uppercase tracking-wider text-slate-500">عدد العمليات</p>
-            <p id="kpi-count" class="mt-2 text-2xl sm:text-3xl font-bold text-white tabular-nums">—</p>
-            <p class="mt-1 text-xs text-slate-500">عملية بيع مسجّلة</p>
+          <article class="glass-panel glass-kpi">
+            <span class="glass-kpi__icon glass-kpi__icon--blue" aria-hidden="true">🧾</span>
+            <p class="glass-kpi__label">عدد العمليات</p>
+            <p id="kpi-count" class="glass-kpi__value">—</p>
+            <p class="glass-kpi__hint">عملية بيع مسجّلة</p>
           </article>
-          <article class="rounded-2xl border border-surface-700/80 bg-gradient-to-br from-surface-800 to-surface-900 p-5 shadow-card">
-            <p class="text-xs font-medium uppercase tracking-wider text-slate-500">آخر 7 أيام</p>
-            <p id="kpi-week-revenue" class="mt-2 text-2xl sm:text-3xl font-bold text-white tabular-nums">—</p>
-            <p class="mt-1 text-xs text-slate-500">إيرادات الأسبوع</p>
+          <article class="glass-panel glass-kpi">
+            <span class="glass-kpi__icon" aria-hidden="true">📅</span>
+            <p class="glass-kpi__label">آخر 7 أيام</p>
+            <p id="kpi-week-revenue" class="glass-kpi__value">—</p>
+            <p class="glass-kpi__hint">إيرادات الأسبوع</p>
           </article>
-          <article class="rounded-2xl border border-surface-700/80 bg-gradient-to-br from-surface-800 to-surface-900 p-5 shadow-card">
-            <p class="text-xs font-medium uppercase tracking-wider text-slate-500">متوسط قيمة الطلب</p>
-            <p id="kpi-avg" class="mt-2 text-2xl sm:text-3xl font-bold text-white tabular-nums">—</p>
-            <p class="mt-1 text-xs text-slate-500">AUD لكل عملية</p>
+          <article class="glass-panel glass-kpi">
+            <span class="glass-kpi__icon glass-kpi__icon--blue" aria-hidden="true">📊</span>
+            <p class="glass-kpi__label">متوسط قيمة الطلب</p>
+            <p id="kpi-avg" class="glass-kpi__value">—</p>
+            <p class="glass-kpi__hint">AUD لكل عملية</p>
           </article>
         </section>
 
-        <!-- Chart -->
-        <section class="rounded-2xl border border-surface-700/80 bg-surface-900/90 p-5 sm:p-6 shadow-card">
+        <section class="glass-panel glass-panel--blue p-5 sm:p-6">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
             <div>
-              <h2 class="text-base sm:text-lg font-bold text-white">مبيعات آخر 7 أيام</h2>
-              <p class="text-sm text-slate-500">إجمالي الإيرادات اليومية (AUD)</p>
+              <h2 class="dash-section__title">مبيعات آخر 7 أيام</h2>
+              <p class="dash-section__sub">إجمالي الإيرادات اليومية (AUD)</p>
             </div>
-            <div id="chart-legend" class="flex flex-wrap gap-3 text-xs text-slate-400"></div>
+            <div id="chart-legend" class="text-xs text-slate-400"></div>
           </div>
           <div class="chart-wrap">
             <canvas id="sales-chart" role="img" aria-label="رسم بياني خطي لمبيعات آخر سبعة أيام"></canvas>
           </div>
-          <div id="chart-loading" class="hidden absolute inset-0 flex items-center justify-center">
-            <div class="h-8 w-48 rounded-lg skeleton"></div>
-          </div>
         </section>
 
-        <!-- Table -->
-        <section class="rounded-2xl border border-surface-700/80 bg-surface-900/90 shadow-card overflow-hidden">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 sm:px-6 py-5 border-b border-surface-700/60">
+        <section class="glass-panel glass-table-wrap">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 sm:px-6 py-5 border-b border-white/10">
             <div>
-              <h2 class="text-base sm:text-lg font-bold text-white">آخر 10 عمليات بيع</h2>
-              <p class="text-sm text-slate-500">من جدول <code class="text-brand-400/90">sales</code> في Supabase</p>
+              <h2 class="dash-section__title">آخر 10 عمليات بيع</h2>
+              <p class="dash-section__sub">من جدول <code>sales</code> في Supabase</p>
             </div>
             <span id="table-updated" class="text-xs text-slate-600"></span>
           </div>
-          <div class="table-scroll overflow-x-auto">
-            <table class="w-full min-w-[640px] text-sm text-right">
+          <div class="glass-table-scroll">
+            <table class="dash-table" aria-label="آخر المبيعات">
               <thead>
-                <tr class="border-b border-surface-700/60 bg-surface-800/50 text-xs uppercase tracking-wider text-slate-500">
-                  <th class="px-4 py-3 font-semibold sm:px-6">#</th>
-                  <th class="px-4 py-3 font-semibold sm:px-6">التاريخ</th>
-                  <th class="px-4 py-3 font-semibold sm:px-6">العميل</th>
-                  <th class="px-4 py-3 font-semibold sm:px-6">المنتج</th>
-                  <th class="px-4 py-3 font-semibold sm:px-6">الكمية</th>
-                  <th class="px-4 py-3 font-semibold sm:px-6">الإجمالي</th>
-                  <th class="px-4 py-3 font-semibold sm:px-6">الحالة</th>
+                <tr>
+                  <th>#</th>
+                  <th>التاريخ</th>
+                  <th>العميل</th>
+                  <th>المنتج</th>
+                  <th>الكمية</th>
+                  <th>الإجمالي</th>
+                  <th>الحالة</th>
                 </tr>
               </thead>
               <tbody id="sales-tbody">
                 <tr>
-                  <td colspan="7" class="px-6 py-12 text-center text-slate-500">جاري تحميل البيانات…</td>
+                  <td colspan="7" class="dash-empty">جاري تحميل البيانات…</td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <p id="table-empty" class="hidden px-6 py-10 text-center text-slate-500">لا توجد مبيعات لعرضها.</p>
+          <div id="table-empty" class="dash-empty hidden">
+            <p class="dash-empty__icon" aria-hidden="true">📭</p>
+            <p class="dash-empty__title">لا توجد مبيعات لعرضها</p>
+            <p class="text-sm">ستظهر العمليات هنا عند توفر بيانات في Supabase.</p>
+          </div>
         </section>
       </main>
 
-      <footer class="px-6 py-4 text-center text-xs text-slate-600 border-t border-surface-800">
+      <footer class="dash-footer">
         Prestige Abaya ERP · <span id="footer-year"></span>
       </footer>
     </div>
@@ -223,6 +178,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="supabase.config.js"></script>
-  <script src="dashboard.js"></script>
+  <script src="dashboard.js?v=20260524-glass"></script>
 </body>
 </html>
