@@ -1,0 +1,122 @@
+/* Inventory page — low-stock alerts & quantity modal */
+
+.inv-table tbody tr.inv-row--low,
+.inv-table tbody tr.inv-row--low td {
+  color: #dc2626 !important;
+  font-weight: 600;
+}
+
+.inv-table tbody tr.inv-row--low:hover {
+  background: #fef2f2 !important;
+}
+
+.inv-alert-pill {
+  display: inline-flex;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.inv-alert-pill--ok {
+  background: #ecfdf5;
+  color: #059669;
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.inv-alert-pill--low {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.inv-alert-pill--out {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.inv-btn-update {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: #ffffff;
+  background: #0d9488;
+  border: none;
+  border-radius: 0.65rem;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+  transition: background 0.15s;
+}
+
+.inv-btn-update:hover {
+  background: #0f766e;
+}
+
+.inv-btn--ghost {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.65rem;
+  cursor: pointer;
+}
+
+.inv-btn--ghost:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.inv-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.inv-modal.hidden {
+  display: none;
+}
+
+.inv-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(4px);
+}
+
+.inv-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.inv-input {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.65rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.inv-input:focus {
+  outline: none;
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+}

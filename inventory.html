@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Prestige Abaya ERP — إدارة المخزون">
+  <meta name="theme-color" content="#f8fafc">
+  <title>إدارة المخزون | Prestige Abaya ERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="dashboard.css?v=20260524-inventory">
+  <link rel="stylesheet" href="inventory.css?v=20260524-inventory">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="dashboard-page bg-slate-50 text-slate-900 antialiased min-h-screen">
+  <div id="app" class="flex min-h-screen">
+    <div id="sidebar-overlay" class="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-sm lg:hidden hidden" aria-hidden="true"></div>
+
+    <aside id="sidebar" class="dash-sidebar fixed inset-y-0 start-0 z-50 w-72 -translate-x-full rtl:translate-x-full lg:translate-x-0 rtl:lg:translate-x-0 flex flex-col transition-transform duration-300 lg:static lg:z-auto">
+      <div class="flex items-center gap-3 px-6 py-6 border-b border-slate-200">
+        <div class="dash-brand__logo" aria-hidden="true">P</div>
+        <div>
+          <p class="text-sm font-bold text-slate-900">Prestige Abaya</p>
+          <p class="text-xs text-slate-500">نظام ERP للمبيعات</p>
+        </div>
+      </div>
+
+      <nav class="flex-1 px-3 py-5 space-y-1" aria-label="التنقل الرئيسي">
+        <a href="dashboard.html" class="sidebar-link">
+          <span class="text-teal-600" aria-hidden="true">📊</span>
+          لوحة التحكم
+        </a>
+        <a href="index.html#sales" class="sidebar-link">
+          <span class="text-teal-600" aria-hidden="true">🛒</span>
+          المبيعات
+        </a>
+        <a href="inventory.html" class="sidebar-link active">
+          <span class="text-teal-600" aria-hidden="true">📦</span>
+          المخزون
+        </a>
+        <a href="index.html#dashboard" class="sidebar-link">
+          <span class="text-teal-600" aria-hidden="true">📈</span>
+          التقارير
+        </a>
+        <a href="index.html#settings" class="sidebar-link">
+          <span class="text-teal-600" aria-hidden="true">⚙️</span>
+          الإعدادات
+        </a>
+      </nav>
+
+      <div class="px-4 py-5 border-t border-slate-200">
+        <a href="index.html" class="dash-link-back">← العودة للتطبيق الرئيسي</a>
+      </div>
+    </aside>
+
+    <div class="flex flex-1 flex-col min-w-0">
+      <header class="dash-header-bar sticky top-0 z-30">
+        <div class="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+          <div class="flex items-center gap-3 min-w-0">
+            <button type="button" id="sidebar-toggle" class="btn-icon lg:hidden shrink-0" aria-label="فتح القائمة">
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="min-w-0">
+              <h1 class="text-lg sm:text-xl font-bold text-slate-900 truncate">إدارة المخزون</h1>
+              <p class="text-xs sm:text-sm text-slate-600 truncate">جدول المنتجات من Supabase (products)</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+            <span id="connection-badge" class="conn-badge conn-badge--online" role="status">
+              <span class="conn-badge__dot" aria-hidden="true"></span>
+              <span id="connection-badge-text">متصل</span>
+            </span>
+            <button type="button" id="refresh-btn" class="btn-teal">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              <span class="hidden sm:inline">تحديث</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
+        <div id="status-banner" class="alert-banner alert-banner--error hidden" role="alert" aria-live="polite">
+          <div class="text-lg shrink-0" aria-hidden="true">⚠️</div>
+          <div class="flex-1 min-w-0">
+            <p class="alert-banner__title" id="status-banner-title">تعذّر الاتصال</p>
+            <p class="alert-banner__text" id="status-banner-message"></p>
+          </div>
+          <button type="button" id="status-banner-close" class="alert-banner__close" aria-label="إغلاق">×</button>
+        </div>
+
+        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4" aria-label="ملخص المخزون">
+          <article class="dash-card dash-card--kpi bg-white rounded-xl shadow-md p-5">
+            <p class="dash-kpi__label">إجمالي المنتجات</p>
+            <p id="inv-kpi-total" class="dash-kpi__value">—</p>
+          </article>
+          <article class="dash-card dash-card--kpi bg-white rounded-xl shadow-md p-5">
+            <p class="dash-kpi__label">قطع متاحة</p>
+            <p id="inv-kpi-units" class="dash-kpi__value">—</p>
+          </article>
+          <article class="dash-card dash-card--kpi bg-white rounded-xl shadow-md p-5">
+            <p class="dash-kpi__label">تنبيه مخزون منخفض (&lt;5)</p>
+            <p id="inv-kpi-low" class="dash-kpi__value text-red-600">—</p>
+          </article>
+        </section>
+
+        <section class="dash-card bg-white rounded-xl shadow-md overflow-hidden">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 sm:px-6 py-5 border-b border-slate-200">
+            <div>
+              <h2 class="text-base sm:text-lg font-bold text-slate-900">قائمة المخزون</h2>
+              <p class="text-sm text-slate-600 mt-0.5">الكمية تُحدَّث يدوياً عند وصول بضاعة جديدة</p>
+            </div>
+            <span id="inv-updated" class="text-xs text-slate-500"></span>
+          </div>
+          <div class="dash-table-scroll">
+            <table class="dash-table inv-table" aria-label="المخزون">
+              <thead>
+                <tr>
+                  <th>اسم المنتج</th>
+                  <th>الكمية المتاحة</th>
+                  <th>سعر التكلفة</th>
+                  <th>سعر البيع</th>
+                  <th>حالة التنبيه</th>
+                  <th>إجراء</th>
+                </tr>
+              </thead>
+              <tbody id="inventory-tbody">
+                <tr>
+                  <td colspan="6" class="dash-empty text-slate-600">جاري تحميل المخزون…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p id="inventory-empty" class="dash-empty hidden">
+            <span class="text-2xl block mb-2" aria-hidden="true">📭</span>
+            <span class="dash-empty__title block">لا توجد منتجات في المخزون</span>
+          </p>
+        </section>
+      </main>
+
+      <footer class="dash-footer">
+        Prestige Abaya ERP · <span id="footer-year"></span>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal: تحديث الكمية -->
+  <div id="qty-modal" class="inv-modal hidden" role="dialog" aria-modal="true" aria-labelledby="qty-modal-title">
+    <div class="inv-modal__backdrop" data-close-modal></div>
+    <div class="inv-modal__panel bg-white rounded-xl shadow-md">
+      <h2 id="qty-modal-title" class="text-lg font-bold text-slate-900">تحديث الكمية</h2>
+      <p id="qty-modal-product" class="text-sm text-slate-600 mt-1"></p>
+      <p class="text-sm text-slate-800 mt-3">الكمية الحالية: <strong id="qty-modal-current">0</strong></p>
+
+      <div class="mt-4 space-y-3">
+        <label class="block text-sm font-medium text-slate-800">
+          تعديل (+ / −)
+          <input type="number" id="qty-modal-delta" class="inv-input mt-1 w-full" placeholder="مثال: 10 أو -3" step="1">
+        </label>
+        <p class="text-xs text-slate-500 text-center">أو</p>
+        <label class="block text-sm font-medium text-slate-800">
+          الكمية الجديدة (مطلقة)
+          <input type="number" id="qty-modal-absolute" class="inv-input mt-1 w-full" min="0" step="1" placeholder="الكمية بعد التحديث">
+        </label>
+      </div>
+
+      <p id="qty-modal-preview" class="text-sm font-semibold text-teal-600 mt-3"></p>
+      <p id="qty-modal-error" class="text-sm text-red-600 mt-2 hidden"></p>
+
+      <div class="flex flex-wrap gap-2 mt-5 justify-end">
+        <button type="button" class="inv-btn inv-btn--ghost" data-close-modal>إلغاء</button>
+        <button type="button" id="qty-modal-save" class="btn-teal">حفظ الكمية</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.config.js"></script>
+  <script src="inventory.js?v=20260524-inventory"></script>
+</body>
+</html>
