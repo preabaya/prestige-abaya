@@ -1039,6 +1039,15 @@ const SupabaseBridge = {
       sale: this.rowToSale(inserted),
     };
     if (hookResult.anomaly) result.anomaly = true;
+
+    if (typeof window !== 'undefined' && window.SecurityCenter?.detectSuspiciousActivity) {
+      void window.SecurityCenter.detectSuspiciousActivity({
+        ...payload,
+        id: inserted?.id ?? payload.id,
+        created_at: inserted?.created_at ?? payload.created_at,
+      });
+    }
+
     return result;
   },
 
