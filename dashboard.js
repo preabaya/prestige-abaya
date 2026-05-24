@@ -38,7 +38,7 @@
   }
 
   function saleAmount(row) {
-    const v = row.line_total_aud ?? row.total_amount ?? row.totalAmount;
+    const v = row.line_total_aud ?? row.lineTotalAud;
     if (v != null && Number.isFinite(Number(v))) return Number(v);
     const price = Number(row.price) || 0;
     const qty = Math.max(1, parseInt(row.quantity, 10) || 1);
@@ -173,7 +173,7 @@
   async function fetchSales() {
     let query = supabase
       .from('sales')
-      .select('id, created_at, customer_name, customer, product_name, price, quantity, line_total_aud, total_amount, invoice_number, status, tenant_id')
+      .select('id, created_at, customer_name, customer, product_name, price, quantity, line_total_aud, invoice_number, status, tenant_id')
       .order('id', { ascending: false });
 
     const tenantId = getTenantId();
