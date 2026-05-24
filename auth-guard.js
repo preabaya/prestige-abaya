@@ -117,21 +117,25 @@
   }
 
   async function resolveUserRole(user) {
-    console.log('[AuthGuard] 1. Checking role for user ID:', user?.id);
-    
-    const fromMeta = roleFromMetadata(user);
-    console.log('[AuthGuard] 2. Metadata role:', fromMeta);
-    if (fromMeta) return fromMeta;
+    if (!user) return 'client';
 
+    // 1. محاولة جلب الصلاحية من جدول profiles مباشرة (المرجع الأساسي)
     const client = getClient();
-    const fromProfile = await roleFromProfiles(client, user?.id);
-    console.log('[AuthGuard] 3. Profile role found:', fromProfile);
-    
-    if (fromProfile) return fromProfile;
+    const { data: profile, error } = await client
+        .from('profiles')
+        .select('user_role')
+        .eq('id', user.id)
+        .maybeSingle();
 
-    console.log('[AuthGuard] 4. No role found, defaulting to: client');
-    return 'client';
-  }
+    if (error) {
+        console.error('[AuthGuard] Error fetching role:', error);
+        return 'client';
+    }
+
+    const role = profile?.user_role || 'client';
+    console.log('[AuthGuard] Role resolved as:', role);
+    return role;
+}
 
   async function getSession() {
     const client = getClient();
