@@ -6128,24 +6128,49 @@ body.iip-integration-lock {
   width: 100%;
 }
 
+/* صف الرسوم — بطاقتان متجاورتان بارتفاع محدود */
+.dashboard-grid--charts {
+  grid-template-columns: 1fr;
+  margin-bottom: var(--space-md);
+}
+
 @media (min-width: 640px) {
-  .dashboard-grid {
+  .dashboard-grid--charts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.dashboard-grid--charts .dash-card--chart {
+  align-self: start;
+  max-height: 22rem;
+}
+
+.dashboard-grid--charts .dash-card__chart-wrap,
+.dashboard-grid--charts .dash-card--sales-chart .dash-card__chart-wrap,
+.dashboard-grid--charts .dash-card--stock-chart .dash-card__chart-wrap {
+  height: 240px;
+  max-height: 240px;
+  min-height: 200px;
+}
+
+.dashboard-grid--modules {
+  margin-bottom: 0;
+}
+
+@media (min-width: 640px) {
+  .dashboard-grid:not(.dashboard-grid--charts) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 1024px) {
-  .dashboard-grid {
+  .dashboard-grid--modules {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .dash-card--chart {
-    grid-column: span 1;
   }
 }
 
 @media (min-width: 1280px) {
-  .dashboard-grid {
+  .dashboard-grid--modules {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
@@ -6207,14 +6232,10 @@ body.iip-integration-lock {
   padding: var(--space-sm) var(--space-md) 0;
 }
 
-.dash-card--sales-chart .dash-card__chart-wrap {
-  height: 300px;
-  max-height: 300px;
-}
-
-.dash-card--chart:not(.dash-card--sales-chart) .dash-card__body--chart {
-  height: 220px;
-  max-height: 220px;
+.dash-card--sales-chart .dash-card__chart-wrap,
+.dash-card--stock-chart .dash-card__chart-wrap {
+  height: 240px;
+  max-height: 240px;
 }
 
 .dash-card__body--chart canvas,

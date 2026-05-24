@@ -1,16 +1,15 @@
 /**
  * Prestige Abaya — Dashboard UI (grid cards, Chart.js, theme toggle)
- * Requires: Chart.js, SupabaseBridge, CustomerExperience, OperationsCenter, etc.
+ * Requires: Chart.js, ExecutiveDashboard, InventoryManager
  */
 (function (global) {
   'use strict';
 
   const THEME_KEY = 'prestige-theme';
-  const CHART_DAYS = 7;
   const REFRESH_MS = 5 * 60 * 1000;
 
   let salesChart = null;
-  let customerChart = null;
+  let stockChart = null;
   let refreshTimer = null;
 
   function $(id) {
@@ -63,159 +62,29 @@
     });
   }
 
-  function getClient() {
-    if (global.DbHelper?.getClient) return global.DbHelper.getClient();
-    if (global.SupabaseBridge?.getClient) return global.SupabaseBridge.getClient();
-    return null;
-  }
-
-  function resolveTenantId() {
-    if (global.DbHelper?.resolveTenantId) return global.DbHelper.resolveTenantId();
-    const cfg = global.SUPABASE_CONFIG || {};
-    return cfg.defaultTenantId ? String(cfg.defaultTenantId).trim() : null;
-  }
-
-  function saleAmount(row) {
-    const line = row.line_total_aud ?? row.lineTotalAud;
-    if (line != null && Number.isFinite(Number(line))) return Number(line);
-    const price = Number(row.price) || 0;
-    const qty = Math.max(1, parseInt(row.quantity, 10) || 1);
-    return Math.round(price * qty * 100) / 100;
-  }
-
-  function parseSaleDate(row) {
-    const raw = row.created_at ?? row.createdAt ?? row.sale_date;
-    if (!raw) return null;
-    const d = new Date(raw);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-
-  function startOfDay(d) {
-    const x = new Date(d);
-    x.setHours(0, 0, 0, 0);
-    return x;
-  }
-
-  function dayKey(d) {
-    return startOfDay(d).toISOString().slice(0, 10);
-  }
-
-  function buildLast7DayBuckets() {
-    const buckets = [];
-    const today = startOfDay(new Date());
-    for (let i = CHART_DAYS - 1; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      buckets.push({
-        date: d,
-        key: dayKey(d),
-        total: 0,
-        label: new Intl.DateTimeFormat('ar-AE', { weekday: 'short', day: 'numeric' }).format(d),
-      });
-    }
-    return buckets;
-  }
-
-  async function fetchSalesRows() {
-    if (global.SupabaseBridge?.fetchSales) {
-      const res = await global.SupabaseBridge.fetchSales();
-      if (res.ok) return res.data || [];
-    }
-
-    const client = getClient();
-    if (!client) return [];
-
-    let query = client
-      .from('sales')
-      .select('id, created_at, price, quantity, line_total_aud, tenant_id')
-      .order('created_at', { ascending: false })
-      .limit(500);
-
-    const tenantId = resolveTenantId();
-    if (tenantId) query = query.eq('tenant_id', tenantId);
-
-    const { data, error } = await query;
-    if (error) {
-      console.warn('[DashboardUI] sales', error.message);
-      return [];
-    }
-    return data || [];
-  }
-
-  function aggregateSalesByDay(rows) {
-    const weekStart = startOfDay(new Date());
-    weekStart.setDate(weekStart.getDate() - (CHART_DAYS - 1));
-
-    const buckets = buildLast7DayBuckets();
-    const map = Object.fromEntries(buckets.map((b) => [b.key, b]));
-
-    rows.forEach((row) => {
-      const d = parseSaleDate(row);
-      if (!d || d < weekStart) return;
-      const key = dayKey(d);
-      if (!map[key]) return;
-      map[key].total += saleAmount(row);
-    });
-
-    return buckets.map((b) => ({
-      label: b.label,
-      total: Math.round(b.total * 100) / 100,
-    }));
-  }
-
-  async function fetchFeedbackRows() {
-    const client = getClient();
-    if (!client) return [];
-
-    let query = client
-      .from('customer_feedback')
-      .select('rating, sentiment')
-      .order('created_at', { ascending: false })
-      .limit(200);
-
-    const tenantId = resolveTenantId();
-    if (tenantId) query = query.eq('tenant_id', tenantId);
-
-    const { data, error } = await query;
-    if (error) {
-      console.warn('[DashboardUI] feedback', error.message);
-      return [];
-    }
-    return data || [];
-  }
-
-  function ratingHistogram(rows) {
-    const counts = [0, 0, 0, 0, 0];
-    rows.forEach((r) => {
-      const n = parseInt(r.rating, 10);
-      if (Number.isFinite(n) && n >= 1 && n <= 5) counts[n - 1] += 1;
-    });
-    return counts;
-  }
-
-  function sentimentCounts(rows) {
-    const out = { happy: 0, neutral: 0, angry: 0 };
-    rows.forEach((r) => {
-      const s = r.sentiment || 'neutral';
-      if (out[s] != null) out[s] += 1;
-      else out.neutral += 1;
-    });
-    return out;
-  }
-
-  function baseChartOptions(palette) {
+  function barChartOptions(palette) {
     return {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: {
-          labels: { color: palette.text, font: { family: 'Tajawal, Inter, sans-serif' } },
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              const v = ctx.parsed?.y ?? ctx.parsed ?? 0;
+              const label = ctx.label || '';
+              if (label.includes('AUD') || label.includes('إيراد')) {
+                return `${label}: ${Number(v).toFixed(2)} AUD`;
+              }
+              return `${label}: ${v}`;
+            },
+          },
         },
       },
       scales: {
         x: {
-          ticks: { color: palette.text },
-          grid: { color: palette.grid },
+          ticks: { color: palette.text, maxRotation: 45, minRotation: 0 },
+          grid: { display: false },
         },
         y: {
           beginAtZero: true,
@@ -226,105 +95,161 @@
     };
   }
 
-  async function renderSalesChart() {
+  function doughnutChartOptions(palette) {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '58%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: palette.text,
+            boxWidth: 12,
+            font: { family: 'Tajawal, Inter, sans-serif', size: 11 },
+          },
+        },
+      },
+    };
+  }
+
+  function salesBarFromSummary(summary) {
+    const s = summary || {};
+    return {
+      labels: [
+        'إيرادات المبيعات (AUD)',
+        'عدد عمليات البيع',
+        'وحدات الأكثر مبيعاً',
+        'الفروع النشطة',
+      ],
+      values: [
+        Number(s.totalSalesAud) || 0,
+        Number(s.salesCount) || 0,
+        Number(s.bestProductUnits) || 0,
+        Number(s.activeBranches) || 0,
+      ],
+      metaParts: [
+        `إجمالي: ${(Number(s.totalSalesAud) || 0).toFixed(2)} AUD`,
+        `${s.salesCount || 0} عملية`,
+        s.bestProduct ? `الأفضل: ${s.bestProduct}` : '—',
+        `${s.activeBranches || 0} / ${s.totalBranches || 0} فرع`,
+      ],
+    };
+  }
+
+  async function fetchStockStatus() {
+    if (!global.InventoryManager?.checkStockLevels) {
+      return { ok: false, low: 0, healthy: 0, total: 0 };
+    }
+    const res = await global.InventoryManager.checkStockLevels();
+    if (!res?.ok) {
+      return { ok: false, low: 0, healthy: 0, total: 0, error: res?.error };
+    }
+    const items = res.data || [];
+    const low = (res.lowStock || items.filter((i) => i.isLow)).length;
+    const total = items.length;
+    const healthy = Math.max(0, total - low);
+    return { ok: true, low, healthy, total };
+  }
+
+  async function renderSalesBarChart(summary) {
     const canvas = $('chart-dash-sales');
     if (!canvas) return;
 
-    await waitForChart().catch(() => null);
-    if (!global.Chart) return;
-
-    const rows = await fetchSalesRows();
-    const series = aggregateSalesByDay(rows);
     const palette = chartPalette();
+    const { labels, values, metaParts } = salesBarFromSummary(summary);
 
     if (salesChart) {
       salesChart.destroy();
       salesChart = null;
     }
 
-    const ctx = canvas.getContext('2d');
-    const gradient = ctx.createLinearGradient(0, 0, 0, 220);
-    gradient.addColorStop(0, 'rgba(154, 123, 79, 0.35)');
-    gradient.addColorStop(1, 'rgba(154, 123, 79, 0.02)');
-
     salesChart = new global.Chart(canvas, {
-      type: 'line',
+      type: 'bar',
       data: {
-        labels: series.map((s) => s.label),
+        labels,
         datasets: [{
-          label: 'المبيعات (AUD)',
-          data: series.map((s) => s.total),
-          borderColor: palette.accent,
-          backgroundColor: gradient,
-          fill: true,
-          tension: 0.35,
-          pointRadius: 4,
-          pointBackgroundColor: palette.accentLight,
+          label: 'المبيعات',
+          data: values,
+          backgroundColor: [
+            palette.accent,
+            palette.info,
+            palette.accentLight,
+            palette.success,
+          ],
+          borderRadius: 8,
+          maxBarThickness: 56,
         }],
       },
-      options: baseChartOptions(palette),
+      options: barChartOptions(palette),
     });
 
     const meta = $('chart-dash-sales-meta');
     if (meta) {
-      const weekTotal = series.reduce((s, x) => s + x.total, 0);
-      meta.textContent = `إجمالي ${CHART_DAYS} أيام: ${weekTotal.toFixed(2)} AUD · ${rows.length} عملية في السجل`;
+      meta.textContent = metaParts.filter(Boolean).join(' · ') || 'لا توجد بيانات مبيعات';
     }
   }
 
-  async function renderCustomerChart() {
-    const canvas = $('chart-dash-customer-ratings');
+  async function renderStockDoughnutChart() {
+    const canvas = $('chart-dash-stock');
     if (!canvas) return;
 
-    await waitForChart().catch(() => null);
-    if (!global.Chart) return;
-
-    let rows = [];
-    let cxMeta = '';
-    if (global.CustomerExperience?.getOverallCustomerSatisfaction) {
-      const cx = await global.CustomerExperience.getOverallCustomerSatisfaction();
-      if (cx.ok) {
-        const avg = cx.averageRating != null ? `${cx.averageRating}/5` : '—';
-        cxMeta = `متوسط التقييم: ${avg} · ${cx.feedbackCount || 0} ملاحظة · ${cx.label || ''}`;
-      }
-    }
-
-    const metaEl = $('chart-dash-customer-meta');
-    if (metaEl) metaEl.textContent = cxMeta || 'جاري التحميل…';
-
-    rows = await fetchFeedbackRows();
-    const hist = ratingHistogram(rows);
-    const sent = sentimentCounts(rows);
+    const stock = await fetchStockStatus();
     const palette = chartPalette();
+    const low = stock.low || 0;
+    const healthy = stock.healthy || 0;
 
-    if (customerChart) {
-      customerChart.destroy();
-      customerChart = null;
+    if (stockChart) {
+      stockChart.destroy();
+      stockChart = null;
     }
 
-    if (metaEl) {
-      metaEl.textContent = `${cxMeta || 'تقييمات العملاء'} · مشاعر: راضٍ ${sent.happy} · محايد ${sent.neutral} · غاضب ${sent.angry}`;
-    }
-
-    customerChart = new global.Chart(canvas, {
-      type: 'bar',
+    stockChart = new global.Chart(canvas, {
+      type: 'doughnut',
       data: {
-        labels: ['★1', '★2', '★3', '★4', '★5'],
+        labels: ['مخزون منخفض', 'مخزون مكتمل'],
         datasets: [{
-          label: 'عدد التقييمات',
-          data: hist,
-          backgroundColor: [
-            palette.danger,
-            palette.warning,
-            palette.text,
-            palette.info,
-            palette.success,
-          ],
-          borderRadius: 8,
+          data: low === 0 && healthy === 0 ? [0, 1] : [low, healthy],
+          backgroundColor: [palette.danger, palette.success],
+          borderWidth: 0,
+          hoverOffset: 6,
         }],
       },
-      options: baseChartOptions(palette),
+      options: doughnutChartOptions(palette),
     });
+
+    const meta = $('chart-dash-stock-meta');
+    if (meta) {
+      if (!stock.ok && stock.error) {
+        meta.textContent = escapeHtml(stock.error);
+        return;
+      }
+      const total = stock.total || low + healthy;
+      meta.textContent = `منخفض: ${low} · مكتمل: ${healthy} · إجمالي المنتجات: ${total}`;
+    }
+  }
+
+  /**
+   * Bar chart (sales KPIs from ExecutiveDashboard) + doughnut (stock status).
+   */
+  async function renderCharts() {
+    await waitForChart().catch((err) => {
+      console.warn('[DashboardUI]', err);
+      return null;
+    });
+    if (!global.Chart) return { ok: false, error: 'Chart.js غير محمّل' };
+
+    let summary = null;
+    if (global.ExecutiveDashboard?.getDashboardSummary) {
+      summary = await global.ExecutiveDashboard.getDashboardSummary();
+    }
+
+    await Promise.all([
+      renderSalesBarChart(summary),
+      renderStockDoughnutChart(),
+    ]);
+
+    return { ok: true, summary };
   }
 
   function renderSlotHtml(slotId, innerHtml) {
@@ -353,8 +278,8 @@
     if (global.InventoryManager?.checkStockLevels) {
       const stock = await global.InventoryManager.checkStockLevels();
       if (stock?.ok) {
-        const low = stock.lowStock || stock.items || [];
-        const count = Array.isArray(low) ? low.length : Number(stock.lowCount) || 0;
+        const low = stock.lowStock || [];
+        const count = Array.isArray(low) ? low.length : 0;
         const preview = (Array.isArray(low) ? low : []).slice(0, 3).map((item) =>
           `<li class="dash-mini-list__item">${escapeHtml(item.product_name || item.name)} <span class="dash-mini-list__badge dash-mini-list__badge--warn">${escapeHtml(String(item.stock_quantity ?? item.qty ?? '—'))}</span></li>`
         ).join('');
@@ -390,6 +315,7 @@
             if (global.AutomationCenter.runDailyCleanup) await global.AutomationCenter.runDailyCleanup();
             if (global.AutomationCenter.autoReorderStock) await global.AutomationCenter.autoReorderStock();
             btn.textContent = 'تم التشغيل';
+            await renderCharts();
           } catch (e) {
             console.warn('[DashboardUI] automation', e);
           } finally {
@@ -418,7 +344,6 @@
         });
       }
     }
-
   }
 
   function getTheme() {
@@ -443,7 +368,7 @@
       btn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
       btn.title = isDark ? 'الوضع الفاتح' : 'الوضع المظلم';
       const label = btn.querySelector('.theme-toggle__label');
-      if (label) label.textContent = isDark ? '☀️ فاتح' : '🌙 مظلم';
+      if (label) label.textContent = isDark ? '☀️' : '🌙';
     }
 
     global.dispatchEvent(new CustomEvent('prestige-theme-change', { detail: { theme: next } }));
@@ -455,8 +380,7 @@
 
   function toggleTheme() {
     applyTheme(getTheme() === 'dark' ? 'light' : 'dark');
-    renderSalesChart();
-    renderCustomerChart();
+    renderCharts().catch((e) => console.warn('[DashboardUI]', e));
   }
 
   function bindThemeToggle() {
@@ -475,21 +399,17 @@
         if (tab && typeof global.navigateToTab === 'function') {
           global.navigateToTab(tab);
         } else {
-          const navBtn = document.querySelector(`.site-nav__btn[data-tab="${tab}"]`);
-          navBtn?.click();
+          document.querySelector(`.site-nav__btn[data-tab="${tab}"]`)?.click();
         }
-        $('dashboard-shell__main')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        $('app-scroll')?.scrollTo({ top: 0, behavior: 'smooth' });
       });
     });
   }
 
   async function refresh() {
     bindNavShortcuts();
-    await Promise.all([
-      renderSalesChart(),
-      renderCustomerChart(),
-      renderModuleCards(),
-    ]);
+    await renderCharts();
+    await renderModuleCards();
   }
 
   function scheduleRefresh() {
@@ -512,7 +432,7 @@
     });
 
     global.addEventListener('prestige-theme-change', () => {
-      /* charts rebuilt in toggleTheme */
+      renderCharts().catch((e) => console.warn('[DashboardUI] theme', e));
     });
   }
 
@@ -524,6 +444,7 @@
 
   global.DashboardUI = {
     refresh,
+    renderCharts,
     initTheme,
     toggleTheme,
     getTheme,

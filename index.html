@@ -18,7 +18,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
   <!-- GitHub Pages: served from repo root → https://preabaya.github.io/prestige-abaya/ -->
-  <link rel="stylesheet" href="style.css?v=20260524-app-shell">
+  <link rel="stylesheet" href="style.css?v=20260524-charts-grid">
+  <!-- Chart.js — رسوم الداشبورد (dashboard-ui.js) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
@@ -90,29 +91,31 @@
       <div class="app-scroll" id="app-scroll">
         <div id="root" class="root">
           <div class="dashboard-shell">
-      <section class="dashboard-grid" id="dashboard-grid" aria-label="لوحة الوحدات">
+      <section class="dashboard-grid dashboard-grid--charts" id="dashboard-charts-grid" aria-label="الرسوم البيانية">
         <article class="dash-card dash-card--chart dash-card--sales-chart" id="dash-card-sales">
           <header class="dash-card__head">
             <h2 class="dash-card__title">رسم بياني للمبيعات</h2>
-            <p class="dash-card__subtitle">آخر 7 أيام</p>
+            <p class="dash-card__subtitle">مؤشرات تنفيذية — Chart.js</p>
           </header>
           <div class="dash-card__body dash-card__body--chart dash-card__chart-wrap">
-            <canvas id="chart-dash-sales" aria-label="مبيعات الأسبوع"></canvas>
+            <canvas id="chart-dash-sales" aria-label="مبيعات — أعمدة"></canvas>
           </div>
           <p class="dash-card__meta" id="chart-dash-sales-meta">جاري التحميل…</p>
         </article>
 
-        <article class="dash-card dash-card--chart" id="dash-card-customer">
+        <article class="dash-card dash-card--chart dash-card--stock-chart" id="dash-card-stock">
           <header class="dash-card__head">
-            <h2 class="dash-card__title">رسم بياني لتقييم العملاء</h2>
-            <p class="dash-card__subtitle">توزيع النجوم والمشاعر</p>
+            <h2 class="dash-card__title">حالة المخزون</h2>
+            <p class="dash-card__subtitle">منخفض مقابل مكتمل — Chart.js</p>
           </header>
-          <div class="dash-card__body dash-card__body--chart">
-            <canvas id="chart-dash-customer-ratings" height="200" aria-label="تقييمات العملاء"></canvas>
+          <div class="dash-card__body dash-card__body--chart dash-card__chart-wrap">
+            <canvas id="chart-dash-stock" aria-label="حالة المخزون — دائري"></canvas>
           </div>
-          <p class="dash-card__meta" id="chart-dash-customer-meta">جاري التحميل…</p>
+          <p class="dash-card__meta" id="chart-dash-stock-meta">جاري التحميل…</p>
         </article>
+      </section>
 
+      <section class="dashboard-grid dashboard-grid--modules" id="dashboard-grid" aria-label="لوحة الوحدات">
         <article class="dash-card" id="dash-card-executive">
           <header class="dash-card__head">
             <h2 class="dash-card__title">نظرة تنفيذية</h2>
@@ -284,6 +287,6 @@
   <script src="executive-dashboard.js?v=20260524"></script>
   <script src="security-center.js?v=20260524"></script>
   <script src="automation-center.js?v=20260524"></script>
-  <script src="dashboard-ui.js?v=20260524"></script>
+  <script src="dashboard-ui.js?v=20260524-charts"></script>
 </body>
 </html>
