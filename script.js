@@ -3072,13 +3072,15 @@ const DataStore = {
     ]);
 
     if (salesRes.ok) state.sales = salesRes.data;
-    if (inventoryRes.ok && inventoryRes.data.length) {
+    if (inventoryRes.ok) {
       state.products = inventoryRes.data;
+      if (!inventoryRes.data.length && productsRes.ok && productsRes.data.length) {
+        state.products = productsRes.data;
+        console.warn('[Supabase] inventory empty — using products fallback');
+      }
     } else if (productsRes.ok) {
       state.products = productsRes.data;
-      if (inventoryRes.ok && !inventoryRes.data.length) {
-        console.warn('[Supabase] inventory table empty — using products fallback');
-      }
+      console.warn('[Supabase] inventory fetch failed — using products:', inventoryRes.error);
     }
 
     migrateData();
@@ -3332,25 +3334,74 @@ function getProduct(id) {
   return state.products.find((p) => p.id === id);
 }
 
-/** Products available on the sales form (from inventory when cloud-synced). */
+/** All catalog rows for the sales dropdown (public.inventory → state.products). */
 function getSaleCatalogProducts() {
-  return state.products
-    .filter((p) => (p.quantity ?? 0) > 0)
-    .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  return [...state.products].sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+}
+
+let _salesCatalogLoadPromise = null;
+
+/**
+ * Load public.inventory from Supabase, then fill the sales dropdown (awaits before paint).
+ */
+async function loadInventoryForSales({ force = false } = {}) {
+  const menu = document.getElementById('sale-product-menu');
+  if (!menu) return { ok: false, reason: 'no-dom' };
+
+  if (_salesCatalogLoadPromise && !force) return _salesCatalogLoadPromise;
+
+  _salesCatalogLoadPromise = (async () => {
+    menu.innerHTML = '<li role="presentation"><span class="product-picker__loading">جاري التحميل…</span></li>';
+
+    if (DataStore.usesCloud() && typeof SupabaseBridge !== 'undefined' && SupabaseBridge.fetchInventory) {
+      const ready = await DataStore._cloudReady();
+      if (!ready.ok) {
+        populateSaleSelect();
+        return { ok: false, error: ready.error };
+      }
+      const res = await SupabaseBridge.fetchInventory();
+      if (res.ok) {
+        state.products = res.data;
+        console.info('[Sales] Loaded', res.data.length, 'items from inventory');
+      } else {
+        console.error('[Sales] inventory select failed:', res.error);
+        populateSaleSelect();
+        return { ok: false, error: res.error };
+      }
+    }
+
+    populateSaleSelect();
+    PosEngine.syncCacheFromState();
+    if (document.getElementById('inv-tbody')) {
+      renderInventoryTable(document.getElementById('inv-search')?.value || '');
+    }
+    return { ok: true, count: state.products.length };
+  })();
+
+  try {
+    return await _salesCatalogLoadPromise;
+  } finally {
+    _salesCatalogLoadPromise = null;
+  }
 }
 
 /** Refresh catalog from Supabase inventory and update sales dropdown. */
 async function refreshInventoryCatalog() {
-  if (DataStore.usesCloud() && typeof SupabaseBridge !== 'undefined' && SupabaseBridge.fetchInventory) {
-    const ready = await DataStore._cloudReady();
-    if (ready.ok) {
-      const res = await SupabaseBridge.fetchInventory();
-      if (res.ok) state.products = res.data;
-    }
+  return loadInventoryForSales({ force: true });
+}
+
+function tabFromLocationHash() {
+  const raw = (location.hash || '').replace(/^#/, '').trim().toLowerCase();
+  if (!raw || !NAV_TABS.includes(raw)) return null;
+  if (!navTabsForUser().includes(raw)) return null;
+  return raw;
+}
+
+function syncLocationHash(tab) {
+  const next = `#${tab}`;
+  if (location.hash !== next) {
+    history.replaceState(null, '', `${location.pathname}${location.search}${next}`);
   }
-  populateSaleSelect();
-  PosEngine.syncCacheFromState();
-  renderInventoryTable(document.getElementById('inv-search')?.value || '');
 }
 
 const NUM_LOCALE = 'en-US';
@@ -7828,6 +7879,7 @@ const SaleProductPicker = {
     const show = open ?? menu.hidden;
     menu.hidden = !show;
     trigger.setAttribute('aria-expanded', String(show));
+    if (show) loadInventoryForSales();
   },
 
   renderTrigger(p) {
@@ -7878,16 +7930,19 @@ function populateSaleSelect() {
     return;
   }
 
-  menu.innerHTML = products.map((p) => `
+  menu.innerHTML = products.map((p) => {
+    const out = (p.quantity ?? 0) <= 0;
+    return `
     <li role="presentation">
-      <button type="button" class="product-picker__option" role="option" data-sale-pick="${escapeHtml(String(p.id))}">
+      <button type="button" class="product-picker__option${out ? ' product-picker__option--out' : ''}" role="option" data-sale-pick="${String(p.id)}"${out ? ' disabled' : ''}>
         <span class="product-picker__option-left">
           <span class="product-picker__option-name">${escapeHtml(p.name)}</span>
           <span class="product-picker__option-meta">${t('qty')}: ${formatNum(p.quantity, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} · ${t('costAud')}: ${formatAUD(p.cost)}</span>
         </span>
         <span class="product-picker__option-price num-digits">${formatAUD(p.price)}</span>
       </button>
-    </li>`).join('');
+    </li>`;
+  }).join('');
   if (prev && products.some((p) => String(p.id) === String(prev))) SaleProductPicker.select(prev);
   else {
     SaleProductPicker.select('');
@@ -8061,10 +8116,12 @@ function renderCharts() {
   });
 }
 
-function navigateToTab(tab) {
+async function navigateToTab(tab) {
   if (!tab || !NAV_TABS.includes(tab)) return;
   if (!AuthSystem.isLoggedIn()) return;
   if (!navTabsForUser().includes(tab)) tab = 'dashboard';
+
+  syncLocationHash(tab);
 
   document.querySelectorAll('.site-nav__btn').forEach((btn) => {
     const target = btn.dataset.target || btn.dataset.tab;
@@ -8081,7 +8138,7 @@ function navigateToTab(tab) {
 
   window.scrollTo({ top: 0, behavior: tab === 'pos' ? 'auto' : 'smooth' });
   if (tab === 'pos') PosUI.initPanel();
-  if (tab === 'sales') refreshInventoryCatalog();
+  if (tab === 'sales') await loadInventoryForSales();
   if (tab === 'returns') renderReturnsLog();
   if (tab === 'users') UserAdmin.renderPanel();
   if (tab === 'dashboard' || tab === 'analytics') scheduleCharts();
@@ -8329,7 +8386,7 @@ function bindEvents() {
     if (!btn) return;
     e.preventDefault();
     const target = btn.dataset.target || btn.dataset.tab;
-    if (target) navigateToTab(target);
+    if (target) void navigateToTab(target);
   });
 
   const app = document.getElementById('app');
@@ -8742,6 +8799,7 @@ function setLang(lang) {
 }
 
 function seedDemo() {
+  if (DataStore.usesCloud()) return;
   if (state.products.length) return;
   [
     { code: 'PAB-001', name: 'Classic Abaya', size: '56', color: 'Black', style: 'classic', cost: 95, price: 189, quantity: 20 },
@@ -8821,10 +8879,18 @@ async function init() {
   AuthSystem.bindEvents();
   setLang(currentLang);
   // await AuthSystem.ensure(); — login screen removed; enterAsGuest() runs above
-  navigateToTab('dashboard');
+  const routeTab = tabFromLocationHash();
+  if (routeTab) await navigateToTab(routeTab);
+  else await navigateToTab('dashboard');
+
   renderAll();
   applyLogos();
   updateConnectionStatus();
+
+  window.addEventListener('hashchange', () => {
+    const tab = tabFromLocationHash();
+    if (tab) navigateToTab(tab);
+  });
 
   LiveCurrencyBridge.fetchRates().then(() => {
     LiveCurrencyBridge.applyToExpenseForm();

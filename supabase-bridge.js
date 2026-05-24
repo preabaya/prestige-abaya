@@ -1000,20 +1000,19 @@ const SupabaseBridge = {
     const client = this.getClient();
     if (!client) return { ok: false, data: [], error: 'No client' };
 
-    let query = client
+    const { data, error } = await client
       .from('inventory')
       .select('id, product_name, stock_quantity, cost_price, selling_price, min_threshold, last_updated, tenant_id')
       .order('product_name', { ascending: true });
 
-    const tenantId = this.resolveTenantIdForInventory({});
-    if (tenantId) {
-      query = query.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
-    }
-
-    const { data, error } = await query;
     if (error) return { ok: false, data: [], error: error.message };
 
-    const rows = (data || []).map((r) => this.inventoryRowToProduct(r));
+    let rows = (data || []).map((r) => this.inventoryRowToProduct(r));
+    const tenantId = this.resolveTenantIdForInventory({});
+    if (tenantId && rows.some((r) => r.tenantId)) {
+      const scoped = rows.filter((r) => !r.tenantId || r.tenantId === String(tenantId));
+      if (scoped.length) rows = scoped;
+    }
     rows.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
     return { ok: true, data: rows };
   },

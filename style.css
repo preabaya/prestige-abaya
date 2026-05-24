@@ -4945,6 +4945,18 @@ body.iip-integration-lock {
   color: var(--text-muted);
 }
 
+.product-picker__loading,
+.product-picker__empty {
+  display: block;
+  padding: 0.85rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.product-picker__option--out {
+  opacity: 0.55;
+}
+
 .product-picker__option-price {
   flex-shrink: 0;
   min-width: 7rem;
