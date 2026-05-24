@@ -86,7 +86,103 @@
       }
 
       return { product: bestProduct, totalSold: maxQty };
-    }
+    },
+
+    normalizeProductName(name) {
+      return String(name ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+    },
+
+    /**
+     * Compare predicted best seller with live inventory; alert if below min_threshold.
+     */
+    async checkAIInventoryImpact() {
+      const prediction = await this.predictBestSellingProduct();
+      if (!prediction?.product) {
+        return { ok: false, error: 'NO_PREDICTION', prediction: null };
+      }
+
+      if (typeof window.InventoryManager === 'undefined' || typeof window.InventoryManager.checkStockLevels !== 'function') {
+        return { ok: false, error: 'INVENTORY_MANAGER_UNAVAILABLE', prediction };
+      }
+
+      const stockCheck = await window.InventoryManager.checkStockLevels();
+      if (!stockCheck.ok) {
+        return { ok: false, error: stockCheck.error || 'STOCK_CHECK_FAILED', prediction };
+      }
+
+      const targetName = this.normalizeProductName(prediction.product);
+      const inventoryItem = (stockCheck.data || []).find(
+        (item) => this.normalizeProductName(item.product_name) === targetName
+      );
+
+      if (!inventoryItem) {
+        return {
+          ok: true,
+          prediction,
+          inventoryItem: null,
+          lowStock: false,
+          alertSent: false,
+          message: null,
+        };
+      }
+
+      if (inventoryItem.stock_quantity >= inventoryItem.min_threshold) {
+        return {
+          ok: true,
+          prediction,
+          inventoryItem,
+          lowStock: false,
+          alertSent: false,
+          message: null,
+        };
+      }
+
+      const product = inventoryItem.product_name || prediction.product;
+      const message = `تنبيه ذكاء اصطناعي: المنتج المتوقع ${product} مخزونه منخفض، يرجى إعادة الطلب فوراً`;
+
+      let alertSent = false;
+      if (typeof window.SupabaseBridge !== 'undefined' && window.SupabaseBridge.logAiAlert) {
+        const tenantId = window.DbHelper?.resolveTenantId?.()
+          || window.SUPABASE_CONFIG?.defaultTenantId
+          || null;
+        if (tenantId) {
+          const logged = await window.SupabaseBridge.logAiAlert({
+            tenantId: String(tenantId),
+            alertType: 'AI_INVENTORY_IMPACT',
+            message,
+            tableName: 'inventory',
+            recordId: inventoryItem.id,
+            severity: 'warning',
+            metadata: {
+              product_name: product,
+              total_sold: prediction.totalSold,
+              stock_quantity: inventoryItem.stock_quantity,
+              min_threshold: inventoryItem.min_threshold,
+            },
+          });
+          alertSent = logged?.ok === true;
+        }
+      }
+
+      console.warn('[AI Engine]', message);
+
+      try {
+        window.dispatchEvent(
+          new CustomEvent('ai-inventory-impact-alert', {
+            detail: { prediction, inventoryItem, message },
+          })
+        );
+      } catch (_) { /* ignore */ }
+
+      return {
+        ok: true,
+        prediction,
+        inventoryItem,
+        lowStock: true,
+        alertSent,
+        message,
+      };
+    },
   };
 
   console.log('[AI Engine] Ready to think.');
