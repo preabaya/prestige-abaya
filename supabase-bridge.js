@@ -14,6 +14,8 @@ const SALES_ANOMALY_RECENT_COUNT = 10;
 const SALES_ANOMALY_MIN_SAMPLES = 3;
 /** Fixed high-value threshold (AUD) — logs HIGH_VALUE_TRANSACTION to ai_alerts */
 const SALES_HIGH_VALUE_THRESHOLD_AUD = 5000;
+const INSUFFICIENT_STOCK_MSG = 'عفواً، الكمية غير كافية!';
+const ERP_SALES_CHANNEL = 'prestige-erp-sales';
 
 /** @type {import('@supabase/supabase-js').SupabaseClient | null} */
 let _sharedClient = null;
@@ -738,11 +740,228 @@ const SupabaseBridge = {
     return result;
   },
 
+  normalizeProductName(name) {
+    return String(name || '').trim().toLowerCase();
+  },
+
+  isInsufficientStockMessage(message) {
+    const msg = String(message || '');
+    return msg.includes('غير كافية') || msg.includes('INSUFFICIENT_STOCK');
+  },
+
+  isRpcMissingError(error) {
+    const msg = String(error?.message || error || '').toLowerCase();
+    return (
+      msg.includes('insert_sale_with_inventory')
+      && (msg.includes('does not exist') || msg.includes('could not find'))
+    ) || msg.includes('42883');
+  },
+
+  resolveTenantIdForInventory(row) {
+    const cfg = typeof window !== 'undefined' ? window.SUPABASE_CONFIG || {} : {};
+    return (
+      row?.tenant_id
+      || this.getStoredTenantId()
+      || cfg.defaultTenantId
+      || null
+    );
+  },
+
+  matchInventoryRow(rows, productName, tenantId) {
+    const target = this.normalizeProductName(productName);
+    if (!target) return null;
+    const tid = tenantId ? String(tenantId).trim() : null;
+    return (rows || []).find((r) => {
+      if (this.normalizeProductName(r.product_name) !== target) return false;
+      if (!tid) return true;
+      const rowTid = r.tenant_id != null ? String(r.tenant_id) : null;
+      return !rowTid || rowTid === tid;
+    }) || null;
+  },
+
   /**
-   * Direct sales insert — supabase.from('sales').insert only (anon key, no session).
+   * Pre-check stock in public.inventory (client-side; RPC enforces again).
+   */
+  async validateInventoryStock(productName, quantity) {
+    const client = this.getClient();
+    if (!client) return { ok: false, error: 'No client' };
+
+    const name = String(productName || '').trim();
+    const qty = Math.max(1, parseInt(quantity, 10) || 1);
+    if (!name) return { ok: false, error: 'اسم المنتج مطلوب' };
+
+    const tenantId = this.resolveTenantIdForInventory({});
+    let query = client.from('inventory').select('id, product_name, stock_quantity, tenant_id');
+
+    if (tenantId) {
+      query = query.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
+    }
+
+    const { data, error } = await query;
+    if (error) return { ok: false, error: error.message };
+
+    const row = this.matchInventoryRow(data, name, tenantId);
+    if (!row) {
+      return { ok: false, error: 'المنتج غير موجود في المخزون' };
+    }
+
+    const available = Math.max(0, parseInt(row.stock_quantity, 10) || 0);
+    if (qty > available) {
+      return {
+        ok: false,
+        error: INSUFFICIENT_STOCK_MSG,
+        code: 'INSUFFICIENT_STOCK',
+        available,
+      };
+    }
+
+    return { ok: true, available, inventoryId: row.id };
+  },
+
+  async validateInventoryBatch(items) {
+    const totals = new Map();
+    for (const item of items || []) {
+      const name = String(item.productName || '').trim();
+      const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+      if (!name) return { ok: false, error: 'اسم المنتج مطلوب' };
+      const key = this.normalizeProductName(name);
+      totals.set(key, {
+        productName: name,
+        quantity: (totals.get(key)?.quantity || 0) + qty,
+      });
+    }
+
+    for (const { productName, quantity } of totals.values()) {
+      const check = await this.validateInventoryStock(productName, quantity);
+      if (!check.ok) return check;
+    }
+    return { ok: true };
+  },
+
+  async deductInventoryFallback(productName, quantity, tenantId) {
+    const client = this.getClient();
+    const name = String(productName || '').trim();
+    const qty = Math.max(1, parseInt(quantity, 10) || 1);
+    const check = await this.validateInventoryStock(name, qty);
+    if (!check.ok) return check;
+
+    const { error } = await client
+      .from('inventory')
+      .update({ stock_quantity: check.available - qty })
+      .eq('id', check.inventoryId);
+
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  },
+
+  /**
+   * Fallback when RPC is not deployed: check → insert sale → deduct inventory (compensate on failure).
+   */
+  async insertSaleWithInventoryFallback(row) {
+    const client = this.getClient();
+    if (!client) return { ok: false, error: 'No client' };
+
+    const productName = row.product_name;
+    const qty = Math.max(1, parseInt(row.quantity, 10) || 1);
+    const tenantId = this.resolveTenantIdForInventory(row);
+
+    const check = await this.validateInventoryStock(productName, qty);
+    if (!check.ok) {
+      return {
+        ok: false,
+        error: check.error,
+        code: check.code || (this.isInsufficientStockMessage(check.error) ? 'INSUFFICIENT_STOCK' : undefined),
+      };
+    }
+
+    const tenantIdStr = tenantId ? String(tenantId).trim() : '';
+    if (!tenantIdStr) {
+      return { ok: false, error: 'Database configuration error: missing tenant_id in supabase.config.js' };
+    }
+
+    const payload = { ...row, tenant_id: tenantIdStr };
+    const hookResult = await this.runPreSaveHooks('sales', payload, tenantIdStr);
+
+    const { data: inserted, error: insertError } = await client
+      .from('sales')
+      .insert(payload)
+      .select()
+      .single();
+
+    if (insertError) {
+      return { ok: false, error: insertError.message };
+    }
+
+    const deductRes = await this.deductInventoryFallback(productName, qty, tenantId);
+    if (!deductRes.ok) {
+      if (row.id != null) {
+        await client.from('sales').delete().eq('id', row.id);
+      }
+      return {
+        ok: false,
+        error: deductRes.error || INSUFFICIENT_STOCK_MSG,
+        code: deductRes.code || 'INSUFFICIENT_STOCK',
+      };
+    }
+
+    const result = { ok: true, data: inserted, sale: this.rowToSale(inserted) };
+    if (hookResult.anomaly) result.anomaly = true;
+    return result;
+  },
+
+  /**
+   * Atomic sale + inventory deduction via Postgres RPC (preferred).
+   */
+  async insertSaleWithInventory(row) {
+    const client = this.getClient();
+    if (!client) return { ok: false, error: 'No client' };
+
+    const tenantId = this.resolveTenantIdForInventory(row);
+    const payload = tenantId && !row.tenant_id
+      ? { ...row, tenant_id: String(tenantId) }
+      : row;
+
+    const hookResult = await this.runPreSaveHooks('sales', payload, tenantId);
+
+    const { data, error } = await client.rpc('insert_sale_with_inventory', {
+      p_sale: payload,
+    });
+
+    if (error) {
+      if (this.isRpcMissingError(error)) {
+        return this.insertSaleWithInventoryFallback(payload);
+      }
+      const msg = error.message || 'Database error';
+      return {
+        ok: false,
+        error: this.isInsufficientStockMessage(msg) ? INSUFFICIENT_STOCK_MSG : msg,
+        code: this.isInsufficientStockMessage(msg) ? 'INSUFFICIENT_STOCK' : undefined,
+      };
+    }
+
+    const inserted = typeof data === 'string' ? JSON.parse(data) : data;
+    const result = {
+      ok: true,
+      data: inserted,
+      sale: this.rowToSale(inserted),
+    };
+    if (hookResult.anomaly) result.anomaly = true;
+    return result;
+  },
+
+  notifySalesDashboardRefresh() {
+    try {
+      const ch = new BroadcastChannel(ERP_SALES_CHANNEL);
+      ch.postMessage({ type: 'sale-recorded', at: Date.now() });
+      ch.close();
+    } catch (_) { /* ignore */ }
+  },
+
+  /**
+   * Direct sales insert — sale row + inventory deduction.
    */
   async insertSaleDirect(row) {
-    return this.secureInsert('sales', row);
+    return this.insertSaleWithInventory(row);
   },
 
   async insertSaleRow(row) {
@@ -752,6 +971,51 @@ const SupabaseBridge = {
   async insertSale(sale) {
     const row = this.saleToCandidateRow(sale);
     return this.insertSaleDirect(row);
+  },
+
+  inventoryRowToProduct(row) {
+    const name = String(row?.product_name || '').trim() || '—';
+    const shortCode = name.length > 14 ? `${name.slice(0, 12)}…` : name;
+    return {
+      id: row.id,
+      code: shortCode,
+      name,
+      size: '—',
+      color: '—',
+      style: 'classic',
+      cost: Number(row.cost_price) || 0,
+      price: Number(row.selling_price) || 0,
+      quantity: Math.max(0, parseInt(row.stock_quantity, 10) || 0),
+      minThreshold: Math.max(0, parseInt(row.min_threshold, 10) || 0),
+      fromInventory: true,
+      lastUpdated: timestamptzFromDb(row.last_updated),
+      tenantId: row.tenant_id != null ? String(row.tenant_id) : null,
+    };
+  },
+
+  /**
+   * Sales catalog — public.inventory (product_name, stock, cost_price, selling_price).
+   */
+  async fetchInventory() {
+    const client = this.getClient();
+    if (!client) return { ok: false, data: [], error: 'No client' };
+
+    let query = client
+      .from('inventory')
+      .select('id, product_name, stock_quantity, cost_price, selling_price, min_threshold, last_updated, tenant_id')
+      .order('product_name', { ascending: true });
+
+    const tenantId = this.resolveTenantIdForInventory({});
+    if (tenantId) {
+      query = query.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
+    }
+
+    const { data, error } = await query;
+    if (error) return { ok: false, data: [], error: error.message };
+
+    const rows = (data || []).map((r) => this.inventoryRowToProduct(r));
+    rows.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+    return { ok: true, data: rows };
   },
 
   async fetchProducts() {

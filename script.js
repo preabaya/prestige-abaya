@@ -3065,16 +3065,30 @@ const DataStore = {
       return this.load();
     }
 
-    const [salesRes, productsRes] = await Promise.all([
+    const [salesRes, inventoryRes, productsRes] = await Promise.all([
       SupabaseBridge.fetchSales(),
+      SupabaseBridge.fetchInventory(),
       SupabaseBridge.fetchProducts(),
     ]);
 
     if (salesRes.ok) state.sales = salesRes.data;
-    if (productsRes.ok) state.products = productsRes.data;
+    if (inventoryRes.ok && inventoryRes.data.length) {
+      state.products = inventoryRes.data;
+    } else if (productsRes.ok) {
+      state.products = productsRes.data;
+      if (inventoryRes.ok && !inventoryRes.data.length) {
+        console.warn('[Supabase] inventory table empty — using products fallback');
+      }
+    }
 
     migrateData();
-    console.info('[Supabase] Loaded', state.sales.length, 'sales,', state.products.length, 'products');
+    console.info(
+      '[Supabase] Loaded',
+      state.sales.length,
+      'sales,',
+      state.products.length,
+      inventoryRes.ok && inventoryRes.data.length ? 'inventory items' : 'products'
+    );
   },
 
   async _saveSupabase() {
@@ -3106,10 +3120,33 @@ function t(k) {
   return TRANSLATIONS[currentLang][k] ?? TRANSLATIONS.ar[k] ?? k;
 }
 
+const INSUFFICIENT_STOCK_MSG = 'عفواً، الكمية غير كافية!';
+
 function reportCloudSaveError(action, result) {
   const detail = result?.error || 'Unknown error';
   console.error(`[Supabase] ${action}:`, detail);
+  if (result?.code === 'INSUFFICIENT_STOCK' || String(detail).includes('غير كافية')) {
+    showToast(INSUFFICIENT_STOCK_MSG, 'error');
+    return;
+  }
   showToast(`${action}: ${detail}`, 'error');
+}
+
+function notifySalesDashboardRefresh() {
+  refreshDashboardMetrics();
+  if (typeof SupabaseBridge !== 'undefined' && SupabaseBridge.notifySalesDashboardRefresh) {
+    SupabaseBridge.notifySalesDashboardRefresh();
+  }
+}
+
+async function ensureCloudInventoryForSale(productName, quantity) {
+  if (!DataStore.usesCloud()) return { ok: true };
+  const ready = await DataStore._cloudReady();
+  if (!ready.ok) return ready;
+  if (typeof SupabaseBridge === 'undefined' || !SupabaseBridge.validateInventoryStock) {
+    return { ok: false, error: 'Supabase bridge unavailable' };
+  }
+  return SupabaseBridge.validateInventoryStock(productName, quantity);
 }
 
 /** Verified Supabase `public.sales` columns — inserts must use only these keys */
@@ -3293,6 +3330,27 @@ function uid() {
 
 function getProduct(id) {
   return state.products.find((p) => p.id === id);
+}
+
+/** Products available on the sales form (from inventory when cloud-synced). */
+function getSaleCatalogProducts() {
+  return state.products
+    .filter((p) => (p.quantity ?? 0) > 0)
+    .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+}
+
+/** Refresh catalog from Supabase inventory and update sales dropdown. */
+async function refreshInventoryCatalog() {
+  if (DataStore.usesCloud() && typeof SupabaseBridge !== 'undefined' && SupabaseBridge.fetchInventory) {
+    const ready = await DataStore._cloudReady();
+    if (ready.ok) {
+      const res = await SupabaseBridge.fetchInventory();
+      if (res.ok) state.products = res.data;
+    }
+  }
+  populateSaleSelect();
+  PosEngine.syncCacheFromState();
+  renderInventoryTable(document.getElementById('inv-search')?.value || '');
 }
 
 const NUM_LOCALE = 'en-US';
@@ -5752,9 +5810,18 @@ async function saveSale(data, options = {}) {
   if (!UserSession.requireUser()) return;
   const p = getProduct(data.productId);
   if (!p) return showToast('No product', 'error');
-  if (data.quantity > p.quantity) return showToast(`Stock: ${p.quantity}`, 'error');
 
   const qty = data.quantity;
+
+  if (DataStore.usesCloud()) {
+    const inv = await ensureCloudInventoryForSale(p.name, qty);
+    if (!inv.ok) {
+      showToast(inv.error || INSUFFICIENT_STOCK_MSG, 'error');
+      return;
+    }
+  } else if (qty > p.quantity) {
+    return showToast(`Stock: ${p.quantity}`, 'error');
+  }
   const subtotalAud = data.subtotalAud ?? CurrencyEngine.round((data.unitPriceAud ?? p.price) * qty);
   const lineTotalAud = data.lineTotalAud ?? subtotalAud;
   const unitPriceAud = CurrencyEngine.round(lineTotalAud / qty);
@@ -5804,7 +5871,11 @@ async function saveSale(data, options = {}) {
   }
 
   state.sales.unshift(sale);
-  p.quantity -= qty;
+  if (DataStore.usesCloud()) {
+    await refreshInventoryCatalog();
+  } else {
+    p.quantity -= qty;
+  }
 
   await DataStore.save();
   ActivityFeed.log({
@@ -5813,9 +5884,11 @@ async function saveSale(data, options = {}) {
     label: p.name,
   });
 
+  if (DataStore.usesCloud()) notifySalesDashboardRefresh();
+
   if (options.lightRefresh) {
     PosEngine.syncCacheFromState();
-    refreshDashboardMetrics();
+    if (!DataStore.usesCloud()) refreshDashboardMetrics();
     if (!options.silent) showToast(options.toastKey ? t(options.toastKey) : t('saved'));
     NotificationEngine.evaluate();
     return sale;
@@ -5999,11 +6072,30 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
   if (!lines.length) return false;
   if (!UserSession.requireUser()) return false;
 
-  for (const line of lines) {
-    const p = getProduct(line.productId);
-    if (!p || line.qty > p.quantity) {
-      showToast(`${line.name}: ${t('out')}`, 'error');
+  if (DataStore.usesCloud()) {
+    const batchItems = lines
+      .map((line) => {
+        const p = getProduct(line.productId);
+        return p ? { productName: p.name, quantity: line.qty } : null;
+      })
+      .filter(Boolean);
+    const ready = await DataStore._cloudReady();
+    if (!ready.ok) {
+      reportCloudSaveError('POS sale', ready);
       return false;
+    }
+    const batchCheck = await SupabaseBridge.validateInventoryBatch(batchItems);
+    if (!batchCheck.ok) {
+      showToast(batchCheck.error || INSUFFICIENT_STOCK_MSG, 'error');
+      return false;
+    }
+  } else {
+    for (const line of lines) {
+      const p = getProduct(line.productId);
+      if (!p || line.qty > p.quantity) {
+        showToast(`${line.name}: ${t('out')}`, 'error');
+        return false;
+      }
     }
   }
 
@@ -6081,7 +6173,7 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
     }
 
     state.sales.unshift(localSale);
-    p.quantity -= line.qty;
+    if (!DataStore.usesCloud()) p.quantity -= line.qty;
     created.push(localSale);
   }
 
@@ -6091,8 +6183,13 @@ async function savePosCartBatch(lines, paymentMethod = 'cash', cartTotals = null
     amountAud: totals.total,
     label: invoiceNumber,
   });
-  PosEngine.syncCacheFromState();
-  refreshDashboardMetrics();
+  if (DataStore.usesCloud()) {
+    await refreshInventoryCatalog();
+    notifySalesDashboardRefresh();
+  } else {
+    PosEngine.syncCacheFromState();
+    refreshDashboardMetrics();
+  }
   NotificationEngine.evaluate();
   return created;
 }
@@ -7752,7 +7849,13 @@ const SaleProductPicker = {
     const p = productId ? getProduct(productId) : null;
     this.renderTrigger(p);
     const priceEl = document.getElementById('sale-price');
-    if (p && priceEl) priceEl.value = p.price;
+    const qtyEl = document.getElementById('sale-qty');
+    if (p && priceEl) priceEl.value = CurrencyEngine.round(p.price);
+    if (p && qtyEl) {
+      const maxQty = Math.max(1, p.quantity || 1);
+      qtyEl.max = String(maxQty);
+      if (parseInt(qtyEl.value, 10) > maxQty) qtyEl.value = String(maxQty);
+    }
     updateSaleProductMeta();
     renderSalePreview();
     this.closeMenu();
@@ -7767,18 +7870,25 @@ function populateSaleSelect() {
   const menu = document.getElementById('sale-product-menu');
   if (!menu) return;
   const prev = document.getElementById('sale-product')?.value || '';
-  const products = state.products.filter((p) => p.quantity > 0);
+  const products = getSaleCatalogProducts();
+
+  if (!products.length) {
+    menu.innerHTML = `<li role="presentation"><span class="product-picker__empty">${t('noData')}</span></li>`;
+    SaleProductPicker.select('');
+    return;
+  }
+
   menu.innerHTML = products.map((p) => `
     <li role="presentation">
-      <button type="button" class="product-picker__option" role="option" data-sale-pick="${p.id}">
+      <button type="button" class="product-picker__option" role="option" data-sale-pick="${escapeHtml(String(p.id))}">
         <span class="product-picker__option-left">
           <span class="product-picker__option-name">${escapeHtml(p.name)}</span>
-          <span class="product-picker__option-meta">${escapeHtml(p.code)} · ${escapeHtml(p.color)} · ${formatNum(p.quantity, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+          <span class="product-picker__option-meta">${t('qty')}: ${formatNum(p.quantity, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} · ${t('costAud')}: ${formatAUD(p.cost)}</span>
         </span>
         <span class="product-picker__option-price num-digits">${formatAUD(p.price)}</span>
       </button>
     </li>`).join('');
-  if (prev && products.some((p) => p.id === prev)) SaleProductPicker.select(prev);
+  if (prev && products.some((p) => String(p.id) === String(prev))) SaleProductPicker.select(prev);
   else {
     SaleProductPicker.select('');
     updateSaleProductMeta();
@@ -7971,6 +8081,7 @@ function navigateToTab(tab) {
 
   window.scrollTo({ top: 0, behavior: tab === 'pos' ? 'auto' : 'smooth' });
   if (tab === 'pos') PosUI.initPanel();
+  if (tab === 'sales') refreshInventoryCatalog();
   if (tab === 'returns') renderReturnsLog();
   if (tab === 'users') UserAdmin.renderPanel();
   if (tab === 'dashboard' || tab === 'analytics') scheduleCharts();

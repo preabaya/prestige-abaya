@@ -577,6 +577,15 @@
     });
   }
 
+  window.PrestigeDashboard = { refresh: loadDashboard };
+
+  try {
+    const salesChannel = new BroadcastChannel('prestige-erp-sales');
+    salesChannel.onmessage = (ev) => {
+      if (ev?.data?.type === 'sale-recorded') loadDashboard();
+    };
+  } catch (_) { /* BroadcastChannel unsupported */ }
+
   document.addEventListener('DOMContentLoaded', () => {
     $('footer-year').textContent = String(new Date().getFullYear());
     initSidebar();
