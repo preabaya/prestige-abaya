@@ -10,6 +10,10 @@ window.SUPABASE_CONFIG = {
   enabled: true,
   /** UUID من جدول public.tenants — يُربط بالمستخدم عبر profiles.tenant_id لـ RLS */
   defaultTenantId: '00000000-0000-0000-0000-000000000001',
+  /** فرع افتراضي — يُخزَّن أيضاً في localStorage كـ current_branch_id */
+  defaultBranchId: '00000000-0000-0000-0000-000000000001',
+  /** رمز الدولة الافتراضي لـ DashboardService.getTaxSummary (AU, SA, AE, …) */
+  defaultCountryCode: 'AU',
   /**
    * true = anon key فقط — لا getSession/ensureAuth قبل القراءة أو الكتابة
    * اجعل skipAuth: false عند تفعيل RLS مع تسجيل دخول حقيقي
