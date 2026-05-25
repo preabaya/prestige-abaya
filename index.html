@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
   <!-- GitHub Pages: served from repo root → https://preabaya.github.io/prestige-abaya/ -->
-  <link rel="stylesheet" href="style.css?v=20260524-dashboard-charts">
+  <link rel="stylesheet" href="style.css?v=20260524-ai-assistant">
   <!-- Chart.js — رسوم الداشبورد (dashboard-ui.js) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
@@ -267,6 +267,40 @@
     </div>
   </div>
 
+  <div id="ai-assistant-root" class="ai-assistant" hidden aria-label="AI Executive Assistant">
+    <button type="button" class="ai-assistant-fab" id="ai-assistant-fab" aria-expanded="false" aria-controls="ai-assistant-panel" title="AI Executive Assistant">
+      <span class="ai-assistant-fab__icon" aria-hidden="true">✦</span>
+      <span class="ai-assistant-fab__label">AI Executive Assistant</span>
+    </button>
+
+    <section id="ai-assistant-panel" class="ai-assistant-panel" hidden role="dialog" aria-modal="true" aria-labelledby="ai-assistant-title">
+      <header class="ai-assistant-panel__head">
+        <div class="ai-assistant-panel__brand">
+          <span class="ai-assistant-panel__avatar" aria-hidden="true">✦</span>
+          <div>
+            <h2 class="ai-assistant-panel__title" id="ai-assistant-title">AI Executive Assistant</h2>
+            <p class="ai-assistant-panel__status"><span class="ai-assistant-panel__dot"></span> متصل — وضع تجريبي</p>
+          </div>
+        </div>
+        <button type="button" class="ai-assistant-panel__close" id="ai-assistant-close" aria-label="إغلاق">×</button>
+      </header>
+
+      <div class="ai-assistant-panel__body">
+        <div class="ai-assistant-messages" id="ai-assistant-messages" role="log" aria-live="polite"></div>
+        <div class="ai-assistant-typing" id="ai-assistant-typing" hidden aria-live="polite">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+
+      <form class="ai-assistant-composer" id="ai-assistant-form">
+        <input type="text" class="ai-assistant-composer__input" id="ai-assistant-input" placeholder="اكتب سؤالك عن بيانات الشركة…" autocomplete="off" maxlength="2000">
+        <button type="submit" class="ai-assistant-composer__send" id="ai-assistant-send" aria-label="إرسال">
+          <span aria-hidden="true">➤</span>
+        </button>
+      </form>
+    </section>
+  </div>
+
   <div id="toast" class="toast" aria-live="polite"></div>
   <div id="notifications-toast-stack" class="notifications-toast-stack" aria-live="assertive"></div>
 
@@ -372,5 +406,6 @@
   <script src="dashboard-ui.js?v=20260524-glass"></script>
   <script src="dashboard-charts.js?v=20260524"></script>
   <script src="executive-overview-ui.js?v=20260524"></script>
+  <script src="ai-assistant.js?v=20260524"></script>
 </body>
 </html>
