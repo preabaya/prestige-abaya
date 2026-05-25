@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260524-ai-command">
+  <link rel="stylesheet" href="style.css?v=20260524-enterprise-entry">
 </head>
 <body class="exec-body data-entry-body data-entry-body--pro">
   <div class="data-entry-ambient" aria-hidden="true"></div>
@@ -84,15 +84,32 @@
         </ul>
       </div>
 
-      <section class="data-entry-smart-preview exec-glass-card exec-luxury-card" id="smart-preview" hidden aria-labelledby="smart-preview-title">
+      <section class="data-entry-smart-preview exec-glass-card exec-luxury-card data-entry-glass-panel" id="smart-preview" hidden aria-labelledby="smart-preview-title">
         <header class="data-entry-smart-preview__head">
           <div>
             <h2 id="smart-preview-title" class="data-entry-smart-preview__title">Smart Preview</h2>
-            <p class="data-entry-smart-preview__sub">عدّل الحقول قبل الحفظ النهائي</p>
+            <p class="data-entry-smart-preview__sub">معاينة قبل الحفظ — لن يُرسل شيء حتى تضغط تأكيد</p>
           </div>
-          <span class="data-entry-source-badge" id="parse-source-badge">simulation</span>
+          <span class="data-entry-source-badge" id="parse-source-badge">تحليل</span>
         </header>
 
+        <div class="data-entry-confirm-banner" id="preview-confirm-banner">
+          <p class="data-entry-confirm-banner__text" id="preview-confirm-message"></p>
+        </div>
+
+        <table class="data-entry-confirm-table" aria-label="تفاصيل مفهومة من النظام">
+          <tbody>
+            <tr><th>الإجراء</th><td id="preview-table-action">—</td></tr>
+            <tr><th>المنتج</th><td id="preview-table-product">—</td></tr>
+            <tr><th>السعر</th><td id="preview-table-price">—</td></tr>
+            <tr><th>الفرع</th><td id="preview-table-branch">—</td></tr>
+            <tr><th>الفرع (ID)</th><td id="preview-table-branch-id" dir="ltr">—</td></tr>
+            <tr><th>التوقيت</th><td id="preview-table-ts" dir="ltr">—</td></tr>
+          </tbody>
+        </table>
+
+        <details class="data-entry-edit-details">
+          <summary>تعديل سريع قبل التأكيد</summary>
         <div class="data-entry-smart-preview__grid">
           <div class="data-entry-field data-entry-field--preview">
             <label for="preview-edit-type">النوع</label>
@@ -132,6 +149,7 @@
             <input type="text" id="preview-edit-branch" placeholder="Riyadh / الرياض">
           </div>
         </div>
+        </details>
 
         <details class="data-entry-json-view">
           <summary>عرض JSON</summary>
@@ -139,11 +157,12 @@
         </details>
 
         <div class="data-entry-smart-preview__actions">
-          <button type="button" class="btn btn--primary data-entry-save-btn" id="smart-save">
-            <span class="data-entry-save-btn__ripple" aria-hidden="true"></span>
-            <span class="data-entry-save-btn__spinner" id="save-spinner" hidden></span>
-            <span id="save-label">حفظ في Supabase</span>
+          <button type="button" class="btn btn--primary data-entry-confirm-btn" id="smart-confirm">
+            <span class="data-entry-confirm-btn__ripple" aria-hidden="true"></span>
+            <span class="data-entry-confirm-btn__spinner" id="confirm-spinner" hidden></span>
+            <span id="confirm-label">تأكيد</span>
           </button>
+          <button type="button" class="btn btn--outline" id="smart-cancel-preview">إلغاء</button>
           <button type="button" class="btn btn--outline" id="smart-reparse">إعادة تحليل</button>
         </div>
       </section>
@@ -223,10 +242,10 @@
     window.SUPABASE_CONFIG = window.SUPABASE_CONFIG || { url: '', anonKey: '', enabled: false, skipAuth: true };
   </script>
   <script src="db-helper.js"></script>
-  <script src="dashboard-service.js?v=20260524-ai-command"></script>
+  <script src="dashboard-service.js?v=20260524-enterprise-entry"></script>
   <script src="supabase-bridge.js"></script>
   <script src="auth-guard.js"></script>
   <script>void AuthGuard.checkAccess('admin');</script>
-  <script src="data-entry.js?v=20260524-ai-command"></script>
+  <script src="data-entry.js?v=20260524-enterprise-entry"></script>
 </body>
 </html>

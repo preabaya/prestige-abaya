@@ -581,20 +581,61 @@
   }
 
   function toCommandJson(parsed) {
+    const action = parsed.entryType || 'sale';
     return {
-      type: parsed.entryType,
+      action,
+      type: action,
       product: parsed.productSlug || slugifyProduct(parsed.productName),
       product_display: parsed.productName,
       price: parsed.amount,
       currency: parsed.currency,
       quantity: parsed.quantity,
       branch: parsed.branchName || parsed.branchKey || null,
+      branch_id: parsed.branchId || null,
       amount_aud: parsed.amountAud,
+      timestamp: parsed.recordedAt || null,
     };
   }
 
+  /**
+   * رسالة تأكيد بلغة طبيعية للمعاينة الذكية.
+   */
+  function buildConfirmationMessage(parsed) {
+    const verbs = {
+      sale: 'إضافة مبيعة',
+      expense: 'تسجيل مصروف',
+      inventory: 'إضافة صنف للمخزون',
+    };
+    const verb = verbs[parsed.entryType] || 'تنفيذ عملية';
+    const product = parsed.productName || String(parsed.productSlug || '').replace(/_/g, ' ');
+    const curLabel =
+      parsed.currency === 'SAR'
+        ? 'ريال'
+        : parsed.currency === 'AED'
+          ? 'درهم'
+          : parsed.currency || '';
+    const branchPart = parsed.branchName ? ` لفرع ${parsed.branchName}` : '';
+    const qtyPart =
+      parsed.quantity > 1 ? ` (${parsed.quantity} قطعة)` : '';
+    return `النظام فهم أنك تريد ${verb} ${product} بـ ${parsed.amount} ${curLabel}${qtyPart}${branchPart}. هل هذا صحيح؟`;
+  }
+
+  function enrichParsedForSave(parsed) {
+    const next = { ...parsed };
+    if (next.branchName) applyBranchFromName(next.branchName);
+    next.branchId = resolveBranchId();
+    next.recordedAt = next.recordedAt || new Date().toISOString();
+    if (next.amount != null && (next.amountAud == null || !Number.isFinite(Number(next.amountAud)))) {
+      next.amountAud = convertToAud(next.amount, next.currency);
+    }
+    if (!next.productSlug && next.productName) {
+      next.productSlug = slugifyProduct(next.productName);
+    }
+    return next;
+  }
+
   function aiJsonToParsed(json, rawText) {
-    const type = String(json.type || json.entryType || 'sale')
+    const type = String(json.action || json.type || json.entryType || 'sale')
       .trim()
       .toLowerCase();
     const entryType = ['sale', 'expense', 'inventory'].includes(type) ? type : 'sale';
@@ -701,15 +742,7 @@
    * محاكاة ذكية — تحويل الجملة إلى JSON منظم (بدون API).
    */
   function simulateCommandParse(text) {
-    const sim = parseNaturalLanguageEntry(text);
-    if (!sim.ok) return sim;
-    sim.parsed.productSlug = slugifyProduct(sim.parsed.productName);
-    return {
-      ok: true,
-      parsed: sim.parsed,
-      json: toCommandJson(sim.parsed),
-      source: 'simulation',
-    };
+    return parseNaturalLanguageEntry(text);
   }
 
   /**
@@ -752,7 +785,7 @@
    * بناء كائن parsed من حقول قابلة للتعديل (Smart Preview).
    */
   function parsedFromEditableFields(fields) {
-    const entryType = String(fields.entryType || fields.type || 'sale').trim();
+    const entryType = String(fields.entryType || fields.type || fields.action || 'sale').trim();
     const amount = parseNumberToken(fields.amount ?? fields.price);
     if (amount == null) return fail('NO_AMOUNT', 'المبلغ مطلوب');
     const currency = detectCurrency('', fields.currency || 'SAR');
@@ -772,7 +805,12 @@
       rawText: fields.rawText || 'edited',
     };
     if (parsed.branchName) parsed.branchKey = normalizeBranchKey(parsed.branchName);
-    return { ok: true, parsed, json: toCommandJson(parsed) };
+    return {
+      ok: true,
+      parsed,
+      json: toCommandJson(parsed),
+      message: buildConfirmationMessage(parsed),
+    };
   }
 
   /**
@@ -874,21 +912,24 @@
       const amountAud = convertToAud(amount, currency);
       const branchKey = branchName ? normalizeBranchKey(branchName) : null;
 
+      const parsed = {
+        entryType,
+        productName: productName || 'مصروف',
+        productSlug: slugifyProduct(productName),
+        amount,
+        amountAud,
+        currency,
+        quantity,
+        branchName,
+        branchKey,
+        rawText: raw,
+      };
+
       return {
         ok: true,
-        parsed: {
-          entryType,
-          productName: productName || 'مصروف',
-          productSlug: slugifyProduct(productName),
-          amount,
-          amountAud,
-          currency,
-          quantity,
-          branchName,
-          branchKey,
-          rawText: raw,
-        },
-        json: null,
+        parsed,
+        json: toCommandJson(parsed),
+        message: buildConfirmationMessage(parsed),
       };
     } catch (err) {
       return fail('PARSE_EXCEPTION', err.message || String(err));
@@ -901,7 +942,8 @@
     const lineTotalAud = roundMoney(parsed.amountAud);
     const price = roundMoney(lineTotalAud / qty);
     const tenantId = resolveTenantId();
-    const branchId = applyBranchFromName(parsed.branchName);
+    const branchId = parsed.branchId || applyBranchFromName(parsed.branchName) || resolveBranchId();
+    const ts = parsed.recordedAt || new Date().toISOString();
 
     const sale = {
       product_name: parsed.productName,
@@ -914,9 +956,13 @@
       customerName: 'Smart Entry',
       status: 'completed',
       created_by: 'smart-entry',
+      created_at: ts,
+      createdAt: ts,
+      updated_at: ts,
       invoice_number: parsed.branchName ? `BR:${parsed.branchName}` : '',
       tenant_id: tenantId,
       tenantId,
+      branch_id: branchId,
     };
 
     if (bridge?.insertSale) {
@@ -933,7 +979,6 @@
     if (!client) return fail('NO_CLIENT', 'Supabase غير مهيأ');
 
     const id = Date.now() + Math.floor(Math.random() * 1000);
-    const ts = new Date().toISOString();
     const row = {
       id,
       created_at: ts,
@@ -951,8 +996,8 @@
     if (parsed.branchName) row.invoice_number = sale.invoice_number;
 
     try {
-      let payload = { ...row };
-      if (branchId) payload.branch_id = branchId;
+      let payload = { ...row, branch_id: branchId || undefined };
+      if (!payload.branch_id) delete payload.branch_id;
       let { data, error } = await client.from('sales').insert(payload).select('id').single();
       if (error && isMissingColumnError(error)) {
         delete payload.branch_id;
@@ -982,12 +1027,12 @@
       currency: parsed.currency || 'SAR',
       amount_original: roundMoney(parsed.amount),
       exchange_rate: rate,
-      financials: { audTotal: amountAud },
-      created_at: new Date().toISOString(),
+      financials: { audTotal: amountAud, recordedAt: parsed.recordedAt },
+      created_at: parsed.recordedAt || new Date().toISOString(),
       created_by: 'smart-entry',
     };
 
-    const branchId = applyBranchFromName(parsed.branchName);
+    const branchId = parsed.branchId || applyBranchFromName(parsed.branchName) || resolveBranchId();
     if (branchId) {
       row.branch_id = branchId;
       row.tenant_id = branchId;
@@ -1033,9 +1078,9 @@
       cost_price: 0,
       stock_quantity: product.quantity,
       tenant_id: resolveTenantId(),
-      last_updated: new Date().toISOString(),
+      last_updated: parsed.recordedAt || new Date().toISOString(),
     };
-    const branchId = applyBranchFromName(parsed.branchName);
+    const branchId = parsed.branchId || applyBranchFromName(parsed.branchName) || resolveBranchId();
     if (branchId) row.branch_id = branchId;
 
     try {
@@ -1055,25 +1100,56 @@
     if (!parsed || !parsed.entryType) {
       return fail('INVALID_PARSED', 'بيانات غير صالحة');
     }
-    applyBranchFromName(parsed.branchName);
+    const enriched = enrichParsedForSave(parsed);
 
-    if (parsed.entryType === 'sale') return insertSaleRecord(parsed);
-    if (parsed.entryType === 'expense') return insertExpenseRecord(parsed);
-    if (parsed.entryType === 'inventory') return insertInventoryRecord(parsed);
+    if (enriched.entryType === 'sale') return insertSaleRecord(enriched);
+    if (enriched.entryType === 'expense') return insertExpenseRecord(enriched);
+    if (enriched.entryType === 'inventory') return insertInventoryRecord(enriched);
     return fail('UNKNOWN_TYPE', 'نوع العملية غير معروف');
+  }
+
+  /**
+   * حفظ إدخال مؤكّد — يُستدعى من data-entry بعد Smart Preview.
+   * @param {object} entry — parsed object أو JSON { action, product, price, branch, ... }
+   */
+  async function saveEntry(entry) {
+    try {
+      let parsed = entry;
+      if (!parsed || typeof parsed !== 'object') {
+        return fail('INVALID_ENTRY', 'بيانات الإدخال غير صالحة');
+      }
+
+      if (parsed.action || (parsed.type && !parsed.entryType)) {
+        const built = aiJsonToParsed(parsed, parsed.rawText || '');
+        if (!built.ok) return built;
+        parsed = built.parsed;
+      } else if (!parsed.entryType) {
+        return fail('INVALID_ENTRY', 'نوع العملية (action) مطلوب');
+      }
+
+      const saved = await saveParsedEntry(parsed);
+      if (!saved.ok) return saved;
+
+      const enriched = enrichParsedForSave(parsed);
+      return {
+        ok: true,
+        parsed: enriched,
+        saved,
+        json: toCommandJson(enriched),
+        message: buildConfirmationMessage(enriched),
+        recordedAt: enriched.recordedAt,
+        branchId: enriched.branchId,
+      };
+    } catch (err) {
+      return fail('SAVE_ENTRY_EXCEPTION', err.message || String(err));
+    }
   }
 
   /**
    * حفظ أمر مُحلَّل مسبقاً (بعد Smart Preview أو التعديل السريع).
    */
   async function submitParsedCommand(parsed) {
-    if (!parsed?.entryType) return fail('INVALID_PARSED', 'بيانات غير صالحة');
-    if (!parsed.amountAud && parsed.amount != null) {
-      parsed.amountAud = convertToAud(parsed.amount, parsed.currency);
-    }
-    const saved = await saveParsedEntry(parsed);
-    if (!saved.ok) return saved;
-    return { ok: true, parsed, saved, json: toCommandJson(parsed) };
+    return saveEntry(parsed);
   }
 
   /**
@@ -1139,6 +1215,9 @@
     parseCommandWithAI,
     simulateCommandParse,
     parsedFromEditableFields,
+    buildConfirmationMessage,
+    enrichParsedForSave,
+    saveEntry,
     submitParsedCommand,
     submitNaturalLanguageEntry,
     saveManualEntry,
@@ -1151,4 +1230,5 @@
   };
 
   global.DashboardService = DashboardService;
+  global.dashboardService = DashboardService;
 })(typeof window !== 'undefined' ? window : global);

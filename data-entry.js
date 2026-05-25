@@ -1,23 +1,24 @@
 /**
  * Prestige Abaya — AI Command Bar (data-entry.html)
+ * تحليل عبر parseNaturalLanguageEntry — حفظ عبر saveEntry بعد التأكيد فقط.
  */
 (function (global) {
   'use strict';
 
   const KPI_IDS = ['de-kpi-revenue', 'de-kpi-profit', 'de-kpi-tax', 'de-kpi-inventory'];
-  const SOURCE_LABELS = {
-    openai: 'OpenAI',
-    simulation: 'محاكاة ذكية',
-  };
+  const ACTION_LABELS = { sale: 'مبيعة', expense: 'مصروف', inventory: 'مخزون' };
 
   let parseTimer = null;
   let currentParsed = null;
   let currentJson = null;
-  let currentSource = 'simulation';
   let kpiRefreshInFlight = false;
 
   function $(id) {
     return document.getElementById(id);
+  }
+
+  function getService() {
+    return global.DashboardService || global.dashboardService;
   }
 
   function formatAud(n) {
@@ -63,13 +64,12 @@
   }
 
   async function refreshBackgroundKpis() {
-    if (kpiRefreshInFlight || !global.DashboardService) return;
+    const svc = getService();
+    if (kpiRefreshInFlight || !svc) return;
     kpiRefreshInFlight = true;
     KPI_IDS.forEach((id) => setKpiLoading(id, true));
     try {
-      const snap = await global.DashboardService.getDashboardSnapshot({
-        countryCode: global.DashboardService.getDefaultCountryCode(),
-      });
+      const snap = await svc.getDashboardSnapshot({ countryCode: svc.getDefaultCountryCode() });
       if (!snap?.ok) return;
       if (snap.revenue?.ok) setKpiValue('de-kpi-revenue', formatAud(snap.revenue.totalRevenue));
       if (snap.profit?.ok) setKpiValue('de-kpi-profit', formatAud(snap.profit.netProfit));
@@ -90,6 +90,7 @@
   function readPreviewFields() {
     return {
       entryType: $('preview-edit-type')?.value,
+      action: $('preview-edit-type')?.value,
       productName: $('preview-edit-product')?.value?.trim(),
       product: $('preview-edit-slug')?.value?.trim(),
       amount: $('preview-edit-price')?.value,
@@ -100,22 +101,46 @@
     };
   }
 
-  function fillPreview(parsed, json, source) {
+  function updateConfirmTable(parsed, json) {
+    const svc = getService();
+    const branchId = svc?.resolveBranchId?.() || '—';
+    const ts = new Date().toISOString();
+
+    const set = function (id, text) {
+      const el = $(id);
+      if (el) el.textContent = text != null ? String(text) : '—';
+    };
+
+    set('preview-table-action', ACTION_LABELS[parsed.entryType] || json?.action);
+    set('preview-table-product', parsed.productName || json?.product);
+    set(
+      'preview-table-price',
+      (parsed.amount != null ? parsed.amount : '—') + ' ' + (parsed.currency || '')
+    );
+    set('preview-table-branch', parsed.branchName || json?.branch || 'افتراضي');
+    set('preview-table-branch-id', branchId);
+    set('preview-table-ts', ts);
+  }
+
+  function fillPreview(parsed, json, message) {
     currentParsed = parsed;
     currentJson = json;
-    currentSource = source || 'simulation';
 
     const panel = $('smart-preview');
     if (panel) {
       panel.hidden = false;
       panel.classList.add('data-entry-smart-preview--reveal');
+      panel.classList.remove('data-entry-smart-preview--success-pop');
     }
 
-    const badge = $('parse-source-badge');
-    if (badge) {
-      badge.textContent = SOURCE_LABELS[source] || source;
-      badge.dataset.source = source;
-    }
+    const svc = getService();
+    const confirmMsg =
+      message ||
+      svc?.buildConfirmationMessage?.(parsed) ||
+      'راجع التفاصيل ثم اضغط تأكيد.';
+
+    const msgEl = $('preview-confirm-message');
+    if (msgEl) msgEl.textContent = confirmMsg;
 
     if ($('preview-edit-type')) $('preview-edit-type').value = parsed.entryType || 'sale';
     if ($('preview-edit-product')) $('preview-edit-product').value = parsed.productName || '';
@@ -129,17 +154,21 @@
       $('preview-edit-branch').value = parsed.branchName || json?.branch || '';
     }
 
+    updateConfirmTable(parsed, json);
+
     const jsonEl = $('preview-json');
     if (jsonEl) {
-      jsonEl.textContent = JSON.stringify(json || global.DashboardService?.toCommandJson?.(parsed) || parsed, null, 2);
+      jsonEl.textContent = JSON.stringify(json || svc?.toCommandJson?.(parsed) || parsed, null, 2);
     }
+
+    $('parse-source-badge').textContent = 'جاهز للتأكيد';
   }
 
   function hidePreview() {
     const panel = $('smart-preview');
     if (panel) {
       panel.hidden = true;
-      panel.classList.remove('data-entry-smart-preview--reveal');
+      panel.classList.remove('data-entry-smart-preview--reveal', 'data-entry-smart-preview--success-pop');
     }
     currentParsed = null;
     currentJson = null;
@@ -152,28 +181,30 @@
     if (btn) btn.disabled = loading;
     if (spinner) spinner.hidden = !loading;
     if (label) label.textContent = loading ? 'جاري التحليل…' : 'تحليل';
-    const bar = $('data-entry-command-bar');
-    if (bar) bar.classList.toggle('data-entry-command-bar--thinking', loading);
+    $('data-entry-command-bar')?.classList.toggle('data-entry-command-bar--thinking', loading);
   }
 
-  function setSaveLoading(loading) {
-    const btn = $('smart-save');
-    const spinner = $('save-spinner');
-    const label = $('save-label');
+  function setConfirmLoading(loading) {
+    const btn = $('smart-confirm');
+    const spinner = $('confirm-spinner');
+    const label = $('confirm-label');
     if (btn) btn.disabled = loading;
     if (spinner) spinner.hidden = !loading;
-    if (label) label.textContent = loading ? 'جاري الحفظ…' : 'حفظ في Supabase';
+    if (label) label.textContent = loading ? 'جاري الحفظ…' : 'تأكيد';
   }
 
-  async function runAnalyze() {
+  /** تحليل فقط — لا حفظ */
+  function runAnalyze() {
+    const svc = getService();
     const input = $('ai-command-input');
     const text = input?.value?.trim() || '';
+
     if (!text) {
-      showError($('ai-command-error'), 'اكتب أمراً في شريط الأوامر');
+      showError($('ai-command-error'), 'اكتب أمراً في AI Command Bar');
       return;
     }
-    if (!global.DashboardService?.parseCommandWithAI) {
-      showError($('ai-command-error'), 'DashboardService غير متاح');
+    if (!svc?.parseNaturalLanguageEntry) {
+      showError($('ai-command-error'), 'parseNaturalLanguageEntry غير متاحة');
       return;
     }
 
@@ -181,14 +212,14 @@
     showError($('ai-command-error'), '');
 
     try {
-      const res = await global.DashboardService.parseCommandWithAI(text);
+      const res = svc.parseNaturalLanguageEntry(text);
       if (!res.ok) {
         hidePreview();
         showError($('ai-command-error'), res.error || 'فشل التحليل');
         return;
       }
-      const json = res.json || global.DashboardService.toCommandJson(res.parsed);
-      fillPreview(res.parsed, json, res.source);
+      const json = res.json || svc.toCommandJson(res.parsed);
+      fillPreview(res.parsed, json, res.message);
       $('smart-preview')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {
       showError($('ai-command-error'), err.message || String(err));
@@ -200,46 +231,60 @@
   function scheduleAnalyze() {
     clearTimeout(parseTimer);
     const text = $('ai-command-input')?.value?.trim() || '';
-    if (text.length < 6) {
+    if (text.length < 8) {
       hidePreview();
       showError($('ai-command-error'), '');
       return;
     }
-    parseTimer = setTimeout(runAnalyze, 480);
+    parseTimer = setTimeout(runAnalyze, 550);
   }
 
   function buildParsedFromPreview() {
-    if (!global.DashboardService?.parsedFromEditableFields) return null;
+    const svc = getService();
+    if (!svc?.parsedFromEditableFields) return null;
     const fields = readPreviewFields();
-    const res = global.DashboardService.parsedFromEditableFields(fields);
+    const res = svc.parsedFromEditableFields(fields);
     if (!res.ok) return res;
     if (fields.product) res.parsed.productSlug = fields.product;
+    res.json = svc.toCommandJson(res.parsed);
+    res.message = svc.buildConfirmationMessage(res.parsed);
     return res;
   }
 
+  function updateJsonPreview() {
+    const built = buildParsedFromPreview();
+    if (built?.ok) {
+      currentParsed = built.parsed;
+      currentJson = built.json;
+      const msgEl = $('preview-confirm-message');
+      if (msgEl) msgEl.textContent = built.message;
+      updateConfirmTable(built.parsed, built.json);
+      if ($('preview-json')) {
+        $('preview-json').textContent = JSON.stringify(built.json, null, 2);
+      }
+    }
+  }
+
   function triggerSuccessMicro(parsed, saved) {
-    const wrap = $('data-entry-command-wrap');
-    const bar = $('data-entry-command-bar');
-    wrap?.classList.add('data-entry-command-wrap--success');
-    bar?.classList.add('data-entry-command-bar--success-flash');
-    setTimeout(function () {
-      wrap?.classList.remove('data-entry-command-wrap--success');
-      bar?.classList.remove('data-entry-command-bar--success-flash');
-    }, 1400);
+    $('data-entry-command-wrap')?.classList.add('data-entry-command-wrap--success');
+    $('data-entry-command-bar')?.classList.add('data-entry-command-bar--success-flash');
+
+    const preview = $('smart-preview');
+    preview?.classList.add('data-entry-smart-preview--success-pop');
 
     launchConfetti();
 
     const toast = $('data-entry-toast');
-    const title = $('toast-title');
-    const detail = $('toast-detail');
-    if (title) title.textContent = 'تم الحفظ بنجاح';
-    if (detail) {
-      detail.textContent =
+    if ($('toast-title')) $('toast-title').textContent = 'تم الحفظ بنجاح';
+    if ($('toast-detail')) {
+      $('toast-detail').textContent =
+        (ACTION_LABELS[parsed.entryType] || '') +
+        ' · ' +
         (parsed.productName || '') +
         ' · ' +
         formatAud(parsed.amountAud) +
-        ' AUD · ' +
-        (saved?.table || '');
+        ' AUD · فرع ' +
+        (parsed.branchId || '—');
     }
     if (toast) {
       toast.hidden = false;
@@ -252,25 +297,28 @@
       }, 4200);
     }
 
-    const saveBtn = $('smart-save');
-    saveBtn?.classList.add('data-entry-save-btn--success');
+    $('smart-confirm')?.classList.add('data-entry-confirm-btn--success');
+
     setTimeout(function () {
-      saveBtn?.classList.remove('data-entry-save-btn--success');
-    }, 1200);
+      $('data-entry-command-wrap')?.classList.remove('data-entry-command-wrap--success');
+      $('data-entry-command-bar')?.classList.remove('data-entry-command-bar--success-flash');
+      preview?.classList.remove('data-entry-smart-preview--success-pop');
+      $('smart-confirm')?.classList.remove('data-entry-confirm-btn--success');
+    }, 1400);
   }
 
   function launchConfetti() {
     const root = $('data-entry-confetti');
     if (!root) return;
     root.innerHTML = '';
-    const colors = ['#D4AF37', '#1E293B', '#059669', '#E8C96A', '#64748B'];
-    for (let i = 0; i < 28; i++) {
+    const colors = ['#D4AF37', '#1E293B', '#059669', '#E8C96A'];
+    for (let i = 0; i < 24; i++) {
       const p = document.createElement('span');
       p.className = 'data-entry-confetti__particle';
-      p.style.setProperty('--x', String((Math.random() - 0.5) * 280) + 'px');
-      p.style.setProperty('--y', String(-80 - Math.random() * 220) + 'px');
+      p.style.setProperty('--x', String((Math.random() - 0.5) * 260) + 'px');
+      p.style.setProperty('--y', String(-60 - Math.random() * 200) + 'px');
       p.style.setProperty('--r', String(Math.random() * 720) + 'deg');
-      p.style.setProperty('--d', String(0.6 + Math.random() * 0.7) + 's');
+      p.style.setProperty('--d', String(0.55 + Math.random() * 0.6) + 's');
       p.style.background = colors[i % colors.length];
       root.appendChild(p);
     }
@@ -278,26 +326,26 @@
     setTimeout(function () {
       root.classList.remove('data-entry-confetti--active');
       root.innerHTML = '';
-    }, 1600);
+    }, 1500);
   }
 
-  async function handleSave() {
+  async function handleConfirm() {
+    const svc = getService();
     const built = buildParsedFromPreview();
     if (!built?.ok) {
-      showError($('ai-command-error'), built?.error || 'أكمل Smart Preview أولاً');
+      showError($('ai-command-error'), built?.error || 'أكمل المعاينة أولاً');
+      return;
+    }
+    if (!svc?.saveEntry) {
+      showError($('ai-command-error'), 'saveEntry غير متاحة');
       return;
     }
 
-    if (!global.DashboardService?.submitParsedCommand) {
-      showError($('ai-command-error'), 'لا يمكن الحفظ');
-      return;
-    }
-
-    setSaveLoading(true);
+    setConfirmLoading(true);
     showError($('ai-command-error'), '');
 
     try {
-      const res = await global.DashboardService.submitParsedCommand(built.parsed);
+      const res = await svc.saveEntry(built.parsed);
       if (!res.ok) {
         showError($('ai-command-error'), res.error || 'فشل الحفظ');
         return;
@@ -311,26 +359,7 @@
     } catch (err) {
       showError($('ai-command-error'), err.message || String(err));
     } finally {
-      setSaveLoading(false);
-    }
-  }
-
-  function syncSlugFromProduct() {
-    const name = $('preview-edit-product')?.value || '';
-    if (global.DashboardService?.slugifyProduct && $('preview-edit-slug')) {
-      $('preview-edit-slug').value = global.DashboardService.slugifyProduct(name);
-    }
-    updateJsonPreview();
-  }
-
-  function updateJsonPreview() {
-    const built = buildParsedFromPreview();
-    if (built?.ok && $('preview-json')) {
-      $('preview-json').textContent = JSON.stringify(
-        built.json || global.DashboardService?.toCommandJson?.(built.parsed),
-        null,
-        2
-      );
+      setConfirmLoading(false);
     }
   }
 
@@ -346,7 +375,8 @@
 
   async function handleManualSubmit(e) {
     e.preventDefault();
-    if (!global.DashboardService?.saveManualEntry) return;
+    const svc = getService();
+    if (!svc?.saveEntry) return;
 
     const fields = {
       entryType: $('manual-type')?.value,
@@ -359,13 +389,13 @@
 
     showError($('manual-form-error'), '');
     try {
-      const res = await global.DashboardService.saveManualEntry(fields);
-      if (!res.ok) {
-        showError($('manual-form-error'), res.error || 'فشل الحفظ');
+      const manual = svc.saveManualEntry ? await svc.saveManualEntry(fields) : null;
+      if (!manual?.ok) {
+        showError($('manual-form-error'), manual?.error || 'فشل الحفظ');
         return;
       }
       closeModal();
-      triggerSuccessMicro(res.parsed, res.saved);
+      triggerSuccessMicro(manual.parsed, manual.saved);
       await refreshBackgroundKpis();
       if (global.refreshUI) global.refreshUI();
       e.target.reset();
@@ -373,22 +403,6 @@
     } catch (err) {
       showError($('manual-form-error'), err.message || String(err));
     }
-  }
-
-  function bindPreviewEditors() {
-    [
-      'preview-edit-type',
-      'preview-edit-product',
-      'preview-edit-slug',
-      'preview-edit-price',
-      'preview-edit-currency',
-      'preview-edit-qty',
-      'preview-edit-branch',
-    ].forEach(function (id) {
-      $(id)?.addEventListener('input', updateJsonPreview);
-      $(id)?.addEventListener('change', updateJsonPreview);
-    });
-    $('preview-edit-product')?.addEventListener('input', syncSlugFromProduct);
   }
 
   function bindEvents() {
@@ -399,13 +413,10 @@
         e.preventDefault();
         runAnalyze();
       }
-      if (e.key === 'Enter' && !e.shiftKey && currentParsed) {
-        e.preventDefault();
-        handleSave();
-      }
     });
 
-    $('smart-save')?.addEventListener('click', handleSave);
+    $('smart-confirm')?.addEventListener('click', handleConfirm);
+    $('smart-cancel-preview')?.addEventListener('click', hidePreview);
     $('smart-reparse')?.addEventListener('click', runAnalyze);
 
     document.querySelectorAll('.data-entry-example-chip').forEach(function (chip) {
@@ -426,7 +437,26 @@
     $('manual-cancel')?.addEventListener('click', closeModal);
     $('manual-entry-form')?.addEventListener('submit', handleManualSubmit);
 
-    bindPreviewEditors();
+    [
+      'preview-edit-type',
+      'preview-edit-product',
+      'preview-edit-slug',
+      'preview-edit-price',
+      'preview-edit-currency',
+      'preview-edit-qty',
+      'preview-edit-branch',
+    ].forEach(function (id) {
+      $(id)?.addEventListener('input', updateJsonPreview);
+      $(id)?.addEventListener('change', updateJsonPreview);
+    });
+    $('preview-edit-product')?.addEventListener('input', function () {
+      const svc = getService();
+      const name = $('preview-edit-product')?.value || '';
+      if (svc?.slugifyProduct && $('preview-edit-slug')) {
+        $('preview-edit-slug').value = svc.slugifyProduct(name);
+      }
+      updateJsonPreview();
+    });
 
     try {
       const ch = new BroadcastChannel('prestige-erp-sales');
@@ -448,5 +478,5 @@
     boot();
   }
 
-  global.DataEntryPage = { refreshBackgroundKpis, runAnalyze };
+  global.DataEntryPage = { refreshBackgroundKpis, runAnalyze, handleConfirm };
 })(typeof window !== 'undefined' ? window : global);
