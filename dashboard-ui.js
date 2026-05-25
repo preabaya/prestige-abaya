@@ -208,11 +208,14 @@
     });
     if (!global.Chart) return { ok: false, error: 'Chart.js غير محمّل' };
 
-    if (!global.ExecutiveDashboard?.getDashboardSummary) {
-      return { ok: false, error: 'ExecutiveDashboard غير متاح' };
+    const core = global.prestigeCore || global.PrestigeCore;
+    const getSummary =
+      core?.getDashboardSummary || global.ExecutiveDashboard?.getDashboardSummary;
+    if (!getSummary) {
+      return { ok: false, error: 'PrestigeCore غير متاح' };
     }
 
-    const summary = await global.ExecutiveDashboard.getDashboardSummary();
+    const summary = await getSummary();
 
     await Promise.all([
       renderSalesBarChart(summary),

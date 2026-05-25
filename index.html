@@ -32,7 +32,7 @@
       skipAuthForSales: true,
     };
   </script>
-  <script src="prestige-core.js?v=20260531-schema-fix"></script>
+  <script src="prestige-core.js?v=20260524-core-only"></script>
   <!-- Chart.js — رسوم الداشبورد (dashboard-ui.js) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
@@ -416,14 +416,9 @@
     void AuthGuard.checkAccess('admin');
   </script>
   <script src="script.js?v=20260524-ai-widget"></script>
-  <script src="sales.js?v=20260530-db-helper"></script>
-  <script src="ai-engine.js"></script>
-  <script src="notifications-center.js?v=20260524"></script>
-  <script src="operations-center.js?v=20260524"></script>
-  <script src="customer-experience.js?v=20260524"></script>
-  <script src="executive-dashboard.js?v=20260524-daily-sales"></script>
-  <script src="security-center.js?v=20260524"></script>
-  <script src="automation-center.js?v=20260524"></script>
+  <!-- Legacy data modules disabled — prestige-core.js is the sole Supabase data layer -->
+  <!-- sales.js, ai-engine.js, automation-center.js, notifications-center.js, -->
+  <!-- operations-center.js, customer-experience.js, executive-dashboard.js, security-center.js -->
   <script src="dashboard-ui.js?v=20260524-glass"></script>
   <script src="dashboard-charts.js?v=20260524-luxury-light"></script>
   <script src="executive-overview-ui.js?v=20260524-luxury-light"></script>

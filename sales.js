@@ -8,7 +8,7 @@
   const SALES_TAB = 'sales';
 
   function getConfig() {
-    return typeof window !== 'undefined' ? window.SUPABASE_CONFIG || {};
+    return typeof window !== 'undefined' ? (window.SUPABASE_CONFIG || {}) : {};
   }
 
   function isConfigReady() {
