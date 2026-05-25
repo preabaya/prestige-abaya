@@ -17,7 +17,7 @@
     window.__PRESTIGE_ENV__ = window.__PRESTIGE_ENV__ || {};
     window.SUPABASE_CONFIG = window.SUPABASE_CONFIG || { url: '', anonKey: '', enabled: false, skipAuth: true };
   </script>
-  <script src="prestige-core.js?v=20260524-core-only"></script>
+  <script src="prestige-core.js?v=20260524-core-clean"></script>
 </head>
 <body class="exec-body data-entry-body data-entry-body--pro">
   <div id="data-entry-toast" class="data-entry-toast data-entry-toast--top" hidden role="status" aria-live="polite">
@@ -287,8 +287,7 @@
     </div>
   </div>
 
-  <script src="auth-guard.js"></script>
-  <script>void AuthGuard.checkAccess('admin');</script>
+  <!-- auth-guard.js disabled — AuthGuard lives in prestige-core.js -->
   <script src="data-entry.js?v=20260531-prestige-core"></script>
 </body>
 </html>

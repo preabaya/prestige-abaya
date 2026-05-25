@@ -30,8 +30,9 @@
   }
 
   function getClient() {
+    const core = global.prestigeCore || global.PrestigeCore;
+    if (core?.getClient) return core.getClient();
     if (global.DbHelper?.getClient) return global.DbHelper.getClient();
-    if (global.SupabaseBridge?.getClient) return global.SupabaseBridge.getClient();
     return null;
   }
 

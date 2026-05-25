@@ -32,7 +32,7 @@
       skipAuthForSales: true,
     };
   </script>
-  <script src="prestige-core.js?v=20260524-core-only"></script>
+  <script src="prestige-core.js?v=20260524-core-clean"></script>
   <!-- Chart.js — رسوم الداشبورد (dashboard-ui.js) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
@@ -338,7 +338,7 @@
   <div id="toast" class="toast" aria-live="polite"></div>
   <div id="notifications-toast-stack" class="notifications-toast-stack" aria-live="assertive"></div>
 
-  <!-- AI Intelligence Widget — يُعرض داخل لوحة التحكم عبر script.js -->
+  <!-- AI Intelligence Widget — ai-assistant.js (prestige-core للبيانات) -->
   <template id="ai-best-seller-widget-source">
     <article id="ai-best-seller-widget" class="ai-intel-widget card" aria-live="polite">
       <div class="ai-intel-widget__head">
@@ -410,12 +410,10 @@
       else enableFields();
     })();
   </script>
-  <script src="supabase-bridge.js?v=20260520-no-image"></script>
-  <script src="auth-guard.js?v=20260524"></script>
-  <script>
-    void AuthGuard.checkAccess('admin');
-  </script>
-  <script src="script.js?v=20260524-ai-widget"></script>
+  <!-- Legacy disabled: no supabase.js in repo; bridge/auth-guard/script.js merged into prestige-core -->
+  <!-- <script src="supabase-bridge.js?v=20260520-no-image"></script> -->
+  <!-- <script src="auth-guard.js?v=20260524"></script> -->
+  <!-- <script src="script.js?v=20260524-ai-widget"></script> -->
   <!-- Legacy data modules disabled — prestige-core.js is the sole Supabase data layer -->
   <!-- sales.js, ai-engine.js, automation-center.js, notifications-center.js, -->
   <!-- operations-center.js, customer-experience.js, executive-dashboard.js, security-center.js -->

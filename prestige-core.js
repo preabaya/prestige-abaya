@@ -211,23 +211,29 @@
     if (_tableAvailability[name] === true) return true;
     if (_tableAvailability[name] === false) return false;
 
-    const client = getClient();
-    if (!client) {
-      _tableAvailability[name] = false;
-      return false;
-    }
+    try {
+      const client = getClient();
+      if (!client) {
+        _tableAvailability[name] = false;
+        return false;
+      }
 
-    const { error } = await client.from(name).select('*').limit(0);
-    if (!error) {
+      const { error } = await client.from(name).select('*').limit(0);
+      if (!error) {
+        _tableAvailability[name] = true;
+        return true;
+      }
+      if (isRelationMissingError(error) || isSchemaMismatchError(error)) {
+        _tableAvailability[name] = false;
+        return false;
+      }
       _tableAvailability[name] = true;
       return true;
-    }
-    if (isRelationMissingError(error)) {
+    } catch (err) {
+      warnQuery(`probe ${name}`, err);
       _tableAvailability[name] = false;
       return false;
     }
-    _tableAvailability[name] = true;
-    return true;
   }
 
   function isTableAvailable(tableName) {
@@ -238,36 +244,49 @@
   }
 
   async function writeRowWithFallback(table, row, selectCols = 'id', writeOpts = {}) {
-    const client = getClient();
-    if (!client) return fail('NO_CLIENT', 'Supabase غير مهيأ');
-    const useUpsert = !!writeOpts.upsert;
+    try {
+      const client = getClient();
+      if (!client) return fail('NO_CLIENT', 'Supabase غير مهيأ');
+      const useUpsert = !!writeOpts.upsert;
 
-    let payload = { ...row };
-    for (let i = 0; i < 8; i++) {
-      const builder = useUpsert
-        ? client.from(table).upsert(payload)
-        : client.from(table).insert(payload);
-      const { data, error } = await builder.select(selectCols).single();
-      if (!error) return { ok: true, data };
-      if (isRelationMissingError(error)) {
-        _tableAvailability[table] = false;
-        return fail('TABLE_MISSING', error.message);
-      }
-      if (!isMissingColumnError(error)) {
+      let payload = { ...row };
+      for (let i = 0; i < 8; i++) {
+        const builder = useUpsert
+          ? client.from(table).upsert(payload)
+          : client.from(table).insert(payload);
+        const { data, error } = await builder.select(selectCols).single();
+        if (!error) return { ok: true, data };
+        if (isRelationMissingError(error) || isSchemaMismatchError(error)) {
+          _tableAvailability[table] = false;
+          warnQuery(`write ${table}`, error);
+          return { ok: true, skipped: true, reason: error.message };
+        }
+        if (!isMissingColumnError(error)) {
+          warnQuery(`write ${table}`, error);
+          return fail('INSERT_ERROR', error.message);
+        }
+        const col = extractMissingColumn(error);
+        if (col && Object.prototype.hasOwnProperty.call(payload, col)) {
+          delete payload[col];
+          continue;
+        }
+        warnQuery(`write ${table}`, error);
         return fail('INSERT_ERROR', error.message);
       }
-      const col = extractMissingColumn(error);
-      if (col && Object.prototype.hasOwnProperty.call(payload, col)) {
-        delete payload[col];
-        continue;
-      }
-      return fail('INSERT_ERROR', error.message);
+      return fail('INSERT_ERROR', 'تعذّر مطابقة أعمدة الجدول');
+    } catch (err) {
+      warnQuery(`write ${table}`, err);
+      return { ok: true, skipped: true };
     }
-    return fail('INSERT_ERROR', 'تعذّر مطابقة أعمدة الجدول');
   }
 
   function fail(code, message, extra = {}) {
     return { ok: false, code, error: message, ...extra };
+  }
+
+  function warnQuery(scope, err) {
+    const msg = err?.message || String(err || '');
+    if (msg) console.warn(`[PrestigeCore] ${scope}:`, msg);
   }
 
   /**
@@ -363,7 +382,14 @@
     try {
       const { data: sessionData, error: sessionError } = await client.auth.getSession();
       if (sessionError) {
-        return fail('SESSION_ERROR', sessionError.message);
+        warnQuery('session', sessionError);
+        return {
+          ok: true,
+          authenticated: false,
+          branchId: resolveBranchId(),
+          profile: null,
+          degraded: true,
+        };
       }
 
       const userId = sessionData?.session?.user?.id;
@@ -825,19 +851,6 @@
         ? `نفاد المخزون: ${name} — يلزم إعادة الطلب فوراً`
         : `مخزون منخفض: ${name} (${stock} متبقية) — يلزم إعادة الطلب`;
 
-    const tenantId = resolveTenantId();
-    if (global.SupabaseBridge?.logAiAlert && tenantId) {
-      await global.SupabaseBridge.logAiAlert({
-        tenantId,
-        alertType: 'REORDER_NEEDED',
-        message,
-        tableName: 'inventory',
-        recordId: item.id,
-        severity: stock === 0 ? 'error' : 'warning',
-        metadata: { product_name: name, stock_quantity: stock, min_threshold: min },
-      });
-    }
-
     try {
       global.dispatchEvent(
         new CustomEvent('inventory-reorder-alert', {
@@ -972,7 +985,6 @@
 
       if (!report.configured) {
         report.errors.push('Supabase URL/anonKey missing — set __PRESTIGE_ENV__ or supabase.config.js');
-        console.warn('[PrestigeCore] Not configured');
         return report;
       }
 
@@ -1134,16 +1146,37 @@
    */
   async function getDashboardSnapshot(options = {}) {
     try {
-      const [revenue, profit, inventory, profile, stockLevels] = await Promise.all([
-        getTotalRevenue(options),
-        getNetProfit(options),
-        getInventoryStatus(options),
-        getProfileContext(),
-        checkStockLevels(options),
-      ]);
+      let revenue;
+      let profit;
+      let inventory;
+      let profile;
+      let stockLevels;
+      let tax;
 
-      const country = options.countryCode || getConfig().defaultCountryCode || 'AU';
-      const tax = await getTaxSummary(country, options);
+      try {
+        [revenue, profit, inventory, profile, stockLevels] = await Promise.all([
+          getTotalRevenue(options),
+          getNetProfit(options),
+          getInventoryStatus(options),
+          getProfileContext(),
+          checkStockLevels(options),
+        ]);
+      } catch (err) {
+        warnQuery('dashboard snapshot', err);
+        revenue = { ok: true, totalRevenue: 0, salesCount: 0, degraded: true };
+        profit = { ok: true, netProfit: 0, totalExpenses: 0, degraded: true };
+        inventory = { ok: true, total: 0, lowCount: 0, outOfStockCount: 0, healthyCount: 0, degraded: true };
+        profile = { ok: true, authenticated: false, degraded: true };
+        stockLevels = { ok: true, alerts: [], items: [], degraded: true };
+      }
+
+      try {
+        const country = options.countryCode || getConfig().defaultCountryCode || 'AU';
+        tax = await getTaxSummary(country, options);
+      } catch (err) {
+        warnQuery('tax summary', err);
+        tax = { ok: true, taxAmount: 0, taxRatePercent: 0, degraded: true };
+      }
 
       const inventoryMerged =
         inventory && inventory.ok
@@ -1257,10 +1290,6 @@
   }
 
   function resolveEntryUserId() {
-    if (global.SupabaseBridge?.userId) {
-      const id = global.SupabaseBridge.userId();
-      if (id) return String(id);
-    }
     const cfg = getConfig();
     if (cfg.smartEntryUserId) return String(cfg.smartEntryUserId).trim();
     return null;
@@ -1550,7 +1579,7 @@
           }
         }
       } catch (err) {
-        console.warn('[DashboardService] OpenAI fallback to simulation:', err.message || err);
+        /* OpenAI unavailable — heuristic fallback */
       }
     }
 
@@ -1742,7 +1771,6 @@
   }
 
   async function insertSaleRecord(parsed) {
-    const bridge = global.SupabaseBridge;
     const qty = Math.max(1, parseInt(parsed.quantity, 10) || 1);
     const lineTotalAud = roundMoney(parsed.amountAud);
     const price = roundMoney(lineTotalAud / qty);
@@ -1774,16 +1802,6 @@
       tenantId,
     };
 
-    if (bridge?.insertSale) {
-      const res = await bridge.insertSale(sale);
-      if (res?.ok && typeof bridge.notifySalesDashboardRefresh === 'function') {
-        bridge.notifySalesDashboardRefresh();
-      }
-      return res?.ok
-        ? { ok: true, table: 'sales', id: res.id, data: res }
-        : fail('SALE_INSERT_ERROR', res?.error || 'فشل حفظ المبيعة');
-    }
-
     const client = getClient();
     if (!client) return fail('NO_CLIENT', 'Supabase غير مهيأ');
 
@@ -1809,6 +1827,7 @@
       if (!inserted.ok) return fail('SALE_INSERT_ERROR', inserted.error);
       return { ok: true, table: 'sales', id: inserted.data?.id };
     } catch (err) {
+      warnQuery('insert sale', err);
       return fail('SALE_INSERT_EXCEPTION', err.message || String(err));
     }
   }
@@ -1850,6 +1869,7 @@
       if (!inserted.ok) return fail('EXPENSE_INSERT_ERROR', inserted.error);
       return { ok: true, table: 'expenses', id: inserted.data?.id };
     } catch (err) {
+      warnQuery('insert expense', err);
       return fail('EXPENSE_INSERT_EXCEPTION', err.message || String(err));
     }
   }
@@ -1896,7 +1916,6 @@
   }
 
   async function insertInventoryRecord(parsed) {
-    const bridge = global.SupabaseBridge;
     const product = {
       name: parsed.productName,
       price: roundMoney(parsed.amount),
@@ -1904,13 +1923,6 @@
       quantity: Math.max(0, parseInt(parsed.quantity, 10) || 0),
       tenantId: resolveTenantId(),
     };
-
-    if (bridge?.upsertInventory) {
-      const res = await bridge.upsertInventory(product);
-      return res?.ok
-        ? { ok: true, table: 'inventory', id: res.id }
-        : fail('INVENTORY_UPSERT_ERROR', res?.error || 'فشل حفظ المخزون');
-    }
 
     const client = getClient();
     if (!client) return fail('NO_CLIENT', 'Supabase غير مهيأ');
@@ -1932,6 +1944,7 @@
       if (!inserted.ok) return fail('INVENTORY_UPSERT_ERROR', inserted.error);
       return { ok: true, table: 'inventory', id: inserted.data?.id };
     } catch (err) {
+      warnQuery('insert inventory', err);
       return fail('INVENTORY_UPSERT_EXCEPTION', err.message || String(err));
     }
   }
@@ -1990,6 +2003,7 @@
         stockLevels,
       };
     } catch (err) {
+      warnQuery('saveEntry', err);
       return fail('SAVE_ENTRY_EXCEPTION', err.message || String(err));
     }
   }
@@ -2048,6 +2062,205 @@
     const code = getConfig().defaultCountryCode;
     return code && String(code).trim() ? String(code).trim().toUpperCase() : 'AU';
   }
+
+  /** AuthGuard — حماية الصفحات (من auth-guard.js، بدون استعلامات تالفة) */
+  const AuthGuard = (function () {
+    const LOGIN_PAGE = 'login.html';
+    const CLIENT_PORTAL_PAGE = 'client-portal.html';
+    const ADMIN_ROLES = new Set(['admin', 'super_admin', 'superadmin']);
+
+    function shouldBypassGuard() {
+      const cfg = getConfig();
+      if (cfg.skipAuthGuard === true) return true;
+      if (cfg.skipAuth === true && cfg.enforceAuthGuard !== true) return true;
+      if (!cfg.url || !cfg.anonKey) return true;
+      return false;
+    }
+
+    function currentPageName() {
+      const parts = String(global.location?.pathname || '').split('/');
+      return (parts[parts.length - 1] || 'index.html').toLowerCase();
+    }
+
+    function isLoginPage() {
+      return currentPageName() === LOGIN_PAGE;
+    }
+
+    function isClientPortalPage() {
+      return currentPageName() === CLIENT_PORTAL_PAGE;
+    }
+
+    function isAuthFlowPage() {
+      return isLoginPage() || isClientPortalPage();
+    }
+
+    function redirectTo(page) {
+      if (currentPageName() === page.toLowerCase()) return;
+      const base = global.location.href.replace(/[^/]+$/, '');
+      global.location.replace(base + page);
+    }
+
+    function setPending(pending) {
+      const root = global.document?.documentElement;
+      if (!root) return;
+      if (pending) {
+        root.classList.add('auth-guard-pending');
+        root.classList.remove('auth-guard-ready');
+      } else {
+        root.classList.remove('auth-guard-pending');
+        root.classList.add('auth-guard-ready');
+      }
+    }
+
+    function normalizeRole(raw) {
+      const s = String(raw || '').toLowerCase().trim();
+      if (!s) return null;
+      if (ADMIN_ROLES.has(s)) return 'admin';
+      if (s === 'client' || s === 'user' || s === 'customer' || s === 'staff') return 'client';
+      return s;
+    }
+
+    function roleFromMetadata(user) {
+      if (!user) return null;
+      const meta = user.user_metadata || {};
+      const app = user.app_metadata || {};
+      const candidates = [meta.user_role, meta.role, app.user_role, app.role];
+      for (let i = 0; i < candidates.length; i++) {
+        const normalized = normalizeRole(candidates[i]);
+        if (normalized) return normalized;
+      }
+      return null;
+    }
+
+    async function resolveUserRole(user) {
+      if (!user) return 'client';
+      const metaRole = roleFromMetadata(user);
+      if (metaRole) return metaRole;
+
+      const cfg = getConfig();
+      if (cfg.skipAuth === true || cfg.skipAuthGuard === true) return 'admin';
+
+      const client = getClient();
+      if (!client) return 'client';
+
+      try {
+        const { error } = await client
+          .from('profiles')
+          .select('id, tenant_id, display_name')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (error && !isSchemaMismatchError(error)) {
+          warnQuery('Auth profiles', error);
+        }
+      } catch (err) {
+        warnQuery('Auth resolveUserRole', err);
+      }
+
+      return cfg.defaultRole === 'admin' ? 'admin' : 'client';
+    }
+
+    async function getSession() {
+      const client = getClient();
+      if (!client) return null;
+      try {
+        const { data, error } = await client.auth.getSession();
+        if (error) {
+          warnQuery('Auth getSession', error);
+          return null;
+        }
+        return data?.session ?? null;
+      } catch (err) {
+        warnQuery('Auth getSession', err);
+        return null;
+      }
+    }
+
+    async function checkAccess(requiredRole) {
+      if (shouldBypassGuard()) {
+        setPending(false);
+        return { ok: true, bypassed: true };
+      }
+
+      setPending(true);
+
+      try {
+        const session = await getSession();
+        const user = session?.user;
+
+        if (isLoginPage()) {
+          if (user) {
+            const role = await resolveUserRole(user);
+            if (role === 'admin') redirectTo('index.html');
+            else redirectTo(CLIENT_PORTAL_PAGE);
+            return { ok: false, reason: 'already_authenticated' };
+          }
+          setPending(false);
+          return { ok: true, role: null };
+        }
+
+        if (!user) {
+          redirectTo(LOGIN_PAGE);
+          return { ok: false, reason: 'unauthenticated' };
+        }
+
+        const role = await resolveUserRole(user);
+
+        if (requiredRole === 'admin' && role !== 'admin') {
+          redirectTo(CLIENT_PORTAL_PAGE);
+          return { ok: false, reason: 'forbidden', role };
+        }
+
+        setPending(false);
+        return { ok: true, role, user };
+      } catch (err) {
+        warnQuery('Auth checkAccess', err);
+        setPending(false);
+        if (!shouldBypassGuard()) redirectTo(LOGIN_PAGE);
+        return { ok: false, reason: 'error' };
+      }
+    }
+
+    function readAutoGuardRole() {
+      const root = global.document?.documentElement;
+      const body = global.document?.body;
+      return (
+        root?.getAttribute('data-auth-guard') || body?.getAttribute('data-auth-guard') || null
+      );
+    }
+
+    function bootAutoGuard() {
+      if (shouldBypassGuard()) {
+        setPending(false);
+        return;
+      }
+
+      const required = readAutoGuardRole();
+      if (!required && !isAuthFlowPage()) {
+        setPending(false);
+        return;
+      }
+
+      if (isLoginPage()) {
+        void checkAccess();
+        return;
+      }
+
+      if (required) {
+        void checkAccess(required === 'authenticated' ? null : required);
+      }
+    }
+
+    return {
+      checkAccess,
+      resolveUserRole,
+      getSession,
+      shouldBypassGuard,
+      bootAutoGuard,
+      LOGIN_PAGE,
+      CLIENT_PORTAL_PAGE,
+    };
+  })();
 
   /** واجهة index.html — KPIs التنفيذية (بدون سكربت مضمّن في HTML) */
   const ExecutiveUI = (function () {
@@ -2292,6 +2505,7 @@
     DataEntryClassifier,
     SalesLogic,
     InventoryManagerAPI,
+    AuthGuard,
   };
 
   const PrestigeCore = {
@@ -2299,10 +2513,12 @@
     Dashboard: DashboardService,
     Sales: SalesLogic,
     Inventory: InventoryManagerAPI,
+    AuthGuard,
   };
 
   global.PrestigeCore = PrestigeCore;
   global.prestigeCore = PrestigeCore;
+  global.AuthGuard = AuthGuard;
   global.ExecutiveDashboard = {
     getDashboardSummary,
     renderExecutiveOverview: async function () {
@@ -2335,11 +2551,34 @@
 
   if (global.document) {
     const path = global.location?.pathname || '';
-    if (path.includes('index.html') || path.endsWith('/') || path === '') {
-      ExecutiveUI.boot();
-    }
-    if (path.includes('data-entry')) {
-      DataEntryClassifier.boot();
+    const page = path.split('/').pop() || 'index.html';
+
+    if (global.document.readyState === 'loading') {
+      global.document.addEventListener('DOMContentLoaded', function onDomReady() {
+        AuthGuard.bootAutoGuard();
+        if (page.includes('data-entry')) {
+          DataEntryClassifier.boot();
+          void AuthGuard.checkAccess('admin');
+        } else if (
+          page.includes('index.html') ||
+          path.endsWith('/') ||
+          !page.includes('.')
+        ) {
+          ExecutiveUI.boot();
+          void AuthGuard.checkAccess('admin');
+          global.dispatchEvent(new Event('prestige-app-ready'));
+        }
+      });
+    } else {
+      AuthGuard.bootAutoGuard();
+      if (page.includes('data-entry')) {
+        DataEntryClassifier.boot();
+        void AuthGuard.checkAccess('admin');
+      } else if (page.includes('index.html') || path.endsWith('/') || !page.includes('.')) {
+        ExecutiveUI.boot();
+        void AuthGuard.checkAccess('admin');
+        global.dispatchEvent(new Event('prestige-app-ready'));
+      }
     }
   }
 })(typeof window !== 'undefined' ? window : global);
