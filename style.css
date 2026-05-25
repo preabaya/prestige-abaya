@@ -8918,6 +8918,98 @@ html.auth-guard-pending:not(.auth-guard-ready) body {
   color: #b45309;
 }
 
+.data-entry-ai-classify {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0 0 0.65rem;
+  font-size: 0.8rem;
+  color: var(--exec-muted);
+}
+
+.data-entry-ai-classify__label {
+  font-weight: 600;
+}
+
+.data-entry-ai-classify__badge {
+  font-weight: 800;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(248, 250, 252, 0.95);
+  color: var(--exec-navy, #1e293b);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  font-size: 0.75rem;
+}
+
+.data-entry-ai-classify__badge--inventory {
+  background: rgba(212, 175, 55, 0.15);
+  border-color: rgba(212, 175, 55, 0.45);
+  color: #1e293b;
+}
+
+.data-entry-ai-classify__badge--sale {
+  background: rgba(30, 41, 59, 0.06);
+  border-color: rgba(30, 41, 59, 0.15);
+}
+
+.data-entry-ai-classify__badge--expense {
+  background: rgba(5, 150, 105, 0.1);
+  border-color: rgba(5, 150, 105, 0.25);
+}
+
+.data-entry-inventory-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--exec-shadow-xs);
+}
+
+.data-entry-inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.data-entry-inventory-table thead th {
+  text-align: start;
+  padding: 0.55rem 0.65rem;
+  font-weight: 800;
+  color: var(--exec-navy, #1e293b);
+  background: linear-gradient(180deg, rgba(212, 175, 55, 0.14), rgba(248, 250, 252, 0.9));
+  border-bottom: 2px solid #d4af37;
+}
+
+.data-entry-inventory-table tbody td {
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid rgba(30, 41, 59, 0.06);
+  color: var(--exec-navy, #1e293b);
+}
+
+.data-entry-inventory-table__product {
+  font-weight: 700;
+}
+
+.data-entry-inventory-table__row--alert {
+  background: linear-gradient(90deg, rgba(180, 83, 9, 0.08), transparent);
+}
+
+.data-entry-inventory-table__flag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  background: rgba(180, 83, 9, 0.12);
+  color: #b45309;
+}
+
+.data-entry-inventory-table__empty {
+  text-align: center;
+  color: var(--exec-muted);
+  padding: 1rem;
+}
+
 /* تقليل الحركة لمن يفضّل ذلك (إمكانية الوصول) */
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -395,6 +395,7 @@
         lowStock,
         outOfStock,
         alertFlag: thresholdAlerts.length > 0,
+        alert_flag: thresholdAlerts.length > 0,
         stockAlertThreshold: STOCK_ALERT_THRESHOLD,
         stockAlertCount: thresholdAlerts.length,
         thresholdAlerts,
@@ -528,6 +529,7 @@
         scope: res.scope,
         threshold: STOCK_ALERT_THRESHOLD,
         alertFlag: alerts.length > 0,
+        alert_flag: alerts.length > 0,
         alertCount: alerts.length,
         total: items.length,
         alerts,
@@ -600,7 +602,8 @@
         inventory && inventory.ok
           ? {
               ...inventory,
-              alertFlag: !!(stockLevels?.alertFlag || inventory.alertFlag),
+              alertFlag: !!(stockLevels?.alertFlag || stockLevels?.alert_flag || inventory.alertFlag),
+              alert_flag: !!(stockLevels?.alert_flag || stockLevels?.alertFlag || inventory.alertFlag),
               stockAlertCount:
                 stockLevels?.alertCount != null
                   ? stockLevels.alertCount
@@ -721,11 +724,85 @@
     return 'smart-entry';
   }
 
-  function toCommandJson(parsed) {
-    const action = parsed.entryType || 'sale';
+  const ENTRY_INTENTS = {
+    sale: 'sale_update',
+    inventory: 'inventory_update',
+    expense: 'expense_update',
+  };
+
+  function normalizeEntryType(entryTypeOrIntent) {
+    const t = String(entryTypeOrIntent || 'sale')
+      .trim()
+      .toLowerCase();
+    if (t === 'inventory_update' || t === 'inventory') return 'inventory';
+    if (t === 'expense_update' || t === 'expense') return 'expense';
+    if (t === 'sale_update' || t === 'sale') return 'sale';
+    return 'sale';
+  }
+
+  function intentFromEntryType(entryType) {
+    return ENTRY_INTENTS[normalizeEntryType(entryType)] || 'sale_update';
+  }
+
+  /**
+   * تصنيف ذكي لأمر AI Command Bar — يميّز مبيعات عن مخزون.
+   * @param {string} text
+   * @returns {{ intent: string, entryType: string, label: string, confidence: number }}
+   */
+  function classifyCommandIntent(text) {
+    const raw = String(text || '').trim();
+    if (!raw) {
+      return { intent: null, entryType: null, label: 'اكتب أمراً', confidence: 0 };
+    }
+
+    if (/مصروف|مصاريف|expense|تكلفة تشغيلية/i.test(raw)) {
+      return {
+        intent: 'expense_update',
+        entryType: 'expense',
+        label: 'مصروف · expense_update',
+        confidence: 0.92,
+      };
+    }
+
+    if (
+      /^(?:إضافة|add)\s+\d+/i.test(raw) ||
+      (/^(?:إضافة|add)\s+/i.test(raw) &&
+        !/بعنا|بيعنا|بيع|مبيع|sale|sold/i.test(raw)) ||
+      (/مخزون|inventory|stock|زيادة مخزون|إدخال مخزون/i.test(raw) &&
+        !/بعنا|بيعنا|بيع|مبيع|sale|sold/i.test(raw))
+    ) {
+      return {
+        intent: 'inventory_update',
+        entryType: 'inventory',
+        label: 'مخزون · inventory_update',
+        confidence: /^(?:إضافة|add)\s+\d+/i.test(raw) ? 0.96 : 0.88,
+      };
+    }
+
+    if (/بعنا|بيعنا|بيع|مبيع|مبيعة|sale|sold/i.test(raw)) {
+      return {
+        intent: 'sale_update',
+        entryType: 'sale',
+        label: 'مبيعات · sale_update',
+        confidence: 0.94,
+      };
+    }
+
     return {
-      action,
-      type: action,
+      intent: 'sale_update',
+      entryType: 'sale',
+      label: 'مبيعات · sale_update',
+      confidence: 0.55,
+    };
+  }
+
+  function toCommandJson(parsed) {
+    const entryType = normalizeEntryType(parsed.entryType || parsed.intent);
+    const intent = parsed.intent || intentFromEntryType(entryType);
+    return {
+      action: intent,
+      type: intent,
+      entry_type: entryType,
       product: parsed.productSlug || slugifyProduct(parsed.productName),
       product_display: parsed.productName,
       price: parsed.amount,
@@ -743,12 +820,13 @@
    * رسالة تأكيد بلغة طبيعية للمعاينة الذكية.
    */
   function buildConfirmationMessage(parsed) {
+    const entryType = normalizeEntryType(parsed.entryType || parsed.intent);
     const verbs = {
-      sale: 'إضافة مبيعة',
-      expense: 'تسجيل مصروف',
-      inventory: 'إضافة صنف للمخزون',
+      sale: 'تسجيل مبيعات (sale_update)',
+      expense: 'تسجيل مصروف (expense_update)',
+      inventory: 'إضافة مخزون (inventory_update)',
     };
-    const verb = verbs[parsed.entryType] || 'تنفيذ عملية';
+    const verb = verbs[entryType] || 'تنفيذ عملية';
     const product = parsed.productName || String(parsed.productSlug || '').replace(/_/g, ' ');
     const curLabel =
       parsed.currency === 'SAR'
@@ -778,10 +856,11 @@
   }
 
   function aiJsonToParsed(json, rawText) {
-    const type = String(json.action || json.type || json.entryType || 'sale')
+    const type = String(json.action || json.type || json.entryType || json.entry_type || 'sale')
       .trim()
       .toLowerCase();
-    const entryType = ['sale', 'expense', 'inventory'].includes(type) ? type : 'sale';
+    const entryType = normalizeEntryType(type);
+    const intent = ENTRY_INTENTS[entryType] || intentFromEntryType(entryType);
     const productDisplay =
       json.product_display || json.productDisplay || json.product_name || json.product || '';
     const productName = String(productDisplay)
@@ -802,6 +881,7 @@
 
     const parsed = {
       entryType,
+      intent,
       productName: productName || String(json.product || 'مصروف').replace(/_/g, ' '),
       productSlug: String(json.product || slugifyProduct(productName)),
       amount,
@@ -846,7 +926,7 @@
     const model = cfg.openaiModel || 'gpt-4o-mini';
     const systemPrompt = [
       'You convert retail ERP voice/text commands into strict JSON only.',
-      'Schema: {"type":"sale|expense|inventory","product":"snake_case_slug","product_display":"human label",',
+      'Schema: {"type":"sale_update|expense_update|inventory_update","product":"snake_case_slug","product_display":"human label",',
       '"price":number,"currency":"SAR|AED|AUD|USD","quantity":integer,"branch":"city","confidence":0-1}',
       'Examples:',
       '- "بعنا عباءة حرير بـ 800 في الرياض" -> sale, silk_abaya, 800, SAR, Riyadh',
@@ -934,8 +1014,12 @@
    * بناء كائن parsed من حقول قابلة للتعديل (Smart Preview).
    */
   function parsedFromEditableFields(fields) {
-    const entryType = String(fields.entryType || fields.type || fields.action || 'sale').trim();
-    const amount = parseNumberToken(fields.amount ?? fields.price);
+    const entryType = normalizeEntryType(
+      fields.entryType || fields.type || fields.action || 'sale'
+    );
+    const intent = intentFromEntryType(entryType);
+    let amount = parseNumberToken(fields.amount ?? fields.price);
+    if (amount == null && entryType === 'inventory') amount = 0;
     if (amount == null) return fail('NO_AMOUNT', 'المبلغ مطلوب');
     const currency = detectCurrency('', fields.currency || 'SAR');
     const productName = String(fields.productName || fields.product_display || fields.product || '')
@@ -943,6 +1027,7 @@
       .trim();
     const parsed = {
       entryType,
+      intent,
       productName: productName || '—',
       productSlug: slugifyProduct(productName || fields.product),
       amount,
@@ -971,16 +1056,9 @@
       const raw = String(text || '').trim();
       if (!raw) return fail('EMPTY_INPUT', 'اكتب وصف العملية أولاً');
 
-      const lower = raw.toLowerCase();
-      let entryType = 'sale';
-      if (/مصروف|مصاريف|expense|تكلفة تشغيلية/.test(raw)) entryType = 'expense';
-      else if (
-        /^(?:إضافة|add)\s+\d+/i.test(raw) ||
-        (/مخزون|منتج جديد|إضافة منتج|inventory|stock|زيادة مخزون|إدخال مخزون/.test(raw) &&
-          !/مبيع|بيع|بعنا|بيعنا|sale|sold/.test(raw))
-      ) {
-        entryType = 'inventory';
-      } else if (/مبيع|بيع|مبيعة|بعنا|بيعنا|sale|sold/.test(raw)) entryType = 'sale';
+      const classified = classifyCommandIntent(raw);
+      let entryType = classified.entryType || 'sale';
+      const intent = classified.intent || intentFromEntryType(entryType);
 
       let amount = null;
       let currency = detectCurrency(raw);
@@ -1046,6 +1124,10 @@
             break;
           }
         }
+        if (!productName && entryType === 'inventory') {
+          const simpleInv = raw.match(/^(?:إضافة|add)\s+\d+\s+(.+?)$/i);
+          if (simpleInv) productName = simpleInv[1].trim();
+        }
         if (!productName) {
           productName = raw
             .replace(/(?:في\s+)?فرع\s+[^\d,.]+/gi, '')
@@ -1065,6 +1147,10 @@
       if (!productName && entryType !== 'expense') {
         return fail('NO_PRODUCT', 'لم أتعرف على اسم المنتج — حدّد المنتج بوضوح');
       }
+      if (amount == null && entryType === 'inventory') {
+        amount = 0;
+        currency = currency || 'SAR';
+      }
       if (amount == null) {
         return fail('NO_AMOUNT', 'لم أتعرف على المبلغ — أضف السعر (مثال: بـ 500 ريال)');
       }
@@ -1074,6 +1160,7 @@
 
       const parsed = {
         entryType,
+        intent,
         productName: productName || 'مصروف',
         productSlug: slugifyProduct(productName),
         amount,
@@ -1090,6 +1177,8 @@
         parsed,
         json: toCommandJson(parsed),
         message: buildConfirmationMessage(parsed),
+        intent,
+        classification: classified,
       };
     } catch (err) {
       return fail('PARSE_EXCEPTION', err.message || String(err));
@@ -1253,6 +1342,7 @@
 
     const parsed = enrichParsedForSave({
       entryType: 'inventory',
+      intent: 'inventory_update',
       productName: name,
       productSlug: slugifyProduct(name),
       quantity: qty,
@@ -1325,10 +1415,14 @@
   }
 
   async function saveParsedEntry(parsed) {
-    if (!parsed || !parsed.entryType) {
+    if (!parsed || (!parsed.entryType && !parsed.intent)) {
       return fail('INVALID_PARSED', 'بيانات غير صالحة');
     }
-    const enriched = enrichParsedForSave(parsed);
+    const enriched = enrichParsedForSave({
+      ...parsed,
+      entryType: normalizeEntryType(parsed.entryType || parsed.intent),
+      intent: parsed.intent || intentFromEntryType(parsed.entryType),
+    });
 
     if (enriched.entryType === 'sale') return insertSaleRecord(enriched);
     if (enriched.entryType === 'expense') return insertExpenseRecord(enriched);
@@ -1450,6 +1544,9 @@
     getDefaultCountryCode,
     parseNaturalLanguageEntry,
     parseNaturalLanguageHeuristic,
+    classifyCommandIntent,
+    normalizeEntryType,
+    intentFromEntryType,
     parseCommandWithAI,
     simulateCommandParse,
     resolveEntryUserId,

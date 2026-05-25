@@ -6,7 +6,16 @@
   'use strict';
 
   const KPI_IDS = ['de-kpi-revenue', 'de-kpi-profit', 'de-kpi-tax', 'de-kpi-inventory'];
-  const ACTION_LABELS = { sale: 'مبيعة', expense: 'مصروف', inventory: 'مخزون' };
+  const ACTION_LABELS = {
+    sale: 'مبيعات (sale_update)',
+    expense: 'مصروف (expense_update)',
+    inventory: 'مخزون (inventory_update)',
+  };
+  const INTENT_LABELS = {
+    sale_update: 'مبيعات · sale_update',
+    inventory_update: 'مخزون · inventory_update',
+    expense_update: 'مصروف · expense_update',
+  };
   const MODE_PLACEHOLDERS = {
     sale: 'بعنا 3 عباءات بـ 2000 ريال فرع جدة',
     expense: 'مصروف شحن 450 ريال فرع دبي',
@@ -132,7 +141,14 @@
       if (el) el.textContent = text != null ? String(text) : '—';
     };
 
-    set('preview-table-action', ACTION_LABELS[parsed.entryType] || json?.action || json?.type);
+    set(
+      'preview-table-action',
+      ACTION_LABELS[parsed.entryType] || json?.action || json?.type
+    );
+    set(
+      'preview-table-intent',
+      parsed.intent || json?.action || json?.type || INTENT_LABELS[intentFromEntry(parsed)] || '—'
+    );
     set('preview-table-product', parsed.productName || json?.product_display || json?.product);
     set(
       'preview-table-price',
@@ -143,6 +159,14 @@
     set('preview-table-branch-id', branchId);
     set('preview-table-ts', ts);
     set('preview-table-user', userId);
+  }
+
+  function intentFromEntry(parsed) {
+    const svc = getService();
+    if (parsed?.intent) return parsed.intent;
+    if (svc?.intentFromEntryType) return svc.intentFromEntryType(parsed?.entryType);
+    const map = { sale: 'sale_update', inventory: 'inventory_update', expense: 'expense_update' };
+    return map[parsed?.entryType] || 'sale_update';
   }
 
   function fillPreview(parsed, json, message, source) {
@@ -188,6 +212,10 @@
     if (badge) {
       badge.textContent =
         source === 'openai' ? 'OpenAI' : source === 'heuristic' ? 'تحليل ذكي' : 'جاهز للتأكيد';
+    }
+
+    if (global.DataEntryClassifier?.classify) {
+      global.DataEntryClassifier.classify($('ai-command-input')?.value?.trim() || '');
     }
   }
 
@@ -249,9 +277,9 @@
 
   async function refreshInventoryOverview() {
     const svc = getService();
-    const list = $('inventory-recent-list');
+    const tbody = $('inventory-recent-tbody');
     const badge = $('inventory-stock-alert-badge');
-    if (!list || !svc?.getRecentInventoryEntries) return;
+    if (!tbody || !svc?.getRecentInventoryEntries) return;
 
     try {
       const [recentRes, stockRes] = await Promise.all([
@@ -260,49 +288,59 @@
       ]);
 
       if (badge) {
-        const showAlert = !!(stockRes?.ok && stockRes.alertFlag);
+        const showAlert = !!(stockRes?.ok && (stockRes.alert_flag || stockRes.alertFlag));
         badge.hidden = !showAlert;
         if (showAlert) {
           badge.textContent =
-            'تنبيه · ' + (stockRes.alertCount || 0) + ' صنف أقل من ' + (stockRes.threshold || 5);
+            'تنبيه · ' +
+            (stockRes.alertCount || 0) +
+            ' صنف · alert_flag';
         }
       }
 
-      list.innerHTML = '';
+      tbody.innerHTML = '';
       if (!recentRes?.ok || !recentRes.recent?.length) {
-        const li = document.createElement('li');
-        li.className = 'data-entry-inventory-recent__empty';
-        li.textContent = recentRes?.error || 'لا توجد إدخالات مخزون بعد';
-        list.appendChild(li);
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td colspan="6" class="data-entry-inventory-table__empty">' +
+          (recentRes?.error || 'لا توجد عمليات مخزون بعد') +
+          '</td>';
+        tbody.appendChild(tr);
         return;
       }
 
       recentRes.recent.forEach(function (row) {
-        const li = document.createElement('li');
-        li.className = 'data-entry-inventory-recent__item';
-        if (row.alertFlag) li.classList.add('data-entry-inventory-recent__item--alert');
-        li.innerHTML =
-          '<span class="data-entry-inventory-recent__name">' +
+        const tr = document.createElement('tr');
+        if (row.alertFlag) tr.classList.add('data-entry-inventory-table__row--alert');
+        const alertCell = row.alertFlag
+          ? '<span class="data-entry-inventory-table__flag">تنبيه</span>'
+          : '—';
+        tr.innerHTML =
+          '<td class="data-entry-inventory-table__product">' +
           (row.product_name || '—') +
-          '</span>' +
-          '<span class="data-entry-inventory-recent__meta">' +
-          (row.stock_quantity != null ? row.stock_quantity + ' قطعة' : '—') +
-          ' · ' +
-          (row.selling_price != null ? row.selling_price + ' SAR' : '—') +
-          '</span>' +
-          '<time class="data-entry-inventory-recent__time" datetime="' +
-          (row.last_updated || '') +
-          '">' +
+          '</td>' +
+          '<td>' +
+          (row.stock_quantity != null ? row.stock_quantity : '—') +
+          '</td>' +
+          '<td>' +
+          (row.selling_price != null ? row.selling_price : '—') +
+          '</td>' +
+          '<td dir="ltr">' +
+          (row.branch_id || '—') +
+          '</td>' +
+          '<td dir="ltr">' +
           formatRecentDate(row.last_updated) +
-          '</time>';
-        list.appendChild(li);
+          '</td>' +
+          '<td>' +
+          alertCell +
+          '</td>';
+        tbody.appendChild(tr);
       });
     } catch (err) {
-      list.innerHTML = '';
-      const li = document.createElement('li');
-      li.className = 'data-entry-inventory-recent__empty';
-      li.textContent = err.message || String(err);
-      list.appendChild(li);
+      tbody.innerHTML =
+        '<tr><td colspan="6" class="data-entry-inventory-table__empty">' +
+        (err.message || String(err)) +
+        '</td></tr>';
     }
   }
 
@@ -332,10 +370,20 @@
         return;
       }
       if (res.parsed) {
-        if (commandMode === 'inventory') {
+        const clf =
+          res.classification ||
+          (svc.classifyCommandIntent ? svc.classifyCommandIntent(text) : null);
+        if (clf?.entryType && commandMode === 'sale') {
+          res.parsed.entryType = clf.entryType;
+          res.parsed.intent = clf.intent;
+        } else if (commandMode === 'inventory') {
           res.parsed.entryType = 'inventory';
+          res.parsed.intent = 'inventory_update';
         } else if (commandMode === 'expense') {
           res.parsed.entryType = 'expense';
+          res.parsed.intent = 'expense_update';
+        } else if (clf) {
+          res.parsed.intent = clf.intent || svc.intentFromEntryType?.(res.parsed.entryType);
         }
         res.json = svc.toCommandJson(res.parsed);
         res.message = svc.buildConfirmationMessage?.(res.parsed) || res.message;
@@ -469,7 +517,22 @@
     showError($('ai-command-error'), '');
 
     try {
-      const res = await svc.saveEntry(built.parsed);
+      let res;
+      const p = built.parsed;
+      if (
+        (p.entryType === 'inventory' || p.intent === 'inventory_update') &&
+        svc.addInventoryItem
+      ) {
+        res = await svc.addInventoryItem(
+          p.productName,
+          p.quantity,
+          p.branchName,
+          p.amount
+        );
+        if (res?.ok) res = { ok: true, parsed: res.parsed || p, saved: res.saved, stockLevels: res.stockLevels };
+      } else {
+        res = await svc.saveEntry(p);
+      }
       if (!res.ok) {
         showError($('ai-command-error'), res.error || 'فشل الحفظ');
         return;

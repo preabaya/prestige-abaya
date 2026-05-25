@@ -590,7 +590,7 @@
               : (inventory.thresholdAlerts && inventory.thresholdAlerts.length) || 0;
           var legacyCount = (inventory.lowCount || 0) + (inventory.outOfStockCount || 0);
           var alertCount = Math.max(thresholdCount, legacyCount);
-          var hasAlert = !!(inventory.alertFlag || alertCount > 0);
+          var hasAlert = !!(inventory.alert_flag || inventory.alertFlag || alertCount > 0);
           setKpiCard('exec-kpi-inventory', {
             value: String(alertCount),
             unit: 'تنبيه',

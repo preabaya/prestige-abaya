@@ -69,10 +69,14 @@
           AI Command Bar
         </label>
         <div class="data-entry-command-modes" role="tablist" aria-label="نوع الإدخال">
-          <button type="button" class="data-entry-mode-btn is-active" data-mode="sale" role="tab" aria-selected="true">مبيعات</button>
-          <button type="button" class="data-entry-mode-btn" data-mode="expense" role="tab" aria-selected="false">مصروف</button>
-          <button type="button" class="data-entry-mode-btn" data-mode="inventory" role="tab" aria-selected="false">مخزون</button>
+          <button type="button" class="data-entry-mode-btn is-active" data-mode="sale" data-intent="sale_update" role="tab" aria-selected="true">مبيعات</button>
+          <button type="button" class="data-entry-mode-btn" data-mode="expense" data-intent="expense_update" role="tab" aria-selected="false">مصروف</button>
+          <button type="button" class="data-entry-mode-btn" data-mode="inventory" data-intent="inventory_update" role="tab" aria-selected="false">مخزون</button>
         </div>
+        <p class="data-entry-ai-classify" id="ai-classify-row" aria-live="polite">
+          <span class="data-entry-ai-classify__label">التصنيف الذكي:</span>
+          <span class="data-entry-ai-classify__badge" id="ai-intent-badge" data-intent="">—</span>
+        </p>
         <div class="data-entry-command-bar" id="data-entry-command-bar">
           <input
             type="text"
@@ -96,7 +100,8 @@
           <li><button type="button" class="data-entry-example-chip" data-example="بعنا 3 عباءات بـ 2000 ريال فرع جدة">بيع — جدة ×3</button></li>
           <li><button type="button" class="data-entry-example-chip" data-example="بعنا عباءة حرير بـ 800 في الرياض">بيع — الرياض</button></li>
           <li><button type="button" class="data-entry-example-chip" data-example="مصروف شحن 450 ريال فرع دبي">مصروف — دبي</button></li>
-          <li><button type="button" class="data-entry-example-chip" data-example="إضافة 50 عباءة مطرزة لفرع الرياض بسعر 800 ريال" data-mode="inventory">مخزون — الرياض ×50</button></li>
+          <li><button type="button" class="data-entry-example-chip" data-example="إضافة 50 عباءة مطرزة لفرع الرياض بسعر 800 ريال" data-mode="inventory" data-intent="inventory_update">مخزون — الرياض ×50</button></li>
+          <li><button type="button" class="data-entry-example-chip" data-example="إضافة 50 عباءة" data-mode="inventory" data-intent="inventory_update">إضافة 50 عباءة</button></li>
           <li><button type="button" class="data-entry-example-chip" data-example="إضافة مخزون عباءة مخمل كمية 20 بسعر 390" data-mode="inventory">مخزون — مخمل</button></li>
         </ul>
       </div>
@@ -117,6 +122,7 @@
         <table class="data-entry-confirm-table" aria-label="تفاصيل مفهومة من النظام">
           <tbody>
             <tr><th>الإجراء</th><td id="preview-table-action">—</td></tr>
+            <tr><th>التصنيف (AI)</th><td id="preview-table-intent" dir="ltr">—</td></tr>
             <tr><th>المنتج</th><td id="preview-table-product">—</td></tr>
             <tr><th>السعر</th><td id="preview-table-price">—</td></tr>
             <tr><th>الكمية</th><td id="preview-table-qty">—</td></tr>
@@ -133,9 +139,9 @@
           <div class="data-entry-field data-entry-field--preview">
             <label for="preview-edit-type">النوع</label>
             <select id="preview-edit-type">
-              <option value="sale">مبيعة (sale)</option>
-              <option value="expense">مصروف (expense)</option>
-              <option value="inventory">مخزون (inventory)</option>
+              <option value="sale">مبيعات (sale_update)</option>
+              <option value="expense">مصروف (expense_update)</option>
+              <option value="inventory">مخزون (inventory_update)</option>
             </select>
           </div>
           <div class="data-entry-field data-entry-field--preview">
@@ -191,13 +197,27 @@
         <header class="data-entry-inventory-overview__head">
           <div>
             <h2 id="inventory-overview-title" class="data-entry-inventory-overview__title">Inventory Overview</h2>
-            <p class="data-entry-inventory-overview__sub">آخر 5 منتجات تم إدخالها في المخزون</p>
+            <p class="data-entry-inventory-overview__sub">آخر 5 عمليات إدخال مخزون (inventory_update)</p>
           </div>
           <span class="data-entry-stock-alert-badge" id="inventory-stock-alert-badge" hidden>تنبيه مخزون</span>
         </header>
-        <ul class="data-entry-inventory-recent" id="inventory-recent-list" aria-live="polite">
-          <li class="data-entry-inventory-recent__empty">جاري التحميل…</li>
-        </ul>
+        <div class="data-entry-inventory-table-wrap">
+          <table class="data-entry-inventory-table" aria-label="آخر عمليات المخزون">
+            <thead>
+              <tr>
+                <th scope="col">المنتج</th>
+                <th scope="col">الكمية</th>
+                <th scope="col">السعر</th>
+                <th scope="col">الفرع</th>
+                <th scope="col">التاريخ</th>
+                <th scope="col">تنبيه</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-recent-tbody">
+              <tr><td colspan="6" class="data-entry-inventory-table__empty">جاري التحميل…</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </main>
 
@@ -265,10 +285,100 @@
     window.SUPABASE_CONFIG = window.SUPABASE_CONFIG || { url: '', anonKey: '', enabled: false, skipAuth: true };
   </script>
   <script src="db-helper.js"></script>
-  <script src="dashboard-service.js?v=20260524-inventory-entry"></script>
+  <script src="dashboard-service.js?v=20260525-inventory-ai"></script>
   <script src="supabase-bridge.js"></script>
   <script src="auth-guard.js"></script>
   <script>void AuthGuard.checkAccess('admin');</script>
-  <script src="data-entry.js?v=20260524-inventory-entry"></script>
+  <script>
+    /**
+     * تصنيف فوري داخل AI Command Bar — يكمّل DashboardService.classifyCommandIntent
+     */
+    (function () {
+      'use strict';
+      var classifyTimer = null;
+
+      function classifyLocal(text) {
+        var raw = String(text || '').trim();
+        if (!raw) return { intent: '', label: '—', entryType: '' };
+        if (/مصروف|expense/i.test(raw)) {
+          return { intent: 'expense_update', entryType: 'expense', label: 'مصروف · expense_update' };
+        }
+        if (
+          /^(?:إضافة|add)\s+\d+/i.test(raw) ||
+          (/^(?:إضافة|add)\s+/i.test(raw) && !/بعنا|بيع|sale/i.test(raw))
+        ) {
+          return { intent: 'inventory_update', entryType: 'inventory', label: 'مخزون · inventory_update' };
+        }
+        if (/بعنا|بيعنا|بيع|sale|sold/i.test(raw)) {
+          return { intent: 'sale_update', entryType: 'sale', label: 'مبيعات · sale_update' };
+        }
+        return { intent: 'sale_update', entryType: 'sale', label: 'مبيعات · sale_update' };
+      }
+
+      function applyIntentBadge(result) {
+        var badge = document.getElementById('ai-intent-badge');
+        var bar = document.getElementById('data-entry-command-bar');
+        if (!badge) return;
+        badge.textContent = result.label || '—';
+        badge.dataset.intent = result.intent || '';
+        badge.classList.remove(
+          'data-entry-ai-classify__badge--sale',
+          'data-entry-ai-classify__badge--inventory',
+          'data-entry-ai-classify__badge--expense'
+        );
+        if (result.intent === 'inventory_update') {
+          badge.classList.add('data-entry-ai-classify__badge--inventory');
+        } else if (result.intent === 'sale_update') {
+          badge.classList.add('data-entry-ai-classify__badge--sale');
+        } else if (result.intent === 'expense_update') {
+          badge.classList.add('data-entry-ai-classify__badge--expense');
+        }
+        if (bar) bar.setAttribute('data-detected-intent', result.intent || '');
+      }
+
+      function runClassify(text) {
+        var svc = window.DashboardService || window.dashboardService;
+        var result = svc && svc.classifyCommandIntent
+          ? svc.classifyCommandIntent(text)
+          : classifyLocal(text);
+        applyIntentBadge(result);
+        window.DataEntryClassifier = { last: result, classify: runClassify };
+      }
+
+      function scheduleClassify() {
+        clearTimeout(classifyTimer);
+        var input = document.getElementById('ai-command-input');
+        var text = input ? input.value.trim() : '';
+        if (!text) {
+          applyIntentBadge({ label: '—', intent: '' });
+          return;
+        }
+        classifyTimer = setTimeout(function () {
+          runClassify(text);
+        }, 280);
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        var input = document.getElementById('ai-command-input');
+        if (input) {
+          input.addEventListener('input', scheduleClassify);
+          input.addEventListener('focus', scheduleClassify);
+        }
+        document.querySelectorAll('.data-entry-mode-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var intent = btn.getAttribute('data-intent') || '';
+            applyIntentBadge({
+              intent: intent,
+              label: btn.textContent.trim() + ' · ' + intent,
+              entryType: btn.getAttribute('data-mode') || '',
+            });
+          });
+        });
+      });
+
+      window.DataEntryClassifier = { classify: runClassify, schedule: scheduleClassify };
+    })();
+  </script>
+  <script src="data-entry.js?v=20260525-inventory-ai"></script>
 </body>
 </html>
