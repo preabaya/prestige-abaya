@@ -84,7 +84,8 @@
   }
 
   function boot() {
-    document.documentElement.classList.add('exec-theme');
+    document.documentElement.classList.add('exec-theme', 'exec-theme--luxury-light');
+    document.documentElement.setAttribute('data-theme', 'light');
     bindExecNav();
     bindSidebarToggle();
     if (typeof global.updateDashboard !== 'function') {

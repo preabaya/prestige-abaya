@@ -60,14 +60,14 @@
     const s = getComputedStyle(document.documentElement);
     const pick = (v, fb) => (s.getPropertyValue(v) || fb).trim() || fb;
     return {
-      text: pick('--exec-muted', '#94a3b8'),
-      grid: pick('--exec-border', 'rgba(255,255,255,0.08)'),
-      accent: pick('--exec-accent', '#c4a574'),
-      accentLight: '#dfc89a',
-      success: pick('--exec-success', '#2dd4bf'),
-      info: '#60a5fa',
-      warning: '#fbbf24',
-      danger: '#f87171',
+      text: pick('--exec-muted', '#64748b'),
+      grid: pick('--exec-border', 'rgba(30, 41, 59, 0.08)'),
+      accent: pick('--exec-accent', '#d4af37'),
+      accentLight: '#e8c96a',
+      success: pick('--exec-success', '#059669'),
+      info: '#3b82f6',
+      warning: '#d97706',
+      danger: '#dc2626',
     };
   }
 

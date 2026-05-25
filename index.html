@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl" class="exec-theme">
+<html lang="ar" dir="rtl" class="exec-theme exec-theme--luxury-light" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <!-- viewport: عرض الشاشة = عرض الجهاز، بدون تكبير افتراضي، مع دعم النوتش -->
@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="description" content="Prestige Abaya — Financial & Inventory Management System">
-  <meta name="theme-color" content="#2c3345">
+  <meta name="theme-color" content="#FFFFFF">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -18,43 +18,53 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
   <!-- GitHub Pages: served from repo root → https://preabaya.github.io/prestige-abaya/ -->
-  <link rel="stylesheet" href="style.css?v=20260524-ai-assistant">
+  <link rel="stylesheet" href="style.css?v=20260524-luxury-light">
   <!-- Chart.js — رسوم الداشبورد (dashboard-ui.js) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 </head>
-<body>
-  <div class="app-layout" id="app-layout">
-    <aside class="app-sidebar exec-sidebar" aria-label="الشريط الجانبي">
+<body class="exec-body">
+  <div class="app-layout exec-app-layout" id="app-layout">
+    <aside class="app-sidebar exec-sidebar exec-sidebar--luxury" aria-label="الشريط الجانبي">
       <div class="exec-sidebar__brand">
         <span class="exec-sidebar__logo" aria-hidden="true">PA</span>
         <div>
           <strong class="exec-sidebar__name">Prestige Abaya</strong>
-          <span class="exec-sidebar__tag">Executive</span>
+          <span class="exec-sidebar__tag">Executive Suite</span>
         </div>
       </div>
 
       <nav class="exec-nav" id="exec-nav" aria-label="القائمة التنفيذية">
         <a href="#exec-section-financial" class="exec-nav__item exec-nav__item--active" data-exec-section="exec-section-financial">
-          <span class="exec-nav__icon" aria-hidden="true">💰</span>
+          <span class="exec-nav__icon" aria-hidden="true">
+            <svg class="exec-nav__svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </span>
           <span>Financial</span>
         </a>
         <a href="#exec-section-sales" class="exec-nav__item" data-exec-section="exec-section-sales">
-          <span class="exec-nav__icon" aria-hidden="true">📈</span>
+          <span class="exec-nav__icon" aria-hidden="true">
+            <svg class="exec-nav__svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 17l6-6 4 4 8-10"/><path d="M14 5h7v7"/></svg>
+          </span>
           <span>Sales</span>
         </a>
         <a href="#exec-section-operations" class="exec-nav__item" data-exec-section="exec-section-operations">
-          <span class="exec-nav__icon" aria-hidden="true">⚙️</span>
+          <span class="exec-nav__icon" aria-hidden="true">
+            <svg class="exec-nav__svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          </span>
           <span>Operations</span>
         </a>
         <a href="#exec-section-hr" class="exec-nav__item" data-exec-section="exec-section-hr">
-          <span class="exec-nav__icon" aria-hidden="true">👥</span>
+          <span class="exec-nav__icon" aria-hidden="true">
+            <svg class="exec-nav__svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
           <span>HR</span>
         </a>
         <a href="#exec-section-ai" class="exec-nav__item" data-exec-section="exec-section-ai">
-          <span class="exec-nav__icon" aria-hidden="true">✦</span>
+          <span class="exec-nav__icon" aria-hidden="true">
+            <svg class="exec-nav__svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M5 19l1 2M19 19l-1 2"/></svg>
+          </span>
           <span>AI Assistant</span>
         </a>
       </nav>
@@ -108,10 +118,10 @@
     </aside>
 
     <div class="app-main">
-      <header class="site-header site-header--fixed exec-header">
+      <header class="site-header site-header--fixed exec-header exec-header--luxury">
         <div class="site-header__top">
-          <button type="button" class="exec-sidebar-toggle" id="exec-sidebar-toggle" aria-expanded="false" aria-controls="app-layout">
-            <span aria-hidden="true">☰</span>
+          <button type="button" class="exec-sidebar-toggle exec-sidebar-toggle--luxury" id="exec-sidebar-toggle" aria-expanded="false" aria-controls="app-layout" aria-label="فتح القائمة">
+            <svg class="exec-sidebar-toggle__svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
           </button>
           <div class="site-header__brand">
             <img id="brand-logo" class="site-header__logo" src="" alt="Prestige Abaya" hidden>
@@ -126,9 +136,9 @@
       <div class="app-scroll" id="app-scroll">
         <div id="root" class="root">
           <div class="dashboard-shell">
-      <section id="executive-overview-dashboard" class="exec-overview-dashboard" aria-label="لوحة التحكم التنفيذية">
-        <header class="exec-overview-dashboard__head" id="exec-section-financial">
-          <div>
+      <section id="executive-overview-dashboard" class="exec-overview-dashboard exec-overview-dashboard--luxury" aria-label="لوحة التحكم التنفيذية">
+        <header class="exec-overview-dashboard__head exec-overview-dashboard__head--luxury" id="exec-section-financial">
+          <div class="exec-overview-dashboard__intro">
             <p class="exec-overview-dashboard__eyebrow">Executive Overview</p>
             <h2 class="exec-overview-dashboard__title">نظرة تنفيذية</h2>
             <p class="exec-overview-dashboard__desc" id="exec-overview-dashboard-desc">مؤشرات أداء رئيسية — جاري التحميل من Supabase…</p>
@@ -143,7 +153,7 @@
         </header>
 
         <div class="exec-kpi-grid" id="exec-kpi-grid">
-          <article class="exec-glass-card exec-kpi-card exec-kpi-card--loading" id="exec-kpi-revenue" data-kpi="revenue">
+          <article class="exec-glass-card exec-luxury-card exec-kpi-card exec-kpi-card--loading" id="exec-kpi-revenue" data-kpi="revenue">
             <span class="exec-kpi-card__label">إجمالي الإيرادات</span>
             <p class="exec-kpi-card__value-row">
               <strong class="exec-kpi-card__value">Loading...</strong>
@@ -151,7 +161,7 @@
             </p>
             <span class="exec-kpi-card__delta">Loading...</span>
           </article>
-          <article class="exec-glass-card exec-kpi-card exec-kpi-card--loading" id="exec-kpi-profit" data-kpi="profit">
+          <article class="exec-glass-card exec-luxury-card exec-kpi-card exec-kpi-card--loading" id="exec-kpi-profit" data-kpi="profit">
             <span class="exec-kpi-card__label">صافي الربح</span>
             <p class="exec-kpi-card__value-row">
               <strong class="exec-kpi-card__value">Loading...</strong>
@@ -159,7 +169,7 @@
             </p>
             <span class="exec-kpi-card__delta">Loading...</span>
           </article>
-          <article class="exec-glass-card exec-kpi-card exec-kpi-card--loading" id="exec-kpi-daily" data-kpi="tax">
+          <article class="exec-glass-card exec-luxury-card exec-kpi-card exec-kpi-card--loading" id="exec-kpi-daily" data-kpi="tax">
             <span class="exec-kpi-card__label">المبيعات اليومية</span>
             <p class="exec-kpi-card__value-row">
               <strong class="exec-kpi-card__value">Loading...</strong>
@@ -167,7 +177,7 @@
             </p>
             <span class="exec-kpi-card__delta">Loading...</span>
           </article>
-          <article class="exec-glass-card exec-kpi-card exec-kpi-card--loading" id="exec-kpi-customers" data-kpi="inventory">
+          <article class="exec-glass-card exec-luxury-card exec-kpi-card exec-kpi-card--loading" id="exec-kpi-customers" data-kpi="inventory">
             <span class="exec-kpi-card__label">عدد العملاء</span>
             <p class="exec-kpi-card__value-row">
               <strong class="exec-kpi-card__value">Loading...</strong>
@@ -179,13 +189,13 @@
 
         <section class="dashboard-charts-panel" id="dashboard-charts-panel" aria-label="الرسوم البيانية التفاعلية">
           <div class="dashboard-charts-layout">
-            <article class="exec-glass-card dashboard-charts-main" id="exec-section-sales">
+            <article class="exec-glass-card exec-luxury-card dashboard-charts-main" id="exec-section-sales">
               <div class="dashboard-charts-canvas-wrap dashboard-charts-canvas-wrap--bar">
                 <canvas id="chart-sales-bar" aria-label="رسم المبيعات — أعمدة"></canvas>
               </div>
               <p class="dashboard-charts-meta" id="chart-sales-bar-meta">جاري التحميل…</p>
             </article>
-            <article class="exec-glass-card dashboard-charts-side" id="exec-section-ai">
+            <article class="exec-glass-card exec-luxury-card dashboard-charts-side" id="exec-section-ai">
               <div class="dashboard-charts-canvas-wrap dashboard-charts-canvas-wrap--doughnut">
                 <canvas id="chart-customers-doughnut" aria-label="توزيع العملاء — دائري"></canvas>
               </div>
@@ -204,15 +214,15 @@
 
       <section id="interactive-dashboard" class="interactive-dashboard" hidden aria-hidden="true"></section>
 
-      <section class="dashboard-grid dashboard-grid--modules" id="dashboard-grid" aria-label="لوحة الوحدات">
-        <article class="dash-card" id="dash-card-feedback">
+      <section class="dashboard-grid dashboard-grid--modules exec-luxury-modules" id="dashboard-grid" aria-label="لوحة الوحدات">
+        <article class="dash-card exec-luxury-module" id="dash-card-feedback">
           <header class="dash-card__head">
             <h2 class="dash-card__title">تجربة العملاء</h2>
           </header>
           <div class="dash-card__body" id="customer-feedback-host"></div>
         </article>
 
-        <article class="dash-card" id="dash-card-operations">
+        <article class="dash-card exec-luxury-module" id="dash-card-operations">
           <header class="dash-card__head">
             <h2 class="dash-card__title">العمليات والفروع</h2>
           </header>
@@ -221,7 +231,7 @@
           </div>
         </article>
 
-        <article class="dash-card" id="dash-card-inventory">
+        <article class="dash-card exec-luxury-module" id="dash-card-inventory">
           <header class="dash-card__head">
             <h2 class="dash-card__title">المخزون</h2>
           </header>
@@ -230,7 +240,7 @@
           </div>
         </article>
 
-        <article class="dash-card" id="dash-card-security">
+        <article class="dash-card exec-luxury-module" id="dash-card-security">
           <header class="dash-card__head">
             <h2 class="dash-card__title">الأمان</h2>
           </header>
@@ -239,7 +249,7 @@
           </div>
         </article>
 
-        <article class="dash-card" id="dash-card-automation">
+        <article class="dash-card exec-luxury-module" id="dash-card-automation">
           <header class="dash-card__head">
             <h2 class="dash-card__title">الأتمتة</h2>
           </header>
@@ -248,7 +258,7 @@
           </div>
         </article>
 
-        <article class="dash-card" id="dash-card-notifications">
+        <article class="dash-card exec-luxury-module" id="dash-card-notifications">
           <header class="dash-card__head">
             <h2 class="dash-card__title">التنبيهات</h2>
           </header>
@@ -405,8 +415,8 @@
   <script src="security-center.js?v=20260524"></script>
   <script src="automation-center.js?v=20260524"></script>
   <script src="dashboard-ui.js?v=20260524-glass"></script>
-  <script src="dashboard-charts.js?v=20260524"></script>
-  <script src="executive-overview-ui.js?v=20260524"></script>
+  <script src="dashboard-charts.js?v=20260524-luxury-light"></script>
+  <script src="executive-overview-ui.js?v=20260524-luxury-light"></script>
   <script src="ai-assistant.js?v=20260524"></script>
   <script>
     (function () {
