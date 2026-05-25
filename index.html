@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
   <!-- GitHub Pages: served from repo root → https://preabaya.github.io/prestige-abaya/ -->
-  <link rel="stylesheet" href="style.css?v=20260524-exec-overview">
+  <link rel="stylesheet" href="style.css?v=20260524-dashboard-charts">
   <!-- Chart.js — رسوم الداشبورد (dashboard-ui.js) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
@@ -133,6 +133,12 @@
             <h2 class="exec-overview-dashboard__title">نظرة تنفيذية</h2>
             <p class="exec-overview-dashboard__desc">مؤشرات أداء رئيسية — بيانات تجريبية للعرض</p>
           </div>
+          <div class="dashboard-charts-toolbar" id="dashboard-charts-toolbar" role="toolbar" aria-label="فترة الرسوم البيانية">
+            <span class="dashboard-charts-toolbar__label">الفترة</span>
+            <button type="button" class="chart-period-btn" data-chart-period="day" aria-pressed="false">اليوم</button>
+            <button type="button" class="chart-period-btn chart-period-btn--active" data-chart-period="week" aria-pressed="true">الأسبوع</button>
+            <button type="button" class="chart-period-btn" data-chart-period="month" aria-pressed="false">الشهر</button>
+          </div>
           <span class="exec-overview-dashboard__live" aria-live="polite">● Live Demo</span>
         </header>
 
@@ -171,46 +177,32 @@
           </article>
         </div>
 
+        <section class="dashboard-charts-panel" id="dashboard-charts-panel" aria-label="الرسوم البيانية التفاعلية">
+          <div class="dashboard-charts-layout">
+            <article class="exec-glass-card dashboard-charts-main" id="exec-section-sales">
+              <div class="dashboard-charts-canvas-wrap dashboard-charts-canvas-wrap--bar">
+                <canvas id="chart-sales-bar" aria-label="رسم المبيعات — أعمدة"></canvas>
+              </div>
+              <p class="dashboard-charts-meta" id="chart-sales-bar-meta">جاري التحميل…</p>
+            </article>
+            <article class="exec-glass-card dashboard-charts-side" id="exec-section-ai">
+              <div class="dashboard-charts-canvas-wrap dashboard-charts-canvas-wrap--doughnut">
+                <canvas id="chart-customers-doughnut" aria-label="توزيع العملاء — دائري"></canvas>
+              </div>
+              <p class="dashboard-charts-meta" id="chart-customers-doughnut-meta">جاري التحميل…</p>
+            </article>
+          </div>
+        </section>
+
         <div class="exec-section-anchors" hidden aria-hidden="true">
-          <span id="exec-section-sales"></span>
           <span id="exec-section-operations"></span>
           <span id="exec-section-hr"></span>
-          <span id="exec-section-ai"></span>
         </div>
 
         <div class="exec-overview-dashboard__modules" id="executive-overview-host"></div>
       </section>
 
-      <section id="interactive-dashboard" class="interactive-dashboard" hidden aria-label="لوحة التحكم التفاعلية">
-        <header class="interactive-dashboard__hero">
-          <h2 class="interactive-dashboard__title">لوحة التحكم التفاعلية</h2>
-          <p class="interactive-dashboard__desc">مبيعات يومية وصحة المخزون — للمدراء فقط</p>
-        </header>
-
-        <div class="dashboard-grid dashboard-grid--charts" id="dashboard-charts-grid">
-          <article class="dash-card dash-card--glass dash-card--chart dash-card--sales-chart" id="dash-card-sales">
-            <header class="dash-card__head">
-              <h3 class="dash-card__title">المبيعات اليومية</h3>
-              <p class="dash-card__subtitle">Bar Chart · آخر 7 أيام</p>
-            </header>
-            <div class="dash-card__body dash-card__body--chart dash-card__chart-wrap">
-              <canvas id="chart-dash-sales" aria-label="مبيعات يومية"></canvas>
-            </div>
-            <p class="dash-card__meta" id="chart-dash-sales-meta">جاري التحميل…</p>
-          </article>
-
-          <article class="dash-card dash-card--glass dash-card--chart dash-card--stock-chart" id="dash-card-stock">
-            <header class="dash-card__head">
-              <h3 class="dash-card__title">صحة المخزون</h3>
-              <p class="dash-card__subtitle">Doughnut · Inventory Health</p>
-            </header>
-            <div class="dash-card__body dash-card__body--chart dash-card__chart-wrap">
-              <canvas id="chart-dash-stock" aria-label="توزيع المخزون"></canvas>
-            </div>
-            <p class="dash-card__meta" id="chart-dash-stock-meta">جاري التحميل…</p>
-          </article>
-        </div>
-      </section>
+      <section id="interactive-dashboard" class="interactive-dashboard" hidden aria-hidden="true"></section>
 
       <section class="dashboard-grid dashboard-grid--modules" id="dashboard-grid" aria-label="لوحة الوحدات">
         <article class="dash-card" id="dash-card-feedback">
@@ -378,6 +370,7 @@
   <script src="security-center.js?v=20260524"></script>
   <script src="automation-center.js?v=20260524"></script>
   <script src="dashboard-ui.js?v=20260524-glass"></script>
+  <script src="dashboard-charts.js?v=20260524"></script>
   <script src="executive-overview-ui.js?v=20260524"></script>
 </body>
 </html>

@@ -196,6 +196,10 @@
    * جلب الملخص التنفيذي ورسم المبيعات اليومية + صحة المخزون.
    */
   async function renderCharts() {
+    if (global.DashboardCharts?.updateCharts && $('chart-sales-bar')) {
+      return global.DashboardCharts.updateCharts();
+    }
+
     if (!adminAccessGranted) return { ok: false, reason: 'auth' };
 
     await waitForChart().catch((err) => {
@@ -267,7 +271,11 @@
     btn.dataset.bound = '1';
     btn.addEventListener('click', () => {
       applyTheme(getTheme() === 'dark' ? 'light' : 'dark');
-      renderCharts().catch((e) => console.warn('[DashboardUI]', e));
+      if (global.DashboardCharts?.updateCharts) {
+        global.DashboardCharts.updateCharts();
+      } else {
+        renderCharts().catch((e) => console.warn('[DashboardUI]', e));
+      }
     });
   }
 
