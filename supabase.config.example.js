@@ -14,6 +14,11 @@ window.SUPABASE_CONFIG = {
   defaultBranchId: '00000000-0000-0000-0000-000000000001',
   /** رمز الدولة الافتراضي لـ DashboardService.getTaxSummary (AU, SA, AE, …) */
   defaultCountryCode: 'AU',
+  /** اختياري — ربط أسماء الفروع بـ UUID (مثال: دبي → branch id) */
+  branchAliases: {
+    dubai: '00000000-0000-0000-0000-000000000001',
+    riyadh: '00000000-0000-0000-0000-000000000001',
+  },
   /**
    * true = anon key فقط — لا getSession/ensureAuth قبل القراءة أو الكتابة
    * اجعل skipAuth: false عند تفعيل RLS مع تسجيل دخول حقيقي

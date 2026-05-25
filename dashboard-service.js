@@ -497,6 +497,392 @@
     }
   }
 
+  const FX_TO_AUD = { SAR: 0.405, AED: 0.405, USD: 1.52, AUD: 1, EUR: 1.65 };
+
+  const BRANCH_NORMALIZE = {
+    دبي: 'dubai',
+    dubai: 'dubai',
+    الرياض: 'riyadh',
+    riyadh: 'riyadh',
+    جدة: 'jeddah',
+    jeddah: 'jeddah',
+    مكة: 'makkah',
+    mecca: 'makkah',
+    القصيم: 'qassim',
+    الدمام: 'dammam',
+    abu: 'abu_dhabi',
+    'أبوظبي': 'abu_dhabi',
+    'ابوظبي': 'abu_dhabi',
+  };
+
+  function normalizeBranchKey(name) {
+    if (!name) return null;
+    const trimmed = String(name).trim().toLowerCase().replace(/\s+/g, ' ');
+    const ar = String(name).trim();
+    return BRANCH_NORMALIZE[ar] || BRANCH_NORMALIZE[trimmed] || trimmed;
+  }
+
+  function applyBranchFromName(branchName) {
+    if (!branchName) return resolveBranchId();
+    const key = normalizeBranchKey(branchName);
+    const cfg = getConfig();
+    const aliases = cfg.branchAliases || {};
+    const mapped =
+      aliases[key] || aliases[branchName] || aliases[String(branchName).trim()];
+    if (mapped) {
+      try {
+        global.localStorage?.setItem(BRANCH_STORAGE_KEY, String(mapped).trim());
+      } catch (_) { /* ignore */ }
+      return String(mapped).trim();
+    }
+    try {
+      global.localStorage?.setItem('current_branch_label', String(branchName).trim());
+    } catch (_) { /* ignore */ }
+    return resolveBranchId();
+  }
+
+  function parseNumberToken(token) {
+    if (token == null) return null;
+    const cleaned = String(token).replace(/,/g, '').trim();
+    const n = Number(cleaned);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  function detectCurrency(text, explicit) {
+    if (explicit) return String(explicit).toUpperCase();
+    const t = String(text).toLowerCase();
+    if (/ريال|ر\.س|sar\b/.test(t)) return 'SAR';
+    if (/درهم|aed\b|د\.إ/.test(t)) return 'AED';
+    if (/aud\b|د\.أ/.test(t)) return 'AUD';
+    if (/\$|usd|دولار/.test(t)) return 'USD';
+    return 'SAR';
+  }
+
+  function convertToAud(amount, currency) {
+    const code = String(currency || 'AUD').toUpperCase();
+    const rate = FX_TO_AUD[code] != null ? FX_TO_AUD[code] : 1;
+    return roundMoney(Number(amount) * rate);
+  }
+
+  /**
+   * تحليل إدخال بلغة طبيعية (عربي/إنجليزي) — منتج، سعر، فرع، نوع العملية.
+   * @param {string} text
+   */
+  function parseNaturalLanguageEntry(text) {
+    try {
+      const raw = String(text || '').trim();
+      if (!raw) return fail('EMPTY_INPUT', 'اكتب وصف العملية أولاً');
+
+      const lower = raw.toLowerCase();
+      let entryType = 'sale';
+      if (/مصروف|مصاريف|expense|تكلفة تشغيلية/.test(raw)) entryType = 'expense';
+      else if (
+        /مخزون|منتج جديد|إضافة منتج|inventory|stock|زيادة مخزون/.test(raw) &&
+        !/مبيع|بيع|sale/.test(raw)
+      ) {
+        entryType = 'inventory';
+      } else if (/مبيع|بيع|مبيعة|sale|sold/.test(raw)) entryType = 'sale';
+
+      let amount = null;
+      let currency = detectCurrency(raw);
+      const explicitPrice = raw.match(/بسعر\s*([\d.,]+)\s*(ريال|ر\.س|sar|aud|درهم|aed|usd)?/i);
+      if (explicitPrice) {
+        amount = parseNumberToken(explicitPrice[1]);
+        if (explicitPrice[2]) currency = detectCurrency(raw, explicitPrice[2]);
+      }
+      if (amount == null) {
+        const pricePatterns = [
+          /(?:بـ|بمبلغ|مبلغ|سعر|for|at)\s*([\d.,]+)\s*(ريال|ر\.س|sar|aud|درهم|aed|usd|\$)?/i,
+          /([\d.,]+)\s*(ريال|ر\.س|sar|aud|درهم|aed|usd)/i,
+          /([\d.,]+)\s*(?:\$)/,
+        ];
+        for (const re of pricePatterns) {
+          const m = raw.match(re);
+          if (m) {
+            amount = parseNumberToken(m[1]);
+            if (m[2]) currency = detectCurrency(raw, m[2]);
+            if (amount != null) break;
+          }
+        }
+      }
+
+      let quantity = 1;
+      const qtyMatch =
+        raw.match(/(\d+)\s*(?:قطعة|قطع|وحدة|وحدات|x)/i) ||
+        raw.match(/(?:كمية|qty|quantity)\s*[:=]?\s*(\d+)/i);
+      if (qtyMatch) {
+        const q = parseInt(qtyMatch[1], 10);
+        if (Number.isFinite(q) && q > 0) quantity = q;
+      }
+
+      let branchName = null;
+      const branchMatch =
+        raw.match(/(?:في\s+)?فرع\s+([^\d,.]+?)(?=\s+(?:بـ|ب\s*\d)|$)/i) ||
+        raw.match(/branch\s+([a-zA-Z\u0600-\u06FF\s]+?)(?=\s|$)/i);
+      if (branchMatch) branchName = branchMatch[1].trim();
+
+      let productName = '';
+      if (entryType === 'expense') {
+        const expMatch = raw.match(/(?:مصروف|مصاريف|expense)\s+(.+?)(?:\s+بـ|\s+ب\s*\d|$)/i);
+        productName = (expMatch ? expMatch[1] : raw)
+          .replace(/(?:مصروف|مصاريف).*/i, '')
+          .trim();
+      } else {
+        const patterns = [
+          /(?:إضافة\s+)?(?:مبيعة|مبيعات|بيع|sale)\s+(.+?)(?:\s+بـ|\s+ب\s*\d|\s+في\s+فرع|$)/i,
+          /(?:إضافة|add)\s+(.+?)(?:\s+بـ|\s+ب\s*\d|\s+في\s+فرع|$)/i,
+          /(?:منتج|مخزون|product)\s+(.+?)(?:\s+بـ|\s+ب\s*\d|\s+في\s+فرع|$)/i,
+        ];
+        for (const re of patterns) {
+          const m = raw.match(re);
+          if (m && m[1]) {
+            productName = m[1].trim();
+            break;
+          }
+        }
+        if (!productName) {
+          productName = raw
+            .replace(/(?:في\s+)?فرع\s+[^\d,.]+/gi, '')
+            .replace(/(?:بـ|بسعر|بمبلغ)\s*[\d.,]+.*/i, '')
+            .trim();
+        }
+      }
+      productName = productName
+        .replace(/\s+في\s+فرع.*/i, '')
+        .replace(/\s+بـ\s*[\d.,]+.*/i, '')
+        .trim();
+
+      if (!productName && entryType !== 'expense') {
+        return fail('NO_PRODUCT', 'لم أتعرف على اسم المنتج — حدّد المنتج بوضوح');
+      }
+      if (amount == null) {
+        return fail('NO_AMOUNT', 'لم أتعرف على المبلغ — أضف السعر (مثال: بـ 500 ريال)');
+      }
+
+      const amountAud = convertToAud(amount, currency);
+      const branchKey = branchName ? normalizeBranchKey(branchName) : null;
+
+      return {
+        ok: true,
+        parsed: {
+          entryType,
+          productName: productName || 'مصروف',
+          amount,
+          amountAud,
+          currency,
+          quantity,
+          branchName,
+          branchKey,
+          rawText: raw,
+        },
+      };
+    } catch (err) {
+      return fail('PARSE_EXCEPTION', err.message || String(err));
+    }
+  }
+
+  async function insertSaleRecord(parsed) {
+    const bridge = global.SupabaseBridge;
+    const qty = Math.max(1, parseInt(parsed.quantity, 10) || 1);
+    const lineTotalAud = roundMoney(parsed.amountAud);
+    const price = roundMoney(lineTotalAud / qty);
+    const tenantId = resolveTenantId();
+    const branchId = applyBranchFromName(parsed.branchName);
+
+    const sale = {
+      product_name: parsed.productName,
+      productName: parsed.productName,
+      price,
+      quantity: qty,
+      line_total_aud: lineTotalAud,
+      lineTotalAud: lineTotalAud,
+      customer_name: 'Smart Entry',
+      customerName: 'Smart Entry',
+      status: 'completed',
+      created_by: 'smart-entry',
+      invoice_number: parsed.branchName ? `BR:${parsed.branchName}` : '',
+      tenant_id: tenantId,
+      tenantId,
+    };
+
+    if (bridge?.insertSale) {
+      const res = await bridge.insertSale(sale);
+      if (res?.ok && typeof bridge.notifySalesDashboardRefresh === 'function') {
+        bridge.notifySalesDashboardRefresh();
+      }
+      return res?.ok
+        ? { ok: true, table: 'sales', id: res.id, data: res }
+        : fail('SALE_INSERT_ERROR', res?.error || 'فشل حفظ المبيعة');
+    }
+
+    const client = getClient();
+    if (!client) return fail('NO_CLIENT', 'Supabase غير مهيأ');
+
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    const ts = new Date().toISOString();
+    const row = {
+      id,
+      created_at: ts,
+      updated_at: ts,
+      customer_name: sale.customer_name,
+      customer: sale.customer_name,
+      product_name: sale.product_name,
+      price: sale.price,
+      quantity: qty,
+      created_by: 'smart-entry',
+      line_total_aud: lineTotalAud,
+      status: 'completed',
+      tenant_id: tenantId,
+    };
+    if (parsed.branchName) row.invoice_number = sale.invoice_number;
+
+    try {
+      let payload = { ...row };
+      if (branchId) payload.branch_id = branchId;
+      let { data, error } = await client.from('sales').insert(payload).select('id').single();
+      if (error && isMissingColumnError(error)) {
+        delete payload.branch_id;
+        ({ data, error } = await client.from('sales').insert(payload).select('id').single());
+      }
+      if (error) return fail('SALE_INSERT_ERROR', error.message);
+      return { ok: true, table: 'sales', id: data?.id };
+    } catch (err) {
+      return fail('SALE_INSERT_EXCEPTION', err.message || String(err));
+    }
+  }
+
+  async function insertExpenseRecord(parsed) {
+    const client = getClient();
+    if (!client) return fail('NO_CLIENT', 'Supabase غير مهيأ');
+
+    const amountAud = roundMoney(parsed.amountAud);
+    const rate =
+      parsed.currency === 'AUD'
+        ? 1
+        : roundMoney(amountAud / Math.max(parsed.amount, 1));
+
+    const row = {
+      id: `exp-${Date.now()}`,
+      name: parsed.productName || 'مصروف',
+      category: 'general',
+      currency: parsed.currency || 'SAR',
+      amount_original: roundMoney(parsed.amount),
+      exchange_rate: rate,
+      financials: { audTotal: amountAud },
+      created_at: new Date().toISOString(),
+      created_by: 'smart-entry',
+    };
+
+    const branchId = applyBranchFromName(parsed.branchName);
+    if (branchId) {
+      row.branch_id = branchId;
+      row.tenant_id = branchId;
+    }
+
+    try {
+      let { data, error } = await client.from('expenses').insert(row).select('id').single();
+      if (error && isMissingColumnError(error)) {
+        delete row.branch_id;
+        delete row.tenant_id;
+        ({ data, error } = await client.from('expenses').insert(row).select('id').single());
+      }
+      if (error) return fail('EXPENSE_INSERT_ERROR', error.message);
+      return { ok: true, table: 'expenses', id: data?.id };
+    } catch (err) {
+      return fail('EXPENSE_INSERT_EXCEPTION', err.message || String(err));
+    }
+  }
+
+  async function insertInventoryRecord(parsed) {
+    const bridge = global.SupabaseBridge;
+    const product = {
+      name: parsed.productName,
+      price: roundMoney(parsed.amount),
+      cost: 0,
+      quantity: Math.max(0, parseInt(parsed.quantity, 10) || 0),
+      tenantId: resolveTenantId(),
+    };
+
+    if (bridge?.upsertInventory) {
+      const res = await bridge.upsertInventory(product);
+      return res?.ok
+        ? { ok: true, table: 'inventory', id: res.id }
+        : fail('INVENTORY_UPSERT_ERROR', res?.error || 'فشل حفظ المخزون');
+    }
+
+    const client = getClient();
+    if (!client) return fail('NO_CLIENT', 'Supabase غير مهيأ');
+
+    const row = {
+      product_name: product.name,
+      selling_price: product.price,
+      cost_price: 0,
+      stock_quantity: product.quantity,
+      tenant_id: resolveTenantId(),
+      last_updated: new Date().toISOString(),
+    };
+    const branchId = applyBranchFromName(parsed.branchName);
+    if (branchId) row.branch_id = branchId;
+
+    try {
+      let { data, error } = await client.from('inventory').upsert(row).select('id').single();
+      if (error && isMissingColumnError(error)) {
+        delete row.branch_id;
+        ({ data, error } = await client.from('inventory').upsert(row).select('id').single());
+      }
+      if (error) return fail('INVENTORY_UPSERT_ERROR', error.message);
+      return { ok: true, table: 'inventory', id: data?.id };
+    } catch (err) {
+      return fail('INVENTORY_UPSERT_EXCEPTION', err.message || String(err));
+    }
+  }
+
+  async function saveParsedEntry(parsed) {
+    if (!parsed || !parsed.entryType) {
+      return fail('INVALID_PARSED', 'بيانات غير صالحة');
+    }
+    applyBranchFromName(parsed.branchName);
+
+    if (parsed.entryType === 'sale') return insertSaleRecord(parsed);
+    if (parsed.entryType === 'expense') return insertExpenseRecord(parsed);
+    if (parsed.entryType === 'inventory') return insertInventoryRecord(parsed);
+    return fail('UNKNOWN_TYPE', 'نوع العملية غير معروف');
+  }
+
+  /**
+   * تحليل ثم حفظ إدخال بلغة طبيعية في Supabase.
+   */
+  async function submitNaturalLanguageEntry(text) {
+    const parsedRes = parseNaturalLanguageEntry(text);
+    if (!parsedRes.ok) return parsedRes;
+    const saved = await saveParsedEntry(parsedRes.parsed);
+    if (!saved.ok) return saved;
+    return { ok: true, parsed: parsedRes.parsed, saved };
+  }
+
+  /**
+   * حفظ إدخال يدوي من النموذج التقليدي.
+   */
+  async function saveManualEntry(fields) {
+    const entryType = String(fields?.entryType || 'sale').trim();
+    const amount = parseNumberToken(fields?.amount);
+    if (amount == null) return fail('NO_AMOUNT', 'المبلغ مطلوب');
+    const currency = detectCurrency('', fields?.currency || 'SAR');
+    const parsed = {
+      entryType,
+      productName: String(fields?.productName || '').trim() || '—',
+      amount,
+      amountAud: convertToAud(amount, currency),
+      currency,
+      quantity: Math.max(1, parseInt(fields?.quantity, 10) || 1),
+      branchName: fields?.branchName ? String(fields.branchName).trim() : null,
+      rawText: 'manual',
+    };
+    const saved = await saveParsedEntry(parsed);
+    if (!saved.ok) return saved;
+    return { ok: true, parsed, saved };
+  }
+
   function getDefaultCountryCode() {
     const code = getConfig().defaultCountryCode;
     return code && String(code).trim() ? String(code).trim().toUpperCase() : 'AU';
@@ -513,6 +899,12 @@
     getTaxSummary,
     getDashboardSnapshot,
     getDefaultCountryCode,
+    parseNaturalLanguageEntry,
+    submitNaturalLanguageEntry,
+    saveManualEntry,
+    saveParsedEntry,
+    applyBranchFromName,
+    convertToAud,
     TAX_BY_COUNTRY,
   };
 
