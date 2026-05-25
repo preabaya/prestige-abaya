@@ -497,6 +497,11 @@
     }
   }
 
+  function getDefaultCountryCode() {
+    const code = getConfig().defaultCountryCode;
+    return code && String(code).trim() ? String(code).trim().toUpperCase() : 'AU';
+  }
+
   const DashboardService = {
     getClient,
     resolveBranchId,
@@ -507,6 +512,7 @@
     getInventoryStatus,
     getTaxSummary,
     getDashboardSnapshot,
+    getDefaultCountryCode,
     TAX_BY_COUNTRY,
   };
 

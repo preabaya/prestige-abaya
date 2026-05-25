@@ -88,7 +88,7 @@
     document.documentElement.setAttribute('data-theme', 'light');
     bindExecNav();
     bindSidebarToggle();
-    if (typeof global.updateDashboard !== 'function') {
+    if (typeof global.refreshUI !== 'function' && typeof global.updateDashboard !== 'function') {
       renderDummyKpis();
     }
   }
