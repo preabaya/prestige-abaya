@@ -39,7 +39,7 @@
   }
 
   function getService() {
-    return global.DashboardService || global.dashboardService;
+    return global.PrestigeCore || global.DashboardService || global.dashboardService;
   }
 
   function formatAud(n) {
@@ -214,8 +214,10 @@
         source === 'openai' ? 'OpenAI' : source === 'heuristic' ? 'تحليل ذكي' : 'جاهز للتأكيد';
     }
 
-    if (global.DataEntryClassifier?.classify) {
-      global.DataEntryClassifier.classify($('ai-command-input')?.value?.trim() || '');
+    const classifier =
+      global.PrestigeCore?.DataEntryClassifier || global.DataEntryClassifier;
+    if (classifier?.classify) {
+      classifier.classify($('ai-command-input')?.value?.trim() || '');
     }
   }
 

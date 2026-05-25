@@ -397,8 +397,10 @@
     })();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase.config.js?v=20260524-skip-auth-sales"></script>
+  <script src="supabase.config.js?v=20260531-prestige-core"></script>
+  <script src="prestige-env.js"></script>
   <script>
+    window.__PRESTIGE_ENV__ = window.__PRESTIGE_ENV__ || {};
     window.SUPABASE_CONFIG = window.SUPABASE_CONFIG || {
       url: '',
       anonKey: '',
@@ -407,8 +409,7 @@
       skipAuthForSales: true,
     };
   </script>
-  <script src="db-helper.js?v=20260520-db-helper"></script>
-  <script src="dashboard-service.js?v=20260524-refresh-ui"></script>
+  <script src="prestige-core.js?v=20260531-prestige-core"></script>
   <script src="supabase-bridge.js?v=20260520-no-image"></script>
   <script src="auth-guard.js?v=20260524"></script>
   <script>
@@ -417,7 +418,6 @@
   <script src="script.js?v=20260524-ai-widget"></script>
   <script src="sales.js?v=20260530-db-helper"></script>
   <script src="ai-engine.js"></script>
-  <script src="inventory-manager.js?v=20260524"></script>
   <script src="notifications-center.js?v=20260524"></script>
   <script src="operations-center.js?v=20260524"></script>
   <script src="customer-experience.js?v=20260524"></script>
@@ -428,276 +428,5 @@
   <script src="dashboard-charts.js?v=20260524-luxury-light"></script>
   <script src="executive-overview-ui.js?v=20260524-luxury-light"></script>
   <script src="ai-assistant.js?v=20260524"></script>
-  <script>
-    (function () {
-      'use strict';
-
-      var KPI_CARD_IDS = ['exec-kpi-revenue', 'exec-kpi-profit', 'exec-kpi-tax', 'exec-kpi-inventory'];
-      var refreshInFlight = false;
-
-      function formatAud(amount) {
-        var n = Number(amount);
-        if (!Number.isFinite(n)) return '—';
-        return n.toLocaleString('en-AU', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-      }
-
-      function resolveCountryCode() {
-        if (window.DashboardService && typeof window.DashboardService.getDefaultCountryCode === 'function') {
-          return window.DashboardService.getDefaultCountryCode();
-        }
-        var cfg = window.SUPABASE_CONFIG || {};
-        return cfg.defaultCountryCode ? String(cfg.defaultCountryCode).trim().toUpperCase() : 'AU';
-      }
-
-      function setKpiCardLoading(cardId) {
-        var card = document.getElementById(cardId);
-        if (!card) return;
-        card.classList.add('exec-kpi-card--loading');
-        card.setAttribute('aria-busy', 'true');
-        var spinner = card.querySelector('.exec-kpi-spinner');
-        var val = card.querySelector('.exec-kpi-card__value');
-        var delta = card.querySelector('.exec-kpi-card__delta');
-        if (spinner) spinner.hidden = false;
-        if (val) {
-          val.hidden = true;
-          val.textContent = '';
-        }
-        if (delta) delta.textContent = '';
-      }
-
-      function setKpiCard(cardId, payload) {
-        var card = document.getElementById(cardId);
-        if (!card) return;
-        card.classList.remove('exec-kpi-card--loading');
-        card.removeAttribute('aria-busy');
-
-        var spinner = card.querySelector('.exec-kpi-spinner');
-        var val = card.querySelector('.exec-kpi-card__value');
-        var delta = card.querySelector('.exec-kpi-card__delta');
-        var unit = card.querySelector('.exec-kpi-card__unit');
-        var label = card.querySelector('.exec-kpi-card__label');
-
-        if (spinner) spinner.hidden = true;
-        if (val) {
-          val.hidden = false;
-          val.textContent = payload.value != null ? String(payload.value) : '—';
-        }
-        if (unit && payload.unit != null) unit.textContent = payload.unit;
-        if (label && payload.label) label.textContent = payload.label;
-        if (delta) {
-          delta.textContent = payload.delta != null ? String(payload.delta) : '';
-          delta.classList.toggle('exec-kpi-card__delta--up', !!payload.deltaUp);
-          delta.classList.toggle('exec-kpi-card__delta--down', !!payload.deltaDown);
-        }
-
-        card.classList.toggle('exec-kpi-card--alert', !!payload.alertFlag);
-
-        if (payload.error) {
-          card.classList.add('exec-kpi-card--error');
-          card.setAttribute('title', payload.error);
-        } else {
-          card.classList.remove('exec-kpi-card--error');
-          card.removeAttribute('title');
-        }
-      }
-
-      function setHeaderLoading(loading) {
-        var live = document.getElementById('exec-overview-dashboard-live');
-        var desc = document.getElementById('exec-overview-dashboard-desc');
-        var grid = document.getElementById('exec-kpi-grid');
-        if (grid) grid.setAttribute('aria-busy', loading ? 'true' : 'false');
-        if (loading) {
-          if (live) {
-            live.innerHTML =
-              '<span class="exec-live-spinner" aria-hidden="true"></span> جاري التحميل…';
-          }
-          if (desc) desc.textContent = 'مؤشرات أداء رئيسية — جاري جلب البيانات من Supabase…';
-        }
-      }
-
-      function setAllKpisLoading() {
-        setHeaderLoading(true);
-        KPI_CARD_IDS.forEach(setKpiCardLoading);
-      }
-
-      function renderRevenueCard(revenue) {
-        if (revenue && revenue.ok) {
-          setKpiCard('exec-kpi-revenue', {
-            value: formatAud(revenue.totalRevenue),
-            unit: revenue.currency || 'AUD',
-            delta: (revenue.salesCount != null ? revenue.salesCount : 0) + ' عملية بيع',
-            deltaUp: true,
-          });
-          return;
-        }
-        setKpiCard('exec-kpi-revenue', {
-          value: '—',
-          delta: (revenue && revenue.error) || 'خطأ في الإيرادات',
-          error: revenue && revenue.error,
-        });
-      }
-
-      function renderProfitCard(profit) {
-        if (profit && profit.ok) {
-          var margin =
-            profit.totalRevenue > 0
-              ? Math.round((profit.netProfit / profit.totalRevenue) * 1000) / 10
-              : 0;
-          setKpiCard('exec-kpi-profit', {
-            value: formatAud(profit.netProfit),
-            unit: profit.currency || 'AUD',
-            delta:
-              'مصروفات ' + formatAud(profit.totalExpenses) + ' · هامش ' + margin + '%',
-            deltaUp: profit.netProfit >= 0,
-            deltaDown: profit.netProfit < 0,
-          });
-          return;
-        }
-        setKpiCard('exec-kpi-profit', {
-          value: '—',
-          delta: (profit && profit.error) || 'خطأ في صافي الربح',
-          error: profit && profit.error,
-        });
-      }
-
-      function renderTaxCard(tax, countryCode) {
-        if (tax && tax.ok) {
-          setKpiCard('exec-kpi-tax', {
-            label: 'الضريبة · ' + (tax.taxName || '') + ' (' + (tax.countryCode || countryCode) + ')',
-            value: formatAud(tax.taxAmount),
-            unit: tax.currency || 'AUD',
-            delta:
-              (tax.taxRatePercent != null ? tax.taxRatePercent : '') +
-              '% · أساس ' +
-              formatAud(tax.taxableRevenue) +
-              ' AUD',
-          });
-          return;
-        }
-        setKpiCard('exec-kpi-tax', {
-          label: 'الضريبة · ' + countryCode,
-          value: '—',
-          delta: (tax && tax.error) || 'خطأ في الضريبة',
-          error: tax && tax.error,
-        });
-      }
-
-      function renderInventoryCard(inventory) {
-        if (inventory && inventory.ok) {
-          var thresholdCount =
-            inventory.stockAlertCount != null
-              ? inventory.stockAlertCount
-              : (inventory.thresholdAlerts && inventory.thresholdAlerts.length) || 0;
-          var legacyCount = (inventory.lowCount || 0) + (inventory.outOfStockCount || 0);
-          var alertCount = Math.max(thresholdCount, legacyCount);
-          var hasAlert = !!(inventory.alert_flag || inventory.alertFlag || alertCount > 0);
-          setKpiCard('exec-kpi-inventory', {
-            value: String(alertCount),
-            unit: 'تنبيه',
-            delta:
-              (hasAlert ? '⚠ أقل من 5 قطع: ' + thresholdCount + ' · ' : '') +
-              'منخفض ' +
-              (inventory.lowCount || 0) +
-              ' · نفاد ' +
-              (inventory.outOfStockCount || 0) +
-              ' · ' +
-              (inventory.total || 0) +
-              ' صنف',
-            deltaUp: !hasAlert,
-            deltaDown: hasAlert,
-            alertFlag: hasAlert,
-          });
-          return;
-        }
-        setKpiCard('exec-kpi-inventory', {
-          value: '—',
-          delta: (inventory && inventory.error) || 'خطأ في المخزون',
-          error: inventory && inventory.error,
-        });
-      }
-
-      function setHeaderReady(snapshot, countryCode) {
-        var live = document.getElementById('exec-overview-dashboard-live');
-        var desc = document.getElementById('exec-overview-dashboard-desc');
-        var revenue = snapshot.revenue || {};
-        var profit = snapshot.profit || {};
-        var branchId =
-          (profit.branchId || revenue.branchId || (snapshot.profile && snapshot.profile.branchId)) ||
-          'الكل';
-        if (live) live.textContent = '● Live · Supabase';
-        if (desc) {
-          desc.textContent =
-            'مؤشرات من قاعدة البيانات — فرع: ' + branchId + ' · ضريبة: ' + countryCode;
-        }
-      }
-
-      async function refreshUI() {
-        if (refreshInFlight) return;
-        refreshInFlight = true;
-        setAllKpisLoading();
-
-        if (!window.DashboardService) {
-          KPI_CARD_IDS.forEach(function (id) {
-            setKpiCard(id, {
-              value: '—',
-              delta: 'DashboardService غير متاح',
-              error: 'لم يُحمَّل dashboard-service.js',
-            });
-          });
-          setHeaderLoading(false);
-          refreshInFlight = false;
-          return;
-        }
-
-        var countryCode = resolveCountryCode();
-
-        try {
-          var snapshot = await window.DashboardService.getDashboardSnapshot({
-            countryCode: countryCode,
-          });
-
-          if (!snapshot || !snapshot.ok) {
-            var errMsg = (snapshot && snapshot.error) || 'فشل جلب ملخص اللوحة';
-            KPI_CARD_IDS.forEach(function (id) {
-              setKpiCard(id, { value: '—', delta: errMsg, error: errMsg });
-            });
-            var liveErr = document.getElementById('exec-overview-dashboard-live');
-            if (liveErr) liveErr.textContent = '● خطأ';
-            refreshInFlight = false;
-            return;
-          }
-
-          renderRevenueCard(snapshot.revenue);
-          renderProfitCard(snapshot.profit);
-          renderTaxCard(snapshot.tax, countryCode);
-          renderInventoryCard(snapshot.inventory);
-          setHeaderReady(snapshot, countryCode);
-        } catch (err) {
-          var message = err && err.message ? err.message : String(err);
-          KPI_CARD_IDS.forEach(function (id) {
-            setKpiCard(id, { value: '—', delta: message, error: message });
-          });
-          var liveFail = document.getElementById('exec-overview-dashboard-live');
-          if (liveFail) liveFail.textContent = '● خطأ';
-        } finally {
-          setHeaderLoading(false);
-          refreshInFlight = false;
-        }
-      }
-
-      window.refreshUI = refreshUI;
-      window.updateDashboard = refreshUI;
-
-      function bootDashboard() {
-        refreshUI();
-      }
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', bootDashboard);
-      } else {
-        bootDashboard();
-      }
-    })();
-  </script>
 </body>
 </html>

@@ -281,104 +281,14 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.config.js"></script>
+  <script src="prestige-env.js"></script>
   <script>
+    window.__PRESTIGE_ENV__ = window.__PRESTIGE_ENV__ || {};
     window.SUPABASE_CONFIG = window.SUPABASE_CONFIG || { url: '', anonKey: '', enabled: false, skipAuth: true };
   </script>
-  <script src="db-helper.js"></script>
-  <script src="dashboard-service.js?v=20260525-inventory-ai"></script>
-  <script src="supabase-bridge.js"></script>
+  <script src="prestige-core.js?v=20260531-prestige-core"></script>
   <script src="auth-guard.js"></script>
   <script>void AuthGuard.checkAccess('admin');</script>
-  <script>
-    /**
-     * تصنيف فوري داخل AI Command Bar — يكمّل DashboardService.classifyCommandIntent
-     */
-    (function () {
-      'use strict';
-      var classifyTimer = null;
-
-      function classifyLocal(text) {
-        var raw = String(text || '').trim();
-        if (!raw) return { intent: '', label: '—', entryType: '' };
-        if (/مصروف|expense/i.test(raw)) {
-          return { intent: 'expense_update', entryType: 'expense', label: 'مصروف · expense_update' };
-        }
-        if (
-          /^(?:إضافة|add)\s+\d+/i.test(raw) ||
-          (/^(?:إضافة|add)\s+/i.test(raw) && !/بعنا|بيع|sale/i.test(raw))
-        ) {
-          return { intent: 'inventory_update', entryType: 'inventory', label: 'مخزون · inventory_update' };
-        }
-        if (/بعنا|بيعنا|بيع|sale|sold/i.test(raw)) {
-          return { intent: 'sale_update', entryType: 'sale', label: 'مبيعات · sale_update' };
-        }
-        return { intent: 'sale_update', entryType: 'sale', label: 'مبيعات · sale_update' };
-      }
-
-      function applyIntentBadge(result) {
-        var badge = document.getElementById('ai-intent-badge');
-        var bar = document.getElementById('data-entry-command-bar');
-        if (!badge) return;
-        badge.textContent = result.label || '—';
-        badge.dataset.intent = result.intent || '';
-        badge.classList.remove(
-          'data-entry-ai-classify__badge--sale',
-          'data-entry-ai-classify__badge--inventory',
-          'data-entry-ai-classify__badge--expense'
-        );
-        if (result.intent === 'inventory_update') {
-          badge.classList.add('data-entry-ai-classify__badge--inventory');
-        } else if (result.intent === 'sale_update') {
-          badge.classList.add('data-entry-ai-classify__badge--sale');
-        } else if (result.intent === 'expense_update') {
-          badge.classList.add('data-entry-ai-classify__badge--expense');
-        }
-        if (bar) bar.setAttribute('data-detected-intent', result.intent || '');
-      }
-
-      function runClassify(text) {
-        var svc = window.DashboardService || window.dashboardService;
-        var result = svc && svc.classifyCommandIntent
-          ? svc.classifyCommandIntent(text)
-          : classifyLocal(text);
-        applyIntentBadge(result);
-        window.DataEntryClassifier = { last: result, classify: runClassify };
-      }
-
-      function scheduleClassify() {
-        clearTimeout(classifyTimer);
-        var input = document.getElementById('ai-command-input');
-        var text = input ? input.value.trim() : '';
-        if (!text) {
-          applyIntentBadge({ label: '—', intent: '' });
-          return;
-        }
-        classifyTimer = setTimeout(function () {
-          runClassify(text);
-        }, 280);
-      }
-
-      document.addEventListener('DOMContentLoaded', function () {
-        var input = document.getElementById('ai-command-input');
-        if (input) {
-          input.addEventListener('input', scheduleClassify);
-          input.addEventListener('focus', scheduleClassify);
-        }
-        document.querySelectorAll('.data-entry-mode-btn').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            var intent = btn.getAttribute('data-intent') || '';
-            applyIntentBadge({
-              intent: intent,
-              label: btn.textContent.trim() + ' · ' + intent,
-              entryType: btn.getAttribute('data-mode') || '',
-            });
-          });
-        });
-      });
-
-      window.DataEntryClassifier = { classify: runClassify, schedule: scheduleClassify };
-    })();
-  </script>
-  <script src="data-entry.js?v=20260525-inventory-ai"></script>
+  <script src="data-entry.js?v=20260531-prestige-core"></script>
 </body>
 </html>
