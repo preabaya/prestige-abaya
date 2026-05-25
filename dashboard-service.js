@@ -580,6 +580,21 @@
     );
   }
 
+  function resolveEntryUserId() {
+    if (global.SupabaseBridge?.userId) {
+      const id = global.SupabaseBridge.userId();
+      if (id) return String(id);
+    }
+    const cfg = getConfig();
+    if (cfg.smartEntryUserId) return String(cfg.smartEntryUserId).trim();
+    return null;
+  }
+
+  function resolveCreatedBy(userId) {
+    if (userId) return `user:${userId}`;
+    return 'smart-entry';
+  }
+
   function toCommandJson(parsed) {
     const action = parsed.entryType || 'sale';
     return {
@@ -594,6 +609,7 @@
       branch_id: parsed.branchId || null,
       amount_aud: parsed.amountAud,
       timestamp: parsed.recordedAt || null,
+      user_id: parsed.userId || null,
     };
   }
 
@@ -623,8 +639,9 @@
   function enrichParsedForSave(parsed) {
     const next = { ...parsed };
     if (next.branchName) applyBranchFromName(next.branchName);
-    next.branchId = resolveBranchId();
+    next.branchId = resolveBranchId(next.branchId);
     next.recordedAt = next.recordedAt || new Date().toISOString();
+    next.userId = next.userId || resolveEntryUserId();
     if (next.amount != null && (next.amountAud == null || !Number.isFinite(Number(next.amountAud)))) {
       next.amountAud = convertToAud(next.amount, next.currency);
     }
@@ -742,7 +759,12 @@
    * محاكاة ذكية — تحويل الجملة إلى JSON منظم (بدون API).
    */
   function simulateCommandParse(text) {
-    return parseNaturalLanguageEntry(text);
+    const res = parseNaturalLanguageHeuristic(text);
+    if (res.ok && res.parsed) {
+      res.message = res.message || buildConfirmationMessage(res.parsed);
+      res.source = res.source || 'heuristic';
+    }
+    return res;
   }
 
   /**
@@ -769,6 +791,7 @@
               ok: true,
               parsed: built.parsed,
               json: toCommandJson(built.parsed),
+              message: buildConfirmationMessage(built.parsed),
               source: 'openai',
             };
           }
@@ -814,10 +837,10 @@
   }
 
   /**
-   * تحليل إدخال بلغة طبيعية (عربي/إنجليزي) — منتج، سعر، فرع، نوع العملية.
+   * تحليل إدخال بلغة طبيعية (عربي/إنجليزي) — خوارزمية محلية.
    * @param {string} text
    */
-  function parseNaturalLanguageEntry(text) {
+  function parseNaturalLanguageHeuristic(text) {
     try {
       const raw = String(text || '').trim();
       if (!raw) return fail('EMPTY_INPUT', 'اكتب وصف العملية أولاً');
@@ -857,6 +880,8 @@
 
       let quantity = 1;
       const qtyMatch =
+        raw.match(/(?:بعنا|بيعنا|بيع)\s+(\d+)\s*(?:عباء|عباءات|abayas?)/i) ||
+        raw.match(/(\d+)\s*(?:عباء|عباءات|abayas?)/i) ||
         raw.match(/(\d+)\s*(?:قطعة|قطع|وحدة|وحدات|x)/i) ||
         raw.match(/(?:كمية|qty|quantity)\s*[:=]?\s*(\d+)/i);
       if (qtyMatch) {
@@ -879,6 +904,7 @@
           .trim();
       } else {
         const patterns = [
+          /(?:بعنا|بيعنا|بيع)\s+(?:\d+\s+)?(.+?)(?:\s+بـ|\s+ب\s*[\d.,]+|\s+فرع|$)/i,
           /(?:إضافة\s+)?(?:مبيعة|مبيعات|بيع|sale)\s+(.+?)(?:\s+بـ|\s+ب\s*\d|\s+في\s+فرع|$)/i,
           /(?:إضافة|add)\s+(.+?)(?:\s+بـ|\s+ب\s*\d|\s+في\s+فرع|$)/i,
           /(?:منتج|مخزون|product)\s+(.+?)(?:\s+بـ|\s+ب\s*\d|\s+في\s+فرع|$)/i,
@@ -898,6 +924,7 @@
         }
       }
       productName = productName
+        .replace(/^\d+\s+/, '')
         .replace(/\s+في\s+فرع.*/i, '')
         .replace(/\s+بـ\s*[\d.,]+.*/i, '')
         .trim();
@@ -936,6 +963,15 @@
     }
   }
 
+  /**
+   * تحليل إدخال بلغة طبيعية — OpenAI عند التوفر، وإلا الخوارزمية المحلية.
+   * @param {string} text
+   * @returns {Promise<{ok:boolean, parsed?:object, json?:object, message?:string, source?:string, error?:string}>}
+   */
+  async function parseNaturalLanguageEntry(text) {
+    return parseCommandWithAI(text);
+  }
+
   async function insertSaleRecord(parsed) {
     const bridge = global.SupabaseBridge;
     const qty = Math.max(1, parseInt(parsed.quantity, 10) || 1);
@@ -944,6 +980,8 @@
     const tenantId = resolveTenantId();
     const branchId = parsed.branchId || applyBranchFromName(parsed.branchName) || resolveBranchId();
     const ts = parsed.recordedAt || new Date().toISOString();
+    const userId = parsed.userId || resolveEntryUserId();
+    const createdBy = resolveCreatedBy(userId);
 
     const sale = {
       product_name: parsed.productName,
@@ -955,7 +993,10 @@
       customer_name: 'Smart Entry',
       customerName: 'Smart Entry',
       status: 'completed',
-      created_by: 'smart-entry',
+      created_by: createdBy,
+      createdBy,
+      user_id: userId || undefined,
+      userId: userId || undefined,
       created_at: ts,
       createdAt: ts,
       updated_at: ts,
@@ -988,7 +1029,7 @@
       product_name: sale.product_name,
       price: sale.price,
       quantity: qty,
-      created_by: 'smart-entry',
+      created_by: createdBy,
       line_total_aud: lineTotalAud,
       status: 'completed',
       tenant_id: tenantId,
@@ -1020,6 +1061,11 @@
         ? 1
         : roundMoney(amountAud / Math.max(parsed.amount, 1));
 
+    const userId = parsed.userId || resolveEntryUserId();
+    const createdBy = resolveCreatedBy(userId);
+    const cfg = getConfig();
+    const skipAuth = cfg.skipAuth === true;
+
     const row = {
       id: `exp-${Date.now()}`,
       name: parsed.productName || 'مصروف',
@@ -1027,10 +1073,15 @@
       currency: parsed.currency || 'SAR',
       amount_original: roundMoney(parsed.amount),
       exchange_rate: rate,
-      financials: { audTotal: amountAud, recordedAt: parsed.recordedAt },
+      financials: {
+        audTotal: amountAud,
+        recordedAt: parsed.recordedAt,
+        userId: userId || null,
+      },
       created_at: parsed.recordedAt || new Date().toISOString(),
-      created_by: 'smart-entry',
+      created_by: createdBy,
     };
+    if (userId && !skipAuth) row.user_id = userId;
 
     const branchId = parsed.branchId || applyBranchFromName(parsed.branchName) || resolveBranchId();
     if (branchId) {
@@ -1072,6 +1123,8 @@
     const client = getClient();
     if (!client) return fail('NO_CLIENT', 'Supabase غير مهيأ');
 
+    const userId = parsed.userId || resolveEntryUserId();
+    const createdBy = resolveCreatedBy(userId);
     const row = {
       product_name: product.name,
       selling_price: product.price,
@@ -1079,7 +1132,9 @@
       stock_quantity: product.quantity,
       tenant_id: resolveTenantId(),
       last_updated: parsed.recordedAt || new Date().toISOString(),
+      created_by: createdBy,
     };
+    if (userId) row.user_id = userId;
     const branchId = parsed.branchId || applyBranchFromName(parsed.branchName) || resolveBranchId();
     if (branchId) row.branch_id = branchId;
 
@@ -1212,8 +1267,10 @@
     getDashboardSnapshot,
     getDefaultCountryCode,
     parseNaturalLanguageEntry,
+    parseNaturalLanguageHeuristic,
     parseCommandWithAI,
     simulateCommandParse,
+    resolveEntryUserId,
     parsedFromEditableFields,
     buildConfirmationMessage,
     enrichParsedForSave,

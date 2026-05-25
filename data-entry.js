@@ -103,26 +103,29 @@
 
   function updateConfirmTable(parsed, json) {
     const svc = getService();
-    const branchId = svc?.resolveBranchId?.() || '—';
-    const ts = new Date().toISOString();
+    const branchId = parsed.branchId || svc?.resolveBranchId?.() || '—';
+    const ts = parsed.recordedAt || new Date().toISOString();
+    const userId = parsed.userId || svc?.resolveEntryUserId?.() || '—';
 
     const set = function (id, text) {
       const el = $(id);
       if (el) el.textContent = text != null ? String(text) : '—';
     };
 
-    set('preview-table-action', ACTION_LABELS[parsed.entryType] || json?.action);
-    set('preview-table-product', parsed.productName || json?.product);
+    set('preview-table-action', ACTION_LABELS[parsed.entryType] || json?.action || json?.type);
+    set('preview-table-product', parsed.productName || json?.product_display || json?.product);
     set(
       'preview-table-price',
       (parsed.amount != null ? parsed.amount : '—') + ' ' + (parsed.currency || '')
     );
+    set('preview-table-qty', parsed.quantity != null ? parsed.quantity : json?.quantity);
     set('preview-table-branch', parsed.branchName || json?.branch || 'افتراضي');
     set('preview-table-branch-id', branchId);
     set('preview-table-ts', ts);
+    set('preview-table-user', userId);
   }
 
-  function fillPreview(parsed, json, message) {
+  function fillPreview(parsed, json, message, source) {
     currentParsed = parsed;
     currentJson = json;
 
@@ -161,7 +164,11 @@
       jsonEl.textContent = JSON.stringify(json || svc?.toCommandJson?.(parsed) || parsed, null, 2);
     }
 
-    $('parse-source-badge').textContent = 'جاهز للتأكيد';
+    const badge = $('parse-source-badge');
+    if (badge) {
+      badge.textContent =
+        source === 'openai' ? 'OpenAI' : source === 'heuristic' ? 'تحليل ذكي' : 'جاهز للتأكيد';
+    }
   }
 
   function hidePreview() {
@@ -190,11 +197,11 @@
     const label = $('confirm-label');
     if (btn) btn.disabled = loading;
     if (spinner) spinner.hidden = !loading;
-    if (label) label.textContent = loading ? 'جاري الحفظ…' : 'تأكيد';
+    if (label) label.textContent = loading ? 'جاري الحفظ…' : 'تأكيد الحفظ';
   }
 
   /** تحليل فقط — لا حفظ */
-  function runAnalyze() {
+  async function runAnalyze() {
     const svc = getService();
     const input = $('ai-command-input');
     const text = input?.value?.trim() || '';
@@ -212,14 +219,14 @@
     showError($('ai-command-error'), '');
 
     try {
-      const res = svc.parseNaturalLanguageEntry(text);
+      const res = await svc.parseNaturalLanguageEntry(text);
       if (!res.ok) {
         hidePreview();
         showError($('ai-command-error'), res.error || 'فشل التحليل');
         return;
       }
       const json = res.json || svc.toCommandJson(res.parsed);
-      fillPreview(res.parsed, json, res.message);
+      fillPreview(res.parsed, json, res.message, res.source);
       $('smart-preview')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {
       showError($('ai-command-error'), err.message || String(err));
@@ -266,6 +273,7 @@
   }
 
   function triggerSuccessMicro(parsed, saved) {
+    $('data-entry-main-card')?.classList.add('data-entry-luxury-card--pulse');
     $('data-entry-command-wrap')?.classList.add('data-entry-command-wrap--success');
     $('data-entry-command-bar')?.classList.add('data-entry-command-bar--success-flash');
 
@@ -300,6 +308,7 @@
     $('smart-confirm')?.classList.add('data-entry-confirm-btn--success');
 
     setTimeout(function () {
+      $('data-entry-main-card')?.classList.remove('data-entry-luxury-card--pulse');
       $('data-entry-command-wrap')?.classList.remove('data-entry-command-wrap--success');
       $('data-entry-command-bar')?.classList.remove('data-entry-command-bar--success-flash');
       preview?.classList.remove('data-entry-smart-preview--success-pop');
