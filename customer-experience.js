@@ -61,6 +61,11 @@
    * @param {{ customer_id: string, customer_name?: string, rating?: number, message?: string, feedback_type?: string }} feedbackData
    */
   async function logCustomerFeedback(feedbackData) {
+    const core = global.PrestigeCore || global.prestigeCore;
+    if (core?.probeTable && (await core.probeTable('customer_feedback')) === false) {
+      return { ok: true, skipped: true, reason: 'customer_feedback table not deployed' };
+    }
+
     const client = getClient();
     if (!client) {
       return { ok: false, error: 'Supabase غير مهيأ' };
@@ -99,7 +104,12 @@
       .select('id, customer_id, rating, message, sentiment, created_at')
       .single();
 
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      if (core?.isRelationMissingError?.(error)) {
+        return { ok: true, skipped: true, reason: error.message };
+      }
+      return { ok: false, error: error.message };
+    }
     return { ok: true, data, sentiment: sentimentResult };
   }
 
@@ -107,6 +117,17 @@
    * Tenant-wide average customer satisfaction from all feedback.
    */
   async function getOverallCustomerSatisfaction() {
+    const core = global.PrestigeCore || global.prestigeCore;
+    if (core?.isTableAvailable && core.isTableAvailable('customer_feedback') === false) {
+      return {
+        ok: true,
+        skipped: true,
+        averageRating: null,
+        feedbackCount: 0,
+        reason: 'customer_feedback table not deployed',
+      };
+    }
+
     const client = getClient();
     if (!client) {
       return { ok: false, error: 'Supabase غير مهيأ', averageRating: null, feedbackCount: 0 };
@@ -123,6 +144,15 @@
 
     const { data, error } = await query;
     if (error) {
+      if (core?.isRelationMissingError?.(error)) {
+        return {
+          ok: true,
+          skipped: true,
+          averageRating: null,
+          feedbackCount: 0,
+          reason: error.message,
+        };
+      }
       return { ok: false, error: error.message, averageRating: null, feedbackCount: 0 };
     }
 
@@ -175,6 +205,18 @@
    * Aggregate sentiment for a customer from their feedback history.
    */
   async function getCustomerSentiment(customerId) {
+    const core = global.PrestigeCore || global.prestigeCore;
+    if (core?.isTableAvailable && core.isTableAvailable('customer_feedback') === false) {
+      return {
+        ok: true,
+        customerId: String(customerId || '').trim(),
+        sentiment: 'neutral',
+        label: 'جدول feedback غير مفعّل',
+        feedbackCount: 0,
+        skipped: true,
+      };
+    }
+
     const client = getClient();
     if (!client) {
       return { ok: false, error: 'Supabase غير مهيأ' };
@@ -196,7 +238,19 @@
     if (tenantId) query = query.eq('tenant_id', tenantId);
 
     const { data, error } = await query;
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      if (core?.isRelationMissingError?.(error)) {
+        return {
+          ok: true,
+          customerId: cid,
+          sentiment: 'neutral',
+          label: 'جدول feedback غير مفعّل',
+          feedbackCount: 0,
+          skipped: true,
+        };
+      }
+      return { ok: false, error: error.message };
+    }
 
     const rows = data || [];
     if (!rows.length) {

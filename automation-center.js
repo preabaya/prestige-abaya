@@ -52,6 +52,11 @@
    * Delete ai_alerts older than 30 days for current tenant.
    */
   async function runDailyCleanup() {
+    const core = global.PrestigeCore || global.prestigeCore;
+    if (core?.probeTable && (await core.probeTable('ai_alerts')) === false) {
+      return { ok: true, skipped: true, deletedCount: 0, reason: 'ai_alerts not deployed' };
+    }
+
     const client = getClient();
     if (!client) {
       return { ok: false, error: 'Supabase غير مهيأ', deletedCount: 0 };

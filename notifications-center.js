@@ -57,6 +57,11 @@
   }
 
   async function fetchAlerts() {
+    const core = global.PrestigeCore || global.prestigeCore;
+    if (core?.probeTable && (await core.probeTable('ai_alerts')) === false) {
+      return { ok: true, data: [], skipped: true, reason: 'ai_alerts table not deployed' };
+    }
+
     const client = getClient();
     if (!client) {
       return { ok: false, data: [], error: 'Supabase غير مهيأ' };
@@ -72,7 +77,12 @@
     if (tenantId) query = query.eq('tenant_id', tenantId);
 
     const { data, error } = await query;
-    if (error) return { ok: false, data: [], error: error.message };
+    if (error) {
+      if (core?.isRelationMissingError?.(error)) {
+        return { ok: true, data: [], skipped: true, reason: error.message };
+      }
+      return { ok: false, data: [], error: error.message };
+    }
     return { ok: true, data: data || [] };
   }
 
@@ -162,8 +172,19 @@
     return result;
   }
 
-  function startPolling() {
+  async function startPolling() {
     stopPolling();
+    const core = global.PrestigeCore || global.prestigeCore;
+    if (core?.probeTable) await core.probeTable('ai_alerts');
+    if (core?.isTableAvailable && !core.isTableAvailable('ai_alerts')) {
+      const list = document.getElementById('notifications-list');
+      if (list) {
+        list.innerHTML =
+          '<li class="notifications-list__status">جدول ai_alerts غير مفعّل — تم تخطي التنبيهات</li>';
+      }
+      updateBadge(0);
+      return;
+    }
     void renderNotifications();
     pollTimer = global.setInterval(() => {
       void renderNotifications();

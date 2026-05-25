@@ -614,6 +614,11 @@ const SupabaseBridge = {
   },
 
   async logAiAlert({ tenantId, alertType, message, tableName, recordId, severity, metadata }) {
+    const core = global.prestigeCore || global.PrestigeCore;
+    if (core?.probeTable && (await core.probeTable('ai_alerts')) === false) {
+      return { ok: true, skipped: true, reason: 'ai_alerts table not deployed' };
+    }
+
     const client = this.getClient();
     if (!client || !tenantId) return { ok: false, error: 'No client or tenant' };
 

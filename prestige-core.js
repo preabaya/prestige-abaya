@@ -10,7 +10,13 @@
   const TENANT_STORAGE_KEY = 'current_tenant_id';
   const AUTH_STORAGE_KEY = 'prestige-abaya-supabase-auth';
   const INSUFFICIENT_STOCK_MSG = 'عفواً، الكمية غير كافية!';
-  const CORE_TABLES = ['sales', 'inventory', 'expenses', 'profiles'];
+  const CORE_TABLES_REQUIRED = ['sales', 'inventory', 'expenses'];
+  const CORE_TABLES_OPTIONAL = ['profiles', 'ai_alerts', 'customer_feedback'];
+  const CORE_TABLES = [...CORE_TABLES_REQUIRED, ...CORE_TABLES_OPTIONAL];
+  const TABLES_USE_TENANT_ONLY = new Set(['sales', 'inventory', 'expenses']);
+
+  /** @type {Record<string, boolean | undefined>} */
+  const _tableAvailability = {};
   /** حدّ التنبيه على لوحة التحكم — أقل من هذه القطع */
   const STOCK_ALERT_THRESHOLD = 5;
 
@@ -157,9 +163,107 @@
     return roundMoney(amount * rate);
   }
 
+  function isRelationMissingError(error) {
+    const msg = String(error?.message || error || '').toLowerCase();
+    const code = String(error?.code || '');
+    return (
+      code === 'PGRST205' ||
+      code === '42P01' ||
+      (msg.includes('relation') && msg.includes('does not exist')) ||
+      (msg.includes('schema cache') && msg.includes('could not find'))
+    );
+  }
+
+  function extractMissingColumn(error) {
+    const msg = String(error?.message || '');
+    const patterns = [
+      /column ['"]?([\w]+)['"]? does not exist/i,
+      /Could not find the ['"]?([\w]+)['"]? column/i,
+      /['"]?([\w]+)['"]? column of/i,
+    ];
+    for (const re of patterns) {
+      const m = msg.match(re);
+      if (m && m[1]) return m[1];
+    }
+    return null;
+  }
+
   function isMissingColumnError(error) {
     const msg = String(error?.message || error || '').toLowerCase();
-    return msg.includes('branch_id') && (msg.includes('does not exist') || msg.includes('column'));
+    const code = String(error?.code || '');
+    if (code === 'PGRST204' || code === '42703') return true;
+    if (msg.includes('column') && (msg.includes('does not exist') || msg.includes('not found'))) {
+      return true;
+    }
+    return msg.includes('branch_id') && msg.includes('column');
+  }
+
+  function isSchemaMismatchError(error) {
+    return isMissingColumnError(error) || isRelationMissingError(error);
+  }
+
+  /**
+   * فحص وجود جدول (يُخزَّن في الذاكرة بعد أول طلب).
+   */
+  async function probeTable(tableName) {
+    const name = String(tableName || '').trim();
+    if (!name) return false;
+    if (_tableAvailability[name] === true) return true;
+    if (_tableAvailability[name] === false) return false;
+
+    const client = getClient();
+    if (!client) {
+      _tableAvailability[name] = false;
+      return false;
+    }
+
+    const { error } = await client.from(name).select('*').limit(0);
+    if (!error) {
+      _tableAvailability[name] = true;
+      return true;
+    }
+    if (isRelationMissingError(error)) {
+      _tableAvailability[name] = false;
+      return false;
+    }
+    _tableAvailability[name] = true;
+    return true;
+  }
+
+  function isTableAvailable(tableName) {
+    const name = String(tableName || '').trim();
+    if (_tableAvailability[name] === false) return false;
+    if (_tableAvailability[name] === true) return true;
+    return true;
+  }
+
+  async function writeRowWithFallback(table, row, selectCols = 'id', writeOpts = {}) {
+    const client = getClient();
+    if (!client) return fail('NO_CLIENT', 'Supabase غير مهيأ');
+    const useUpsert = !!writeOpts.upsert;
+
+    let payload = { ...row };
+    for (let i = 0; i < 8; i++) {
+      const builder = useUpsert
+        ? client.from(table).upsert(payload)
+        : client.from(table).insert(payload);
+      const { data, error } = await builder.select(selectCols).single();
+      if (!error) return { ok: true, data };
+      if (isRelationMissingError(error)) {
+        _tableAvailability[table] = false;
+        return fail('TABLE_MISSING', error.message);
+      }
+      if (!isMissingColumnError(error)) {
+        return fail('INSERT_ERROR', error.message);
+      }
+      const col = extractMissingColumn(error);
+      if (col && Object.prototype.hasOwnProperty.call(payload, col)) {
+        delete payload[col];
+        continue;
+      }
+      return fail('INSERT_ERROR', error.message);
+    }
+    return fail('INSERT_ERROR', 'تعذّر مطابقة أعمدة الجدول');
   }
 
   function fail(code, message, extra = {}) {
@@ -170,7 +274,7 @@
    * Apply branch_id filter; on missing column, retry with tenant_id.
    * @param {import('@supabase/supabase-js').PostgrestFilterBuilder} query
    */
-  async function runScopedQuery(buildQuery, branchId) {
+  async function runScopedQuery(buildQuery, branchId, queryMeta = {}) {
     const client = getClient();
     if (!client) {
       return { ok: false, error: 'Supabase غير مهيأ — راجع supabase.config.js', data: [] };
@@ -186,19 +290,24 @@
       }
     }
 
-    try {
-      let q = buildQuery(client, branchId);
-      q = q.eq('branch_id', branchId);
-      const { data, error } = await q;
-      if (!error) {
-        return { ok: true, data: data || [], scope: 'branch_id', branchId };
-      }
-      if (!isMissingColumnError(error)) {
-        return { ok: false, error: error.message, data: [] };
-      }
-    } catch (err) {
-      if (!isMissingColumnError(err)) {
-        return { ok: false, error: err.message || String(err), data: [] };
+    const tableName = queryMeta.tableName || null;
+    const tenantOnly = tableName && TABLES_USE_TENANT_ONLY.has(tableName);
+
+    if (!tenantOnly) {
+      try {
+        let q = buildQuery(client, branchId);
+        q = q.eq('branch_id', branchId);
+        const { data, error } = await q;
+        if (!error) {
+          return { ok: true, data: data || [], scope: 'branch_id', branchId };
+        }
+        if (!isMissingColumnError(error)) {
+          return { ok: false, error: error.message, data: [] };
+        }
+      } catch (err) {
+        if (!isMissingColumnError(err)) {
+          return { ok: false, error: err.message || String(err), data: [] };
+        }
       }
     }
 
@@ -240,7 +349,7 @@
 
       const { data: profile, error: profileError } = await client
         .from('profiles')
-        .select('id, tenant_id, user_role, display_name')
+        .select('id, tenant_id, display_name, updated_at')
         .eq('id', userId)
         .maybeSingle();
 
@@ -272,7 +381,8 @@
       const branchId = resolveBranchId(options.branchId);
       const res = await runScopedQuery(
         (client) => client.from('sales').select('line_total_aud, price, quantity, status'),
-        branchId
+        branchId,
+        { tableName: 'sales' }
       );
 
       if (!res.ok) {
@@ -341,70 +451,17 @@
     }
 
     try {
-      let query = client.from('expenses').select('amount_original, exchange_rate, financials');
-      let scope = 'none';
-
-      if (branchId) {
-        const branchTry = await query.eq('branch_id', branchId);
-        if (!branchTry.error) {
-          const rows = branchTry.data || [];
-          const totalExpenses = roundMoney(rows.reduce((s, r) => s + expenseAmount(r), 0));
-          return {
-            ok: true,
-            totalExpenses,
-            expensesCount: rows.length,
-            branchId,
-            scope: 'branch_id',
-          };
-        }
-        if (!isMissingColumnError(branchTry.error)) {
-          return fail('EXPENSES_FETCH_ERROR', branchTry.error.message);
-        }
-
-        const tenantTry = await client
-          .from('expenses')
-          .select('amount_original, exchange_rate, financials')
-          .eq('tenant_id', branchId);
-        if (!tenantTry.error) {
-          const rows = tenantTry.data || [];
-          const totalExpenses = roundMoney(rows.reduce((s, r) => s + expenseAmount(r), 0));
-          return {
-            ok: true,
-            totalExpenses,
-            expensesCount: rows.length,
-            branchId,
-            scope: 'tenant_id',
-          };
-        }
-        if (!isMissingColumnError(tenantTry.error)) {
-          return fail('EXPENSES_FETCH_ERROR', tenantTry.error.message);
-        }
-
-        const allRes = await client.from('expenses').select('amount_original, exchange_rate, financials');
-        if (allRes.error) {
-          return fail('EXPENSES_FETCH_ERROR', allRes.error.message);
-        }
-        const rows = allRes.data || [];
-        const totalExpenses = roundMoney(rows.reduce((s, r) => s + expenseAmount(r), 0));
-        return {
-          ok: true,
-          totalExpenses,
-          expensesCount: rows.length,
-          branchId,
-          scope: 'unscoped',
-          warning: 'جدول expenses لا يحتوي branch_id/tenant_id — تم جمع كل السجلات',
-        };
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await client
+        .from('expenses')
+        .select('amount_original, exchange_rate, financials');
       if (error) return fail('EXPENSES_FETCH_ERROR', error.message);
       const rows = data || [];
       return {
         ok: true,
         totalExpenses: roundMoney(rows.reduce((s, r) => s + expenseAmount(r), 0)),
         expensesCount: rows.length,
-        branchId: null,
-        scope,
+        branchId: branchId || null,
+        scope: 'unscoped',
       };
     } catch (err) {
       return fail('EXPENSES_EXCEPTION', err.message || String(err));
@@ -423,7 +480,8 @@
           client
             .from('inventory')
             .select('id, product_name, stock_quantity, min_threshold, selling_price, cost_price'),
-        branchId
+        branchId,
+        { tableName: 'inventory' }
       );
 
       if (!res.ok) {
@@ -566,8 +624,9 @@
         (client) =>
           client
             .from('inventory')
-            .select('id, product_name, stock_quantity, selling_price, last_updated, branch_id'),
-        branchId
+            .select('id, product_name, stock_quantity, selling_price, last_updated, tenant_id'),
+        branchId,
+        { tableName: 'inventory' }
       );
 
       if (!res.ok) {
@@ -625,12 +684,11 @@
         (client) =>
           client
             .from('inventory')
-            .select(
-              'id, product_name, stock_quantity, selling_price, last_updated, created_at, branch_id'
-            )
+            .select('id, product_name, stock_quantity, selling_price, last_updated, tenant_id')
             .order('last_updated', { ascending: false })
             .limit(limit),
-        branchId
+        branchId,
+        { tableName: 'inventory' }
       );
 
       if (!res.ok) {
@@ -645,7 +703,7 @@
         stock_quantity: Math.max(0, parseInt(row.stock_quantity, 10) || 0),
         selling_price: Number(row.selling_price) || 0,
         last_updated: row.last_updated || row.created_at,
-        branch_id: row.branch_id,
+        branch_id: row.tenant_id,
         alertFlag: Math.max(0, parseInt(row.stock_quantity, 10) || 0) < STOCK_ALERT_THRESHOLD,
       }));
 
@@ -831,25 +889,27 @@
       }
 
       for (const table of CORE_TABLES) {
-        try {
-          const { error } = await client.from(table).select('*').limit(1);
-          report.tables.push({
-            table,
-            ok: !error,
-            error: error ? error.message : null,
-          });
-          if (error) report.errors.push(`${table}: ${error.message}`);
-        } catch (err) {
-          report.tables.push({ table, ok: false, error: err.message || String(err) });
-          report.errors.push(`${table}: ${err.message || err}`);
+        const optional = CORE_TABLES_OPTIONAL.includes(table);
+        const available = await probeTable(table);
+        report.tables.push({
+          table,
+          ok: available,
+          optional,
+          skipped: !available && optional,
+          error: available ? null : 'table not deployed',
+        });
+        if (!available && !optional) {
+          report.errors.push(`${table}: not found or inaccessible`);
         }
       }
 
-      const tablesOk = report.tables.every((t) => t.ok);
-      report.ok = tablesOk;
-      report.ready = tablesOk;
+      await Promise.all(CORE_TABLES_OPTIONAL.map((t) => probeTable(t)));
 
-      if (tablesOk) {
+      const requiredOk = CORE_TABLES_REQUIRED.every((t) => _tableAvailability[t] === true);
+      report.ok = requiredOk;
+      report.ready = requiredOk;
+
+      if (requiredOk) {
         console.log(
           '%cSystem Ready',
           'color:#059669;font-weight:700;font-size:14px',
@@ -1509,7 +1569,6 @@
       invoice_number: parsed.branchName ? `BR:${parsed.branchName}` : '',
       tenant_id: tenantId,
       tenantId,
-      branch_id: branchId,
     };
 
     if (bridge?.insertSale) {
@@ -1543,15 +1602,9 @@
     if (parsed.branchName) row.invoice_number = sale.invoice_number;
 
     try {
-      let payload = { ...row, branch_id: branchId || undefined };
-      if (!payload.branch_id) delete payload.branch_id;
-      let { data, error } = await client.from('sales').insert(payload).select('id').single();
-      if (error && isMissingColumnError(error)) {
-        delete payload.branch_id;
-        ({ data, error } = await client.from('sales').insert(payload).select('id').single());
-      }
-      if (error) return fail('SALE_INSERT_ERROR', error.message);
-      return { ok: true, table: 'sales', id: data?.id };
+      const inserted = await writeRowWithFallback('sales', row, 'id');
+      if (!inserted.ok) return fail('SALE_INSERT_ERROR', inserted.error);
+      return { ok: true, table: 'sales', id: inserted.data?.id };
     } catch (err) {
       return fail('SALE_INSERT_EXCEPTION', err.message || String(err));
     }
@@ -1589,21 +1642,10 @@
     };
     if (userId && !skipAuth) row.user_id = userId;
 
-    const branchId = parsed.branchId || applyBranchFromName(parsed.branchName) || resolveBranchId();
-    if (branchId) {
-      row.branch_id = branchId;
-      row.tenant_id = branchId;
-    }
-
     try {
-      let { data, error } = await client.from('expenses').insert(row).select('id').single();
-      if (error && isMissingColumnError(error)) {
-        delete row.branch_id;
-        delete row.tenant_id;
-        ({ data, error } = await client.from('expenses').insert(row).select('id').single());
-      }
-      if (error) return fail('EXPENSE_INSERT_ERROR', error.message);
-      return { ok: true, table: 'expenses', id: data?.id };
+      const inserted = await writeRowWithFallback('expenses', row, 'id');
+      if (!inserted.ok) return fail('EXPENSE_INSERT_ERROR', inserted.error);
+      return { ok: true, table: 'expenses', id: inserted.data?.id };
     } catch (err) {
       return fail('EXPENSE_INSERT_EXCEPTION', err.message || String(err));
     }
@@ -1672,27 +1714,20 @@
 
     const userId = parsed.userId || resolveEntryUserId();
     const createdBy = resolveCreatedBy(userId);
+    const tenantId = resolveTenantId();
     const row = {
       product_name: product.name,
       selling_price: product.price,
       cost_price: 0,
       stock_quantity: product.quantity,
-      tenant_id: resolveTenantId(),
+      tenant_id: tenantId || undefined,
       last_updated: parsed.recordedAt || new Date().toISOString(),
-      created_by: createdBy,
     };
-    if (userId) row.user_id = userId;
-    const branchId = parsed.branchId || applyBranchFromName(parsed.branchName) || resolveBranchId();
-    if (branchId) row.branch_id = branchId;
 
     try {
-      let { data, error } = await client.from('inventory').upsert(row).select('id').single();
-      if (error && isMissingColumnError(error)) {
-        delete row.branch_id;
-        ({ data, error } = await client.from('inventory').upsert(row).select('id').single());
-      }
-      if (error) return fail('INVENTORY_UPSERT_ERROR', error.message);
-      return { ok: true, table: 'inventory', id: data?.id };
+      const inserted = await writeRowWithFallback('inventory', row, 'id', { upsert: true });
+      if (!inserted.ok) return fail('INVENTORY_UPSERT_ERROR', inserted.error);
+      return { ok: true, table: 'inventory', id: inserted.data?.id };
     } catch (err) {
       return fail('INVENTORY_UPSERT_EXCEPTION', err.message || String(err));
     }
@@ -2000,6 +2035,10 @@
     initializeSystem,
     loadEnvConfig,
     isConfigured,
+    probeTable,
+    isTableAvailable,
+    isRelationMissingError,
+    isSchemaMismatchError,
     getClient,
     resolveBranchId,
     resolveTenantId,
@@ -2054,6 +2093,7 @@
   };
 
   global.PrestigeCore = PrestigeCore;
+  global.prestigeCore = PrestigeCore;
   global.DashboardService = DashboardService;
   global.dashboardService = DashboardService;
   global.InventoryManager = InventoryManagerAPI;

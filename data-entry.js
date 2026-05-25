@@ -39,7 +39,7 @@
   }
 
   function getService() {
-    return global.PrestigeCore || global.DashboardService || global.dashboardService;
+    return global.prestigeCore || global.PrestigeCore || global.DashboardService || global.dashboardService;
   }
 
   function formatAud(n) {
@@ -215,7 +215,9 @@
     }
 
     const classifier =
-      global.PrestigeCore?.DataEntryClassifier || global.DataEntryClassifier;
+      global.prestigeCore?.DataEntryClassifier ||
+      global.PrestigeCore?.DataEntryClassifier ||
+      global.DataEntryClassifier;
     if (classifier?.classify) {
       classifier.classify($('ai-command-input')?.value?.trim() || '');
     }

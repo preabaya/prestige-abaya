@@ -19,6 +19,20 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
   <!-- GitHub Pages: served from repo root → https://preabaya.github.io/prestige-abaya/ -->
   <link rel="stylesheet" href="style.css?v=20260524-luxury-light">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.config.js?v=20260531-prestige-core"></script>
+  <script src="prestige-env.js"></script>
+  <script>
+    window.__PRESTIGE_ENV__ = window.__PRESTIGE_ENV__ || {};
+    window.SUPABASE_CONFIG = window.SUPABASE_CONFIG || {
+      url: '',
+      anonKey: '',
+      enabled: false,
+      skipAuth: true,
+      skipAuthForSales: true,
+    };
+  </script>
+  <script src="prestige-core.js?v=20260531-schema-fix"></script>
   <!-- Chart.js — رسوم الداشبورد (dashboard-ui.js) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
@@ -396,20 +410,6 @@
       else enableFields();
     })();
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase.config.js?v=20260531-prestige-core"></script>
-  <script src="prestige-env.js"></script>
-  <script>
-    window.__PRESTIGE_ENV__ = window.__PRESTIGE_ENV__ || {};
-    window.SUPABASE_CONFIG = window.SUPABASE_CONFIG || {
-      url: '',
-      anonKey: '',
-      enabled: false,
-      skipAuth: true,
-      skipAuthForSales: true,
-    };
-  </script>
-  <script src="prestige-core.js?v=20260531-prestige-core"></script>
   <script src="supabase-bridge.js?v=20260520-no-image"></script>
   <script src="auth-guard.js?v=20260524"></script>
   <script>
