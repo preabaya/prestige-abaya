@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260524-enterprise-entry">
+  <link rel="stylesheet" href="style.css?v=20260524-inventory-entry">
 </head>
 <body class="exec-body data-entry-body data-entry-body--pro">
   <div id="data-entry-toast" class="data-entry-toast data-entry-toast--top" hidden role="status" aria-live="polite">
@@ -68,6 +68,11 @@
           </span>
           AI Command Bar
         </label>
+        <div class="data-entry-command-modes" role="tablist" aria-label="نوع الإدخال">
+          <button type="button" class="data-entry-mode-btn is-active" data-mode="sale" role="tab" aria-selected="true">مبيعات</button>
+          <button type="button" class="data-entry-mode-btn" data-mode="expense" role="tab" aria-selected="false">مصروف</button>
+          <button type="button" class="data-entry-mode-btn" data-mode="inventory" role="tab" aria-selected="false">مخزون</button>
+        </div>
         <div class="data-entry-command-bar" id="data-entry-command-bar">
           <input
             type="text"
@@ -91,7 +96,8 @@
           <li><button type="button" class="data-entry-example-chip" data-example="بعنا 3 عباءات بـ 2000 ريال فرع جدة">بيع — جدة ×3</button></li>
           <li><button type="button" class="data-entry-example-chip" data-example="بعنا عباءة حرير بـ 800 في الرياض">بيع — الرياض</button></li>
           <li><button type="button" class="data-entry-example-chip" data-example="مصروف شحن 450 ريال فرع دبي">مصروف — دبي</button></li>
-          <li><button type="button" class="data-entry-example-chip" data-example="إضافة مخزون عباءة مخمل كمية 20 بسعر 390">مخزون</button></li>
+          <li><button type="button" class="data-entry-example-chip" data-example="إضافة 50 عباءة مطرزة لفرع الرياض بسعر 800 ريال" data-mode="inventory">مخزون — الرياض ×50</button></li>
+          <li><button type="button" class="data-entry-example-chip" data-example="إضافة مخزون عباءة مخمل كمية 20 بسعر 390" data-mode="inventory">مخزون — مخمل</button></li>
         </ul>
       </div>
 
@@ -180,6 +186,19 @@
         </div>
       </section>
       </article>
+
+      <section class="data-entry-inventory-overview exec-luxury-card" id="inventory-overview" aria-labelledby="inventory-overview-title">
+        <header class="data-entry-inventory-overview__head">
+          <div>
+            <h2 id="inventory-overview-title" class="data-entry-inventory-overview__title">Inventory Overview</h2>
+            <p class="data-entry-inventory-overview__sub">آخر 5 منتجات تم إدخالها في المخزون</p>
+          </div>
+          <span class="data-entry-stock-alert-badge" id="inventory-stock-alert-badge" hidden>تنبيه مخزون</span>
+        </header>
+        <ul class="data-entry-inventory-recent" id="inventory-recent-list" aria-live="polite">
+          <li class="data-entry-inventory-recent__empty">جاري التحميل…</li>
+        </ul>
+      </section>
     </main>
 
     <button type="button" class="data-entry-fab" id="data-entry-fab" aria-label="إدخال يدوي">
@@ -246,10 +265,10 @@
     window.SUPABASE_CONFIG = window.SUPABASE_CONFIG || { url: '', anonKey: '', enabled: false, skipAuth: true };
   </script>
   <script src="db-helper.js"></script>
-  <script src="dashboard-service.js?v=20260524-enterprise-entry"></script>
+  <script src="dashboard-service.js?v=20260524-inventory-entry"></script>
   <script src="supabase-bridge.js"></script>
   <script src="auth-guard.js"></script>
   <script>void AuthGuard.checkAccess('admin');</script>
-  <script src="data-entry.js?v=20260524-enterprise-entry"></script>
+  <script src="data-entry.js?v=20260524-inventory-entry"></script>
 </body>
 </html>

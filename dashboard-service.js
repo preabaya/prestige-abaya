@@ -8,6 +8,8 @@
 
   const BRANCH_STORAGE_KEY = 'current_branch_id';
   const TENANT_STORAGE_KEY = 'current_tenant_id';
+  /** حدّ التنبيه على لوحة التحكم — أقل من هذه القطع */
+  const STOCK_ALERT_THRESHOLD = 5;
 
   /** Country tax presets (extend as needed) */
   const TAX_BY_COUNTRY = {
@@ -376,6 +378,12 @@
       const outOfStock = items.filter((i) => i.isOut);
       const healthy = items.filter((i) => !i.isLow);
 
+      const stockCheck = items.map((i) => ({
+        ...i,
+        belowThreshold: i.stock_quantity < STOCK_ALERT_THRESHOLD,
+      }));
+      const thresholdAlerts = stockCheck.filter((i) => i.belowThreshold);
+
       return {
         ok: true,
         branchId: branchId || null,
@@ -386,6 +394,10 @@
         outOfStockCount: outOfStock.length,
         lowStock,
         outOfStock,
+        alertFlag: thresholdAlerts.length > 0,
+        stockAlertThreshold: STOCK_ALERT_THRESHOLD,
+        stockAlertCount: thresholdAlerts.length,
+        thresholdAlerts,
         alerts: lowStock.map((i) => ({
           product_name: i.product_name,
           stock_quantity: i.stock_quantity,
@@ -470,26 +482,140 @@
   }
 
   /**
+   * فحص مستويات المخزون — تنبيه إذا كانت الكمية أقل من 5 قطع.
+   * @param {{ branchId?: string }} [options]
+   */
+  async function checkStockLevels(options = {}) {
+    try {
+      const branchId = resolveBranchId(options.branchId);
+      const res = await runScopedQuery(
+        (client) =>
+          client
+            .from('inventory')
+            .select('id, product_name, stock_quantity, selling_price, last_updated, branch_id'),
+        branchId
+      );
+
+      if (!res.ok) {
+        return fail('STOCK_CHECK_ERROR', res.error || 'فشل فحص المخزون', { branchId });
+      }
+
+      const items = (res.data || []).map((row) => {
+        const stock = Math.max(0, parseInt(row.stock_quantity, 10) || 0);
+        const needsAlert = stock < STOCK_ALERT_THRESHOLD;
+        return {
+          id: row.id,
+          product_name: row.product_name,
+          stock_quantity: stock,
+          selling_price: Number(row.selling_price) || 0,
+          last_updated: row.last_updated,
+          needsAlert,
+          alertFlag: needsAlert,
+          severity: stock === 0 ? 'critical' : needsAlert ? 'warning' : 'ok',
+          message: needsAlert
+            ? stock === 0
+              ? `نفاد: ${row.product_name}`
+              : `تنبيه: ${row.product_name} — ${stock} قطع (أقل من ${STOCK_ALERT_THRESHOLD})`
+            : null,
+        };
+      });
+
+      const alerts = items.filter((i) => i.needsAlert);
+
+      return {
+        ok: true,
+        branchId: branchId || null,
+        scope: res.scope,
+        threshold: STOCK_ALERT_THRESHOLD,
+        alertFlag: alerts.length > 0,
+        alertCount: alerts.length,
+        total: items.length,
+        alerts,
+        items,
+      };
+    } catch (err) {
+      return fail('STOCK_CHECK_EXCEPTION', err.message || String(err));
+    }
+  }
+
+  /**
+   * آخر منتجات أُدخلت في المخزون (للوحة الإدخال).
+   * @param {{ branchId?: string, limit?: number }} [options]
+   */
+  async function getRecentInventoryEntries(options = {}) {
+    try {
+      const branchId = resolveBranchId(options.branchId);
+      const limit = Math.min(20, Math.max(1, parseInt(options.limit, 10) || 5));
+      const res = await runScopedQuery(
+        (client) =>
+          client
+            .from('inventory')
+            .select(
+              'id, product_name, stock_quantity, selling_price, last_updated, created_at, branch_id'
+            )
+            .order('last_updated', { ascending: false })
+            .limit(limit),
+        branchId
+      );
+
+      if (!res.ok) {
+        return fail('RECENT_INVENTORY_ERROR', res.error || 'فشل جلب آخر المخزون');
+      }
+
+      const rows = res.data || [];
+
+      const recent = rows.map((row) => ({
+        id: row.id,
+        product_name: row.product_name,
+        stock_quantity: Math.max(0, parseInt(row.stock_quantity, 10) || 0),
+        selling_price: Number(row.selling_price) || 0,
+        last_updated: row.last_updated || row.created_at,
+        branch_id: row.branch_id,
+        alertFlag: Math.max(0, parseInt(row.stock_quantity, 10) || 0) < STOCK_ALERT_THRESHOLD,
+      }));
+
+      return { ok: true, branchId, scope: res.scope, recent, limit };
+    } catch (err) {
+      return fail('RECENT_INVENTORY_EXCEPTION', err.message || String(err));
+    }
+  }
+
+  /**
    * ملخص شامل للوحة التحكم.
    */
   async function getDashboardSnapshot(options = {}) {
     try {
-      const [revenue, profit, inventory, profile] = await Promise.all([
+      const [revenue, profit, inventory, profile, stockLevels] = await Promise.all([
         getTotalRevenue(options),
         getNetProfit(options),
         getInventoryStatus(options),
         getProfileContext(),
+        checkStockLevels(options),
       ]);
 
       const country = options.countryCode || getConfig().defaultCountryCode || 'AU';
       const tax = await getTaxSummary(country, options);
+
+      const inventoryMerged =
+        inventory && inventory.ok
+          ? {
+              ...inventory,
+              alertFlag: !!(stockLevels?.alertFlag || inventory.alertFlag),
+              stockAlertCount:
+                stockLevels?.alertCount != null
+                  ? stockLevels.alertCount
+                  : inventory.stockAlertCount,
+              stockAlerts: stockLevels?.alerts || inventory.thresholdAlerts || [],
+            }
+          : inventory;
 
       return {
         ok: true,
         profile,
         revenue,
         profit,
-        inventory,
+        inventory: inventoryMerged,
+        stockLevels,
         tax,
       };
     } catch (err) {
@@ -849,8 +975,9 @@
       let entryType = 'sale';
       if (/مصروف|مصاريف|expense|تكلفة تشغيلية/.test(raw)) entryType = 'expense';
       else if (
-        /مخزون|منتج جديد|إضافة منتج|inventory|stock|زيادة مخزون/.test(raw) &&
-        !/مبيع|بيع|sale/.test(raw)
+        /^(?:إضافة|add)\s+\d+/i.test(raw) ||
+        (/مخزون|منتج جديد|إضافة منتج|inventory|stock|زيادة مخزون|إدخال مخزون/.test(raw) &&
+          !/مبيع|بيع|بعنا|بيعنا|sale|sold/.test(raw))
       ) {
         entryType = 'inventory';
       } else if (/مبيع|بيع|مبيعة|بعنا|بيعنا|sale|sold/.test(raw)) entryType = 'sale';
@@ -880,6 +1007,7 @@
 
       let quantity = 1;
       const qtyMatch =
+        raw.match(/^(?:إضافة|add)\s+(\d+)\s/i) ||
         raw.match(/(?:بعنا|بيعنا|بيع)\s+(\d+)\s*(?:عباء|عباءات|abayas?)/i) ||
         raw.match(/(\d+)\s*(?:عباء|عباءات|abayas?)/i) ||
         raw.match(/(\d+)\s*(?:قطعة|قطع|وحدة|وحدات|x)/i) ||
@@ -891,7 +1019,8 @@
 
       let branchName = null;
       const branchMatch =
-        raw.match(/(?:في\s+)?فرع\s+([^\d,.]+?)(?=\s+(?:بـ|ب\s*\d)|$)/i) ||
+        raw.match(/لفرع\s+([^\d,.]+?)(?=\s+بسعر|\s+بـ|\s+ب\s*\d|$)/i) ||
+        raw.match(/(?:في\s+)?فرع\s+([^\d,.]+?)(?=\s+(?:بـ|ب\s*\d|بسعر)|$)/i) ||
         raw.match(/(?:في|in)\s+(الرياض|الدمام|جدة|مكة|دبي|أبوظبي|ابوظبي|القصيم|riyadh|dubai|jeddah)/i) ||
         raw.match(/branch\s+([a-zA-Z\u0600-\u06FF\s]+?)(?=\s|$)/i);
       if (branchMatch) branchName = branchMatch[1].trim();
@@ -904,6 +1033,7 @@
           .trim();
       } else {
         const patterns = [
+          /^(?:إضافة|add)\s+\d+\s+(.+?)(?=\s+لفرع|\s+فرع|\s+بسعر|\s+بـ|\s+في\s+فرع|$)/i,
           /(?:بعنا|بيعنا|بيع)\s+(?:\d+\s+)?(.+?)(?:\s+بـ|\s+ب\s*[\d.,]+|\s+فرع|$)/i,
           /(?:إضافة\s+)?(?:مبيعة|مبيعات|بيع|sale)\s+(.+?)(?:\s+بـ|\s+ب\s*\d|\s+في\s+فرع|$)/i,
           /(?:إضافة|add)\s+(.+?)(?:\s+بـ|\s+ب\s*\d|\s+في\s+فرع|$)/i,
@@ -925,8 +1055,11 @@
       }
       productName = productName
         .replace(/^\d+\s+/, '')
+        .replace(/\s+لفرع.*/i, '')
         .replace(/\s+في\s+فرع.*/i, '')
+        .replace(/\s+بسعر\s*[\d.,]+.*/i, '')
         .replace(/\s+بـ\s*[\d.,]+.*/i, '')
+        .replace(/^(?:مخزون|منتج)\s+/i, '')
         .trim();
 
       if (!productName && entryType !== 'expense') {
@@ -1103,6 +1236,46 @@
     }
   }
 
+  /**
+   * إضافة صنف إلى جدول inventory (إدارة المخزون والمنتجات).
+   * @param {string} productName
+   * @param {number|string} quantity
+   * @param {string} [branch] — اسم الفرع
+   * @param {number|string} price
+   */
+  async function addInventoryItem(productName, quantity, branch, price) {
+    const name = String(productName || '').trim();
+    if (!name) return fail('NO_PRODUCT', 'اسم المنتج مطلوب');
+
+    const qty = Math.max(0, parseInt(quantity, 10) || 0);
+    const amount = parseNumberToken(price);
+    if (amount == null) return fail('NO_PRICE', 'سعر البيع مطلوب');
+
+    const parsed = enrichParsedForSave({
+      entryType: 'inventory',
+      productName: name,
+      productSlug: slugifyProduct(name),
+      quantity: qty,
+      branchName: branch ? String(branch).trim() : null,
+      amount,
+      currency: detectCurrency(String(price || ''), 'SAR'),
+      amountAud: convertToAud(amount, detectCurrency(String(price || ''), 'SAR')),
+      rawText: 'addInventoryItem',
+    });
+
+    const saved = await insertInventoryRecord(parsed);
+    if (!saved.ok) return saved;
+
+    const stock = await checkStockLevels({ branchId: parsed.branchId });
+    return {
+      ok: true,
+      parsed,
+      saved,
+      stockLevels: stock,
+      json: toCommandJson(parsed),
+    };
+  }
+
   async function insertInventoryRecord(parsed) {
     const bridge = global.SupabaseBridge;
     const product = {
@@ -1186,6 +1359,10 @@
       if (!saved.ok) return saved;
 
       const enriched = enrichParsedForSave(parsed);
+      let stockLevels = null;
+      if (enriched.entryType === 'inventory') {
+        stockLevels = await checkStockLevels({ branchId: enriched.branchId });
+      }
       return {
         ok: true,
         parsed: enriched,
@@ -1194,6 +1371,7 @@
         message: buildConfirmationMessage(enriched),
         recordedAt: enriched.recordedAt,
         branchId: enriched.branchId,
+        stockLevels,
       };
     } catch (err) {
       return fail('SAVE_ENTRY_EXCEPTION', err.message || String(err));
@@ -1263,6 +1441,10 @@
     getTotalRevenue,
     getNetProfit,
     getInventoryStatus,
+    checkStockLevels,
+    getRecentInventoryEntries,
+    addInventoryItem,
+    STOCK_ALERT_THRESHOLD,
     getTaxSummary,
     getDashboardSnapshot,
     getDefaultCountryCode,

@@ -490,6 +490,8 @@
           delta.classList.toggle('exec-kpi-card__delta--down', !!payload.deltaDown);
         }
 
+        card.classList.toggle('exec-kpi-card--alert', !!payload.alertFlag);
+
         if (payload.error) {
           card.classList.add('exec-kpi-card--error');
           card.setAttribute('title', payload.error);
@@ -582,11 +584,18 @@
 
       function renderInventoryCard(inventory) {
         if (inventory && inventory.ok) {
-          var alertCount = (inventory.lowCount || 0) + (inventory.outOfStockCount || 0);
+          var thresholdCount =
+            inventory.stockAlertCount != null
+              ? inventory.stockAlertCount
+              : (inventory.thresholdAlerts && inventory.thresholdAlerts.length) || 0;
+          var legacyCount = (inventory.lowCount || 0) + (inventory.outOfStockCount || 0);
+          var alertCount = Math.max(thresholdCount, legacyCount);
+          var hasAlert = !!(inventory.alertFlag || alertCount > 0);
           setKpiCard('exec-kpi-inventory', {
             value: String(alertCount),
             unit: 'تنبيه',
             delta:
+              (hasAlert ? '⚠ أقل من 5 قطع: ' + thresholdCount + ' · ' : '') +
               'منخفض ' +
               (inventory.lowCount || 0) +
               ' · نفاد ' +
@@ -594,8 +603,9 @@
               ' · ' +
               (inventory.total || 0) +
               ' صنف',
-            deltaUp: alertCount === 0,
-            deltaDown: alertCount > 0,
+            deltaUp: !hasAlert,
+            deltaDown: hasAlert,
+            alertFlag: hasAlert,
           });
           return;
         }

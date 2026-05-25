@@ -7,6 +7,18 @@
 
   const KPI_IDS = ['de-kpi-revenue', 'de-kpi-profit', 'de-kpi-tax', 'de-kpi-inventory'];
   const ACTION_LABELS = { sale: 'مبيعة', expense: 'مصروف', inventory: 'مخزون' };
+  const MODE_PLACEHOLDERS = {
+    sale: 'بعنا 3 عباءات بـ 2000 ريال فرع جدة',
+    expense: 'مصروف شحن 450 ريال فرع دبي',
+    inventory: 'إضافة 50 عباءة مطرزة لفرع الرياض بسعر 800 ريال',
+  };
+  const MODE_HINTS = {
+    sale: 'بعنا 3 عباءات بـ 2000 ريال فرع جدة',
+    expense: 'مصروف شحن 450 ريال فرع دبي',
+    inventory: 'إضافة 50 عباءة مطرزة لفرع الرياض بسعر 800 ريال',
+  };
+
+  let commandMode = 'sale';
 
   let parseTimer = null;
   let currentParsed = null;
@@ -75,10 +87,18 @@
       if (snap.profit?.ok) setKpiValue('de-kpi-profit', formatAud(snap.profit.netProfit));
       if (snap.tax?.ok) setKpiValue('de-kpi-tax', formatAud(snap.tax.taxAmount));
       if (snap.inventory?.ok) {
-        setKpiValue(
-          'de-kpi-inventory',
-          String((snap.inventory.lowCount || 0) + (snap.inventory.outOfStockCount || 0))
-        );
+        const invAlerts =
+          snap.inventory.stockAlertCount != null
+            ? snap.inventory.stockAlertCount
+            : (snap.inventory.lowCount || 0) + (snap.inventory.outOfStockCount || 0);
+        setKpiValue('de-kpi-inventory', String(invAlerts));
+        const invCard = $('de-kpi-inventory');
+        if (invCard) {
+          invCard.classList.toggle(
+            'data-entry-kpi-pill--alert',
+            !!(snap.inventory.alertFlag || snap.stockLevels?.alertFlag)
+          );
+        }
       }
     } catch (err) {
       console.warn('[data-entry] KPI:', err);
@@ -200,6 +220,92 @@
     if (label) label.textContent = loading ? 'جاري الحفظ…' : 'تأكيد الحفظ';
   }
 
+  function setCommandMode(mode) {
+    commandMode = mode || 'sale';
+    document.querySelectorAll('.data-entry-mode-btn').forEach(function (btn) {
+      const active = btn.getAttribute('data-mode') === commandMode;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    const input = $('ai-command-input');
+    const hint = document.querySelector('.data-entry-command-hint em');
+    if (input) input.placeholder = MODE_PLACEHOLDERS[commandMode] || MODE_PLACEHOLDERS.sale;
+    if (hint) hint.textContent = MODE_HINTS[commandMode] || MODE_HINTS.sale;
+    $('data-entry-command-bar')?.setAttribute('data-entry-mode', commandMode);
+    if ($('preview-edit-type')) $('preview-edit-type').value = commandMode;
+  }
+
+  function formatRecentDate(iso) {
+    if (!iso) return '—';
+    try {
+      return new Date(iso).toLocaleString('ar-SA', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      });
+    } catch (_) {
+      return String(iso);
+    }
+  }
+
+  async function refreshInventoryOverview() {
+    const svc = getService();
+    const list = $('inventory-recent-list');
+    const badge = $('inventory-stock-alert-badge');
+    if (!list || !svc?.getRecentInventoryEntries) return;
+
+    try {
+      const [recentRes, stockRes] = await Promise.all([
+        svc.getRecentInventoryEntries({ limit: 5 }),
+        svc.checkStockLevels ? svc.checkStockLevels() : Promise.resolve(null),
+      ]);
+
+      if (badge) {
+        const showAlert = !!(stockRes?.ok && stockRes.alertFlag);
+        badge.hidden = !showAlert;
+        if (showAlert) {
+          badge.textContent =
+            'تنبيه · ' + (stockRes.alertCount || 0) + ' صنف أقل من ' + (stockRes.threshold || 5);
+        }
+      }
+
+      list.innerHTML = '';
+      if (!recentRes?.ok || !recentRes.recent?.length) {
+        const li = document.createElement('li');
+        li.className = 'data-entry-inventory-recent__empty';
+        li.textContent = recentRes?.error || 'لا توجد إدخالات مخزون بعد';
+        list.appendChild(li);
+        return;
+      }
+
+      recentRes.recent.forEach(function (row) {
+        const li = document.createElement('li');
+        li.className = 'data-entry-inventory-recent__item';
+        if (row.alertFlag) li.classList.add('data-entry-inventory-recent__item--alert');
+        li.innerHTML =
+          '<span class="data-entry-inventory-recent__name">' +
+          (row.product_name || '—') +
+          '</span>' +
+          '<span class="data-entry-inventory-recent__meta">' +
+          (row.stock_quantity != null ? row.stock_quantity + ' قطعة' : '—') +
+          ' · ' +
+          (row.selling_price != null ? row.selling_price + ' SAR' : '—') +
+          '</span>' +
+          '<time class="data-entry-inventory-recent__time" datetime="' +
+          (row.last_updated || '') +
+          '">' +
+          formatRecentDate(row.last_updated) +
+          '</time>';
+        list.appendChild(li);
+      });
+    } catch (err) {
+      list.innerHTML = '';
+      const li = document.createElement('li');
+      li.className = 'data-entry-inventory-recent__empty';
+      li.textContent = err.message || String(err);
+      list.appendChild(li);
+    }
+  }
+
   /** تحليل فقط — لا حفظ */
   async function runAnalyze() {
     const svc = getService();
@@ -224,6 +330,15 @@
         hidePreview();
         showError($('ai-command-error'), res.error || 'فشل التحليل');
         return;
+      }
+      if (res.parsed) {
+        if (commandMode === 'inventory') {
+          res.parsed.entryType = 'inventory';
+        } else if (commandMode === 'expense') {
+          res.parsed.entryType = 'expense';
+        }
+        res.json = svc.toCommandJson(res.parsed);
+        res.message = svc.buildConfirmationMessage?.(res.parsed) || res.message;
       }
       const json = res.json || svc.toCommandJson(res.parsed);
       fillPreview(res.parsed, json, res.message, res.source);
@@ -364,6 +479,7 @@
       $('ai-command-input').value = '';
       hidePreview();
       await refreshBackgroundKpis();
+      await refreshInventoryOverview();
       if (global.refreshUI) global.refreshUI();
     } catch (err) {
       showError($('ai-command-error'), err.message || String(err));
@@ -406,6 +522,7 @@
       closeModal();
       triggerSuccessMicro(manual.parsed, manual.saved);
       await refreshBackgroundKpis();
+      await refreshInventoryOverview();
       if (global.refreshUI) global.refreshUI();
       e.target.reset();
       if ($('manual-qty')) $('manual-qty').value = '1';
@@ -428,9 +545,19 @@
     $('smart-cancel-preview')?.addEventListener('click', hidePreview);
     $('smart-reparse')?.addEventListener('click', runAnalyze);
 
+    document.querySelectorAll('.data-entry-mode-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        setCommandMode(btn.getAttribute('data-mode') || 'sale');
+        hidePreview();
+        showError($('ai-command-error'), '');
+      });
+    });
+
     document.querySelectorAll('.data-entry-example-chip').forEach(function (chip) {
       chip.addEventListener('click', function () {
         const ex = chip.getAttribute('data-example') || '';
+        const mode = chip.getAttribute('data-mode');
+        if (mode) setCommandMode(mode);
         const input = $('ai-command-input');
         if (input) {
           input.value = ex;
@@ -477,7 +604,9 @@
 
   function boot() {
     bindEvents();
+    setCommandMode('sale');
     refreshBackgroundKpis();
+    refreshInventoryOverview();
     $('ai-command-input')?.focus();
   }
 
@@ -487,5 +616,11 @@
     boot();
   }
 
-  global.DataEntryPage = { refreshBackgroundKpis, runAnalyze, handleConfirm };
+  global.DataEntryPage = {
+    refreshBackgroundKpis,
+    refreshInventoryOverview,
+    runAnalyze,
+    handleConfirm,
+    setCommandMode,
+  };
 })(typeof window !== 'undefined' ? window : global);
