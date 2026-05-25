@@ -564,6 +564,217 @@
     return roundMoney(Number(amount) * rate);
   }
 
+  function slugifyProduct(name) {
+    const t = String(name || '').toLowerCase();
+    const parts = [];
+    if (/حرير|silk/.test(t)) parts.push('silk');
+    if (/مخمل|velvet/.test(t)) parts.push('velvet');
+    if (/شيفون|chiffon/.test(t)) parts.push('chiffon');
+    if (/عباء|abaya/.test(t)) parts.push('abaya');
+    if (parts.length) return parts.join('_');
+    return (
+      t
+        .replace(/\s+/g, '_')
+        .replace(/[^a-z0-9_\u0600-\u06FF]/g, '')
+        .slice(0, 48) || 'product'
+    );
+  }
+
+  function toCommandJson(parsed) {
+    return {
+      type: parsed.entryType,
+      product: parsed.productSlug || slugifyProduct(parsed.productName),
+      product_display: parsed.productName,
+      price: parsed.amount,
+      currency: parsed.currency,
+      quantity: parsed.quantity,
+      branch: parsed.branchName || parsed.branchKey || null,
+      amount_aud: parsed.amountAud,
+    };
+  }
+
+  function aiJsonToParsed(json, rawText) {
+    const type = String(json.type || json.entryType || 'sale')
+      .trim()
+      .toLowerCase();
+    const entryType = ['sale', 'expense', 'inventory'].includes(type) ? type : 'sale';
+    const productDisplay =
+      json.product_display || json.productDisplay || json.product_name || json.product || '';
+    const productName = String(productDisplay)
+      .replace(/_/g, ' ')
+      .trim();
+    const amount = parseNumberToken(json.price ?? json.amount);
+    const currency = detectCurrency(rawText || '', json.currency);
+    const quantity = Math.max(1, parseInt(json.quantity, 10) || 1);
+    const branchRaw = json.branch || json.branchName || json.branch_name || null;
+    const branchName = branchRaw ? String(branchRaw).trim() : null;
+
+    if (!productName && entryType !== 'expense') {
+      return fail('AI_NO_PRODUCT', 'الذكاء الاصطناعي لم يحدد المنتج');
+    }
+    if (amount == null) {
+      return fail('AI_NO_PRICE', 'الذكاء الاصطناعي لم يحدد السعر');
+    }
+
+    const parsed = {
+      entryType,
+      productName: productName || String(json.product || 'مصروف').replace(/_/g, ' '),
+      productSlug: String(json.product || slugifyProduct(productName)),
+      amount,
+      amountAud: convertToAud(amount, currency),
+      currency,
+      quantity,
+      branchName,
+      branchKey: branchName ? normalizeBranchKey(branchName) : null,
+      rawText: rawText || '',
+      confidence: json.confidence != null ? Number(json.confidence) : null,
+    };
+    return { ok: true, parsed };
+  }
+
+  function extractJsonFromAiContent(content) {
+    const raw = String(content || '').trim();
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (_) { /* continue */ }
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced) {
+      try {
+        return JSON.parse(fenced[1].trim());
+      } catch (_) { /* ignore */ }
+    }
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      try {
+        return JSON.parse(raw.slice(start, end + 1));
+      } catch (_) { /* ignore */ }
+    }
+    return null;
+  }
+
+  async function callOpenAIParse(text) {
+    const cfg = getConfig();
+    const apiKey = cfg.openaiApiKey || cfg.openAiApiKey;
+    if (!apiKey || String(apiKey).includes('YOUR_')) return null;
+
+    const model = cfg.openaiModel || 'gpt-4o-mini';
+    const systemPrompt = [
+      'You convert retail ERP voice/text commands into strict JSON only.',
+      'Schema: {"type":"sale|expense|inventory","product":"snake_case_slug","product_display":"human label",',
+      '"price":number,"currency":"SAR|AED|AUD|USD","quantity":integer,"branch":"city","confidence":0-1}',
+      'Examples:',
+      '- "بعنا عباءة حرير بـ 800 في الرياض" -> sale, silk_abaya, 800, SAR, Riyadh',
+      '- "مصروف شحن 200 دبي" -> expense, shipping, 200, AED, Dubai',
+      'No markdown. JSON object only.',
+    ].join(' ');
+
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.15,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: text },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      throw new Error(`OpenAI ${res.status}: ${errBody.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    const content = data?.choices?.[0]?.message?.content;
+    return extractJsonFromAiContent(content);
+  }
+
+  /**
+   * محاكاة ذكية — تحويل الجملة إلى JSON منظم (بدون API).
+   */
+  function simulateCommandParse(text) {
+    const sim = parseNaturalLanguageEntry(text);
+    if (!sim.ok) return sim;
+    sim.parsed.productSlug = slugifyProduct(sim.parsed.productName);
+    return {
+      ok: true,
+      parsed: sim.parsed,
+      json: toCommandJson(sim.parsed),
+      source: 'simulation',
+    };
+  }
+
+  /**
+   * تحليل أمر بلغة طبيعية — OpenAI عند التوفر، وإلا محاكاة ذكية.
+   * @param {string} text
+   */
+  async function parseCommandWithAI(text) {
+    const raw = String(text || '').trim();
+    if (!raw) return fail('EMPTY_INPUT', 'اكتب الأمر أولاً');
+
+    const cfg = getConfig();
+    const preferAi = cfg.openaiApiKey || cfg.openAiApiKey;
+    const useAi = cfg.useOpenAIParsing !== false && preferAi;
+
+    if (useAi) {
+      try {
+        const aiJson = await callOpenAIParse(raw);
+        if (aiJson) {
+          const built = aiJsonToParsed(aiJson, raw);
+          if (built.ok) {
+            built.parsed.productSlug =
+              built.parsed.productSlug || slugifyProduct(built.parsed.productName);
+            return {
+              ok: true,
+              parsed: built.parsed,
+              json: toCommandJson(built.parsed),
+              source: 'openai',
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('[DashboardService] OpenAI fallback to simulation:', err.message || err);
+      }
+    }
+
+    return simulateCommandParse(raw);
+  }
+
+  /**
+   * بناء كائن parsed من حقول قابلة للتعديل (Smart Preview).
+   */
+  function parsedFromEditableFields(fields) {
+    const entryType = String(fields.entryType || fields.type || 'sale').trim();
+    const amount = parseNumberToken(fields.amount ?? fields.price);
+    if (amount == null) return fail('NO_AMOUNT', 'المبلغ مطلوب');
+    const currency = detectCurrency('', fields.currency || 'SAR');
+    const productName = String(fields.productName || fields.product_display || fields.product || '')
+      .replace(/_/g, ' ')
+      .trim();
+    const parsed = {
+      entryType,
+      productName: productName || '—',
+      productSlug: slugifyProduct(productName || fields.product),
+      amount,
+      amountAud: convertToAud(amount, currency),
+      currency,
+      quantity: Math.max(1, parseInt(fields.quantity, 10) || 1),
+      branchName: fields.branchName || fields.branch ? String(fields.branchName || fields.branch).trim() : null,
+      branchKey: null,
+      rawText: fields.rawText || 'edited',
+    };
+    if (parsed.branchName) parsed.branchKey = normalizeBranchKey(parsed.branchName);
+    return { ok: true, parsed, json: toCommandJson(parsed) };
+  }
+
   /**
    * تحليل إدخال بلغة طبيعية (عربي/إنجليزي) — منتج، سعر، فرع، نوع العملية.
    * @param {string} text
@@ -581,7 +792,7 @@
         !/مبيع|بيع|sale/.test(raw)
       ) {
         entryType = 'inventory';
-      } else if (/مبيع|بيع|مبيعة|sale|sold/.test(raw)) entryType = 'sale';
+      } else if (/مبيع|بيع|مبيعة|بعنا|بيعنا|sale|sold/.test(raw)) entryType = 'sale';
 
       let amount = null;
       let currency = detectCurrency(raw);
@@ -618,6 +829,7 @@
       let branchName = null;
       const branchMatch =
         raw.match(/(?:في\s+)?فرع\s+([^\d,.]+?)(?=\s+(?:بـ|ب\s*\d)|$)/i) ||
+        raw.match(/(?:في|in)\s+(الرياض|الدمام|جدة|مكة|دبي|أبوظبي|ابوظبي|القصيم|riyadh|dubai|jeddah)/i) ||
         raw.match(/branch\s+([a-zA-Z\u0600-\u06FF\s]+?)(?=\s|$)/i);
       if (branchMatch) branchName = branchMatch[1].trim();
 
@@ -667,6 +879,7 @@
         parsed: {
           entryType,
           productName: productName || 'مصروف',
+          productSlug: slugifyProduct(productName),
           amount,
           amountAud,
           currency,
@@ -675,6 +888,7 @@
           branchKey,
           rawText: raw,
         },
+        json: null,
       };
     } catch (err) {
       return fail('PARSE_EXCEPTION', err.message || String(err));
@@ -850,14 +1064,36 @@
   }
 
   /**
-   * تحليل ثم حفظ إدخال بلغة طبيعية في Supabase.
+   * حفظ أمر مُحلَّل مسبقاً (بعد Smart Preview أو التعديل السريع).
    */
-  async function submitNaturalLanguageEntry(text) {
-    const parsedRes = parseNaturalLanguageEntry(text);
+  async function submitParsedCommand(parsed) {
+    if (!parsed?.entryType) return fail('INVALID_PARSED', 'بيانات غير صالحة');
+    if (!parsed.amountAud && parsed.amount != null) {
+      parsed.amountAud = convertToAud(parsed.amount, parsed.currency);
+    }
+    const saved = await saveParsedEntry(parsed);
+    if (!saved.ok) return saved;
+    return { ok: true, parsed, saved, json: toCommandJson(parsed) };
+  }
+
+  /**
+   * تحليل ثم حفظ — نص خام أو كائن parsed مُعدَّل.
+   */
+  async function submitNaturalLanguageEntry(textOrParsed) {
+    if (textOrParsed && typeof textOrParsed === 'object') {
+      return submitParsedCommand(textOrParsed);
+    }
+    const parsedRes = await parseCommandWithAI(textOrParsed);
     if (!parsedRes.ok) return parsedRes;
     const saved = await saveParsedEntry(parsedRes.parsed);
     if (!saved.ok) return saved;
-    return { ok: true, parsed: parsedRes.parsed, saved };
+    return {
+      ok: true,
+      parsed: parsedRes.parsed,
+      saved,
+      json: parsedRes.json,
+      source: parsedRes.source,
+    };
   }
 
   /**
@@ -900,11 +1136,17 @@
     getDashboardSnapshot,
     getDefaultCountryCode,
     parseNaturalLanguageEntry,
+    parseCommandWithAI,
+    simulateCommandParse,
+    parsedFromEditableFields,
+    submitParsedCommand,
     submitNaturalLanguageEntry,
     saveManualEntry,
     saveParsedEntry,
     applyBranchFromName,
     convertToAud,
+    slugifyProduct,
+    toCommandJson,
     TAX_BY_COUNTRY,
   };
 

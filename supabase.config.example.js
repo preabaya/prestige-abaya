@@ -19,6 +19,10 @@ window.SUPABASE_CONFIG = {
     dubai: '00000000-0000-0000-0000-000000000001',
     riyadh: '00000000-0000-0000-0000-000000000001',
   },
+  /** اختياري — تحليل أوامر data-entry عبر OpenAI (بدون مفتاح = محاكاة ذكية محلية) */
+  // openaiApiKey: 'sk-...',
+  // openaiModel: 'gpt-4o-mini',
+  // useOpenAIParsing: true,
   /**
    * true = anon key فقط — لا getSession/ensureAuth قبل القراءة أو الكتابة
    * اجعل skipAuth: false عند تفعيل RLS مع تسجيل دخول حقيقي

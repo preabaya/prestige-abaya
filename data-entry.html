@@ -4,125 +4,164 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#FFFFFF">
-  <meta name="description" content="Prestige Abaya — Smart Data Entry">
-  <title>إدخال البيانات | Prestige Abaya</title>
+  <meta name="description" content="Prestige Abaya — AI Command Data Entry">
+  <title>AI Command · إدخال البيانات | Prestige Abaya</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260524-data-entry">
+  <link rel="stylesheet" href="style.css?v=20260524-ai-command">
 </head>
-<body class="exec-body data-entry-body">
-  <div class="data-entry-page">
-    <header class="data-entry-header exec-header--luxury">
-      <div class="data-entry-header__brand">
-        <a href="index.html" class="data-entry-header__back" aria-label="العودة للوحة التحكم">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
-        </a>
-        <div>
-          <p class="data-entry-header__eyebrow">Smart Data Entry</p>
-          <h1 class="data-entry-header__title">إدخال البيانات الذكي</h1>
-        </div>
+<body class="exec-body data-entry-body data-entry-body--pro">
+  <div class="data-entry-ambient" aria-hidden="true"></div>
+  <div id="data-entry-confetti" class="data-entry-confetti" aria-hidden="true"></div>
+
+  <div class="data-entry-page data-entry-page--pro">
+    <header class="data-entry-topbar">
+      <a href="index.html" class="data-entry-topbar__back" aria-label="العودة">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <div class="data-entry-topbar__center">
+        <span class="data-entry-topbar__badge">✦ AI Command</span>
+        <span class="data-entry-topbar__title">إدخال البيانات الاحترافي</span>
       </div>
-      <a href="index.html" class="data-entry-header__dash-link">لوحة التحكم</a>
+      <a href="index.html" class="data-entry-topbar__link">Dashboard</a>
     </header>
 
-    <div id="data-entry-success" class="data-entry-success" hidden role="status" aria-live="polite">
-      <span class="data-entry-success__icon" aria-hidden="true">✓</span>
-      <div class="data-entry-success__text">
-        <strong id="data-entry-success-title">تم الحفظ بنجاح</strong>
-        <p id="data-entry-success-detail"></p>
-      </div>
-      <button type="button" class="data-entry-success__close" id="data-entry-success-close" aria-label="إغلاق">×</button>
-    </div>
-
-    <section class="data-entry-kpis exec-kpi-grid" id="data-entry-kpis" aria-label="ملخص سريع">
-      <article class="exec-glass-card exec-luxury-card exec-kpi-card exec-kpi-card--loading" id="de-kpi-revenue" aria-busy="true">
-        <span class="exec-kpi-card__label">إجمالي الإيرادات</span>
-        <p class="exec-kpi-card__value-row">
-          <span class="exec-kpi-spinner" role="status" aria-label="جاري التحميل"></span>
-          <strong class="exec-kpi-card__value" hidden>—</strong>
-          <span class="exec-kpi-card__unit">AUD</span>
-        </p>
+    <section class="data-entry-kpis-compact" id="data-entry-kpis" aria-label="ملخص مباشر">
+      <article class="data-entry-kpi-pill exec-kpi-card--loading" id="de-kpi-revenue" aria-busy="true">
+        <span class="exec-kpi-spinner"></span>
+        <span class="data-entry-kpi-pill__label">إيرادات</span>
+        <strong class="data-entry-kpi-pill__value" hidden>—</strong>
       </article>
-      <article class="exec-glass-card exec-luxury-card exec-kpi-card exec-kpi-card--loading" id="de-kpi-profit" aria-busy="true">
-        <span class="exec-kpi-card__label">صافي الربح</span>
-        <p class="exec-kpi-card__value-row">
-          <span class="exec-kpi-spinner" role="status" aria-label="جاري التحميل"></span>
-          <strong class="exec-kpi-card__value" hidden>—</strong>
-          <span class="exec-kpi-card__unit">AUD</span>
-        </p>
+      <article class="data-entry-kpi-pill exec-kpi-card--loading" id="de-kpi-profit" aria-busy="true">
+        <span class="exec-kpi-spinner"></span>
+        <span class="data-entry-kpi-pill__label">ربح</span>
+        <strong class="data-entry-kpi-pill__value" hidden>—</strong>
       </article>
-      <article class="exec-glass-card exec-luxury-card exec-kpi-card exec-kpi-card--loading" id="de-kpi-tax" aria-busy="true">
-        <span class="exec-kpi-card__label">الضريبة</span>
-        <p class="exec-kpi-card__value-row">
-          <span class="exec-kpi-spinner" role="status" aria-label="جاري التحميل"></span>
-          <strong class="exec-kpi-card__value" hidden>—</strong>
-          <span class="exec-kpi-card__unit">AUD</span>
-        </p>
+      <article class="data-entry-kpi-pill exec-kpi-card--loading" id="de-kpi-tax" aria-busy="true">
+        <span class="exec-kpi-spinner"></span>
+        <span class="data-entry-kpi-pill__label">ضريبة</span>
+        <strong class="data-entry-kpi-pill__value" hidden>—</strong>
       </article>
-      <article class="exec-glass-card exec-luxury-card exec-kpi-card exec-kpi-card--loading" id="de-kpi-inventory" aria-busy="true">
-        <span class="exec-kpi-card__label">تنبيهات المخزون</span>
-        <p class="exec-kpi-card__value-row">
-          <span class="exec-kpi-spinner" role="status" aria-label="جاري التحميل"></span>
-          <strong class="exec-kpi-card__value" hidden>—</strong>
-          <span class="exec-kpi-card__unit">تنبيه</span>
-        </p>
+      <article class="data-entry-kpi-pill exec-kpi-card--loading" id="de-kpi-inventory" aria-busy="true">
+        <span class="exec-kpi-spinner"></span>
+        <span class="data-entry-kpi-pill__label">مخزون</span>
+        <strong class="data-entry-kpi-pill__value" hidden>—</strong>
       </article>
     </section>
 
-    <main class="data-entry-main">
-      <section class="exec-glass-card exec-luxury-card data-entry-smart" aria-labelledby="smart-input-title">
-        <div class="data-entry-smart__head">
-          <span class="data-entry-smart__badge" aria-hidden="true">✦ AI</span>
+    <main class="data-entry-hero">
+      <div class="data-entry-command-wrap" id="data-entry-command-wrap">
+        <label class="data-entry-command-label" for="ai-command-input">
+          <span class="data-entry-command-label__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/></svg>
+          </span>
+          AI Command Bar
+        </label>
+        <div class="data-entry-command-bar" id="data-entry-command-bar">
+          <input
+            type="text"
+            id="ai-command-input"
+            class="data-entry-command-bar__input"
+            placeholder="بعنا عباءة حرير بـ 800 في الرياض"
+            autocomplete="off"
+            spellcheck="false"
+            dir="auto"
+          />
+          <button type="button" class="data-entry-command-bar__analyze" id="ai-command-analyze" title="تحليل">
+            <span class="data-entry-command-bar__analyze-spinner" id="analyze-spinner" hidden></span>
+            <span id="analyze-label">تحليل</span>
+          </button>
+        </div>
+        <p class="data-entry-command-hint">
+          <kbd>Ctrl</kbd> + <kbd>Enter</kbd> للتحليل · مثال: <em>بعنا عباءة حرير بـ 800 في الرياض</em>
+        </p>
+        <p id="ai-command-error" class="data-entry-error" hidden role="alert"></p>
+        <ul class="data-entry-examples data-entry-examples--hero" aria-label="أمثلة">
+          <li><button type="button" class="data-entry-example-chip" data-example="بعنا عباءة حرير بـ 800 في الرياض">بيع — الرياض</button></li>
+          <li><button type="button" class="data-entry-example-chip" data-example="مصروف شحن 450 ريال فرع دبي">مصروف — دبي</button></li>
+          <li><button type="button" class="data-entry-example-chip" data-example="إضافة مخزون عباءة مخمل كمية 20 بسعر 390">مخزون</button></li>
+        </ul>
+      </div>
+
+      <section class="data-entry-smart-preview exec-glass-card exec-luxury-card" id="smart-preview" hidden aria-labelledby="smart-preview-title">
+        <header class="data-entry-smart-preview__head">
           <div>
-            <h2 id="smart-input-title" class="data-entry-smart__title">Smart AI Input</h2>
-            <p class="data-entry-smart__hint">اكتب بلغة طبيعية — النظام يحلّل ويحفظ تلقائياً</p>
+            <h2 id="smart-preview-title" class="data-entry-smart-preview__title">Smart Preview</h2>
+            <p class="data-entry-smart-preview__sub">عدّل الحقول قبل الحفظ النهائي</p>
+          </div>
+          <span class="data-entry-source-badge" id="parse-source-badge">simulation</span>
+        </header>
+
+        <div class="data-entry-smart-preview__grid">
+          <div class="data-entry-field data-entry-field--preview">
+            <label for="preview-edit-type">النوع</label>
+            <select id="preview-edit-type">
+              <option value="sale">مبيعة (sale)</option>
+              <option value="expense">مصروف (expense)</option>
+              <option value="inventory">مخزون (inventory)</option>
+            </select>
+          </div>
+          <div class="data-entry-field data-entry-field--preview">
+            <label for="preview-edit-product">المنتج</label>
+            <input type="text" id="preview-edit-product" placeholder="عباءة حرير">
+          </div>
+          <div class="data-entry-field data-entry-field--preview">
+            <label for="preview-edit-slug">Slug (JSON)</label>
+            <input type="text" id="preview-edit-slug" placeholder="silk_abaya" dir="ltr">
+          </div>
+          <div class="data-entry-field data-entry-field--preview">
+            <label for="preview-edit-price">السعر</label>
+            <input type="number" id="preview-edit-price" min="0" step="0.01">
+          </div>
+          <div class="data-entry-field data-entry-field--preview">
+            <label for="preview-edit-currency">العملة</label>
+            <select id="preview-edit-currency">
+              <option value="SAR">SAR</option>
+              <option value="AED">AED</option>
+              <option value="AUD">AUD</option>
+              <option value="USD">USD</option>
+            </select>
+          </div>
+          <div class="data-entry-field data-entry-field--preview">
+            <label for="preview-edit-qty">الكمية</label>
+            <input type="number" id="preview-edit-qty" min="1" value="1">
+          </div>
+          <div class="data-entry-field data-entry-field--preview data-entry-field--wide">
+            <label for="preview-edit-branch">الفرع</label>
+            <input type="text" id="preview-edit-branch" placeholder="Riyadh / الرياض">
           </div>
         </div>
 
-        <label class="data-entry-smart__label" for="smart-input">وصف العملية</label>
-        <textarea
-          id="smart-input"
-          class="data-entry-smart__textarea"
-          rows="4"
-          placeholder="مثال: إضافة مبيعة عباءة حرير بـ 500 ريال في فرع دبي"
-          dir="auto"
-        ></textarea>
+        <details class="data-entry-json-view">
+          <summary>عرض JSON</summary>
+          <pre id="preview-json" class="data-entry-json-view__code" dir="ltr"></pre>
+        </details>
 
-        <div class="data-entry-preview" id="data-entry-preview" hidden>
-          <p class="data-entry-preview__title">معاينة التحليل</p>
-          <dl class="data-entry-preview__grid">
-            <div><dt>النوع</dt><dd id="preview-type">—</dd></div>
-            <div><dt>المنتج</dt><dd id="preview-product">—</dd></div>
-            <div><dt>المبلغ</dt><dd id="preview-amount">—</dd></div>
-            <div><dt>الفرع</dt><dd id="preview-branch">—</dd></div>
-            <div><dt>الكمية</dt><dd id="preview-qty">—</dd></div>
-            <div><dt>AUD</dt><dd id="preview-aud">—</dd></div>
-          </dl>
-        </div>
-
-        <p id="smart-input-error" class="data-entry-error" hidden role="alert"></p>
-
-        <div class="data-entry-smart__actions">
-          <button type="button" class="btn btn--primary data-entry-submit" id="smart-submit">
-            <span class="data-entry-submit__spinner" id="smart-submit-spinner" hidden></span>
-            <span id="smart-submit-label">حفظ ذكي</span>
+        <div class="data-entry-smart-preview__actions">
+          <button type="button" class="btn btn--primary data-entry-save-btn" id="smart-save">
+            <span class="data-entry-save-btn__ripple" aria-hidden="true"></span>
+            <span class="data-entry-save-btn__spinner" id="save-spinner" hidden></span>
+            <span id="save-label">حفظ في Supabase</span>
           </button>
-          <button type="button" class="btn btn--outline" id="smart-clear">مسح</button>
+          <button type="button" class="btn btn--outline" id="smart-reparse">إعادة تحليل</button>
         </div>
-
-        <ul class="data-entry-examples" aria-label="أمثلة">
-          <li><button type="button" class="data-entry-example-chip" data-example="إضافة مبيعة عباءة حرير بـ 500 ريال في فرع دبي">مبيعة — دبي</button></li>
-          <li><button type="button" class="data-entry-example-chip" data-example="مصروف شحن بـ 1200 ريال في فرع الرياض">مصروف — الرياض</button></li>
-          <li><button type="button" class="data-entry-example-chip" data-example="إضافة منتج عباءة مخمل كمية 15 بسعر 450 ريال">مخزون</button></li>
-        </ul>
       </section>
     </main>
 
-    <button type="button" class="data-entry-fab" id="data-entry-fab" aria-label="إدخال يدوي دقيق" title="إدخال يدوي">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-      <span class="data-entry-fab__label">إدخال يدوي</span>
+    <button type="button" class="data-entry-fab" id="data-entry-fab" aria-label="إدخال يدوي">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
     </button>
+  </div>
+
+  <div id="data-entry-toast" class="data-entry-toast" hidden role="status" aria-live="polite">
+    <div class="data-entry-toast__ring" aria-hidden="true">
+      <svg class="data-entry-toast__check" viewBox="0 0 52 52"><circle class="data-entry-toast__circle" cx="26" cy="26" r="24" fill="none"/><path class="data-entry-toast__path" fill="none" d="M14 27l8 8 16-16"/></svg>
+    </div>
+    <div class="data-entry-toast__body">
+      <strong id="toast-title">تم بنجاح</strong>
+      <p id="toast-detail"></p>
+    </div>
   </div>
 
   <div id="data-entry-modal" class="data-entry-modal" hidden role="dialog" aria-modal="true" aria-labelledby="manual-modal-title">
@@ -138,36 +177,35 @@
           <select id="manual-type" name="entryType" required>
             <option value="sale">مبيعة</option>
             <option value="expense">مصروف</option>
-            <option value="inventory">مخزون / منتج</option>
+            <option value="inventory">مخزون</option>
           </select>
         </div>
         <div class="data-entry-field">
-          <label for="manual-product">المنتج / الوصف</label>
-          <input type="text" id="manual-product" name="productName" required placeholder="عباءة حرير">
+          <label for="manual-product">المنتج</label>
+          <input type="text" id="manual-product" required>
         </div>
         <div class="data-entry-field-row">
           <div class="data-entry-field">
             <label for="manual-amount">المبلغ</label>
-            <input type="number" id="manual-amount" name="amount" min="0" step="0.01" required>
+            <input type="number" id="manual-amount" min="0" step="0.01" required>
           </div>
           <div class="data-entry-field">
             <label for="manual-currency">العملة</label>
-            <select id="manual-currency" name="currency">
-              <option value="SAR">SAR — ريال</option>
-              <option value="AED">AED — درهم</option>
+            <select id="manual-currency">
+              <option value="SAR">SAR</option>
+              <option value="AED">AED</option>
               <option value="AUD">AUD</option>
-              <option value="USD">USD</option>
             </select>
           </div>
         </div>
         <div class="data-entry-field-row">
           <div class="data-entry-field">
             <label for="manual-qty">الكمية</label>
-            <input type="number" id="manual-qty" name="quantity" min="1" value="1" required>
+            <input type="number" id="manual-qty" min="1" value="1" required>
           </div>
           <div class="data-entry-field">
             <label for="manual-branch">الفرع</label>
-            <input type="text" id="manual-branch" name="branchName" placeholder="دبي، الرياض…">
+            <input type="text" id="manual-branch">
           </div>
         </div>
         <p id="manual-form-error" class="data-entry-error" hidden role="alert"></p>
@@ -185,12 +223,10 @@
     window.SUPABASE_CONFIG = window.SUPABASE_CONFIG || { url: '', anonKey: '', enabled: false, skipAuth: true };
   </script>
   <script src="db-helper.js"></script>
-  <script src="dashboard-service.js?v=20260524-data-entry"></script>
+  <script src="dashboard-service.js?v=20260524-ai-command"></script>
   <script src="supabase-bridge.js"></script>
   <script src="auth-guard.js"></script>
-  <script>
-    void AuthGuard.checkAccess('admin');
-  </script>
-  <script src="data-entry.js?v=20260524"></script>
+  <script>void AuthGuard.checkAccess('admin');</script>
+  <script src="data-entry.js?v=20260524-ai-command"></script>
 </body>
 </html>
