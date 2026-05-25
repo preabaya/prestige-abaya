@@ -6396,6 +6396,30 @@ html.exec-theme .site-header__subtitle {
   color: var(--exec-muted);
 }
 
+.exec-kpi-card--loading .exec-kpi-card__value,
+.exec-kpi-card--loading .exec-kpi-card__delta {
+  opacity: 0.55;
+  animation: exec-kpi-pulse 1.2s ease-in-out infinite;
+}
+
+.exec-kpi-card--error .exec-kpi-card__delta {
+  color: #f87171;
+}
+
+@keyframes exec-kpi-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.exec-kpi-card__delta--down {
+  color: #f87171;
+}
+
 .exec-kpi-card__delta--up {
   color: var(--exec-success);
 }

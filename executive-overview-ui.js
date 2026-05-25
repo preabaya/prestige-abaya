@@ -87,7 +87,9 @@
     document.documentElement.classList.add('exec-theme');
     bindExecNav();
     bindSidebarToggle();
-    renderDummyKpis();
+    if (typeof global.updateDashboard !== 'function') {
+      renderDummyKpis();
+    }
   }
 
   if (document.readyState === 'loading') {

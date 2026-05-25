@@ -131,7 +131,7 @@
           <div>
             <p class="exec-overview-dashboard__eyebrow">Executive Overview</p>
             <h2 class="exec-overview-dashboard__title">نظرة تنفيذية</h2>
-            <p class="exec-overview-dashboard__desc">مؤشرات أداء رئيسية — بيانات تجريبية للعرض</p>
+            <p class="exec-overview-dashboard__desc" id="exec-overview-dashboard-desc">مؤشرات أداء رئيسية — جاري التحميل من Supabase…</p>
           </div>
           <div class="dashboard-charts-toolbar" id="dashboard-charts-toolbar" role="toolbar" aria-label="فترة الرسوم البيانية">
             <span class="dashboard-charts-toolbar__label">الفترة</span>
@@ -139,41 +139,41 @@
             <button type="button" class="chart-period-btn chart-period-btn--active" data-chart-period="week" aria-pressed="true">الأسبوع</button>
             <button type="button" class="chart-period-btn" data-chart-period="month" aria-pressed="false">الشهر</button>
           </div>
-          <span class="exec-overview-dashboard__live" aria-live="polite">● Live Demo</span>
+          <span class="exec-overview-dashboard__live" id="exec-overview-dashboard-live" aria-live="polite">● Loading…</span>
         </header>
 
-        <div class="exec-kpi-grid">
-          <article class="exec-glass-card exec-kpi-card" id="exec-kpi-revenue">
+        <div class="exec-kpi-grid" id="exec-kpi-grid">
+          <article class="exec-glass-card exec-kpi-card exec-kpi-card--loading" id="exec-kpi-revenue" data-kpi="revenue">
             <span class="exec-kpi-card__label">إجمالي الإيرادات</span>
             <p class="exec-kpi-card__value-row">
-              <strong class="exec-kpi-card__value">128,450</strong>
+              <strong class="exec-kpi-card__value">Loading...</strong>
               <span class="exec-kpi-card__unit">AUD</span>
             </p>
-            <span class="exec-kpi-card__delta exec-kpi-card__delta--up">+12.4%</span>
+            <span class="exec-kpi-card__delta">Loading...</span>
           </article>
-          <article class="exec-glass-card exec-kpi-card" id="exec-kpi-profit">
+          <article class="exec-glass-card exec-kpi-card exec-kpi-card--loading" id="exec-kpi-profit" data-kpi="profit">
             <span class="exec-kpi-card__label">صافي الربح</span>
             <p class="exec-kpi-card__value-row">
-              <strong class="exec-kpi-card__value">42,380</strong>
+              <strong class="exec-kpi-card__value">Loading...</strong>
               <span class="exec-kpi-card__unit">AUD</span>
             </p>
-            <span class="exec-kpi-card__delta exec-kpi-card__delta--up">+8.1%</span>
+            <span class="exec-kpi-card__delta">Loading...</span>
           </article>
-          <article class="exec-glass-card exec-kpi-card" id="exec-kpi-daily">
+          <article class="exec-glass-card exec-kpi-card exec-kpi-card--loading" id="exec-kpi-daily" data-kpi="tax">
             <span class="exec-kpi-card__label">المبيعات اليومية</span>
             <p class="exec-kpi-card__value-row">
-              <strong class="exec-kpi-card__value">3,240</strong>
+              <strong class="exec-kpi-card__value">Loading...</strong>
               <span class="exec-kpi-card__unit">AUD</span>
             </p>
-            <span class="exec-kpi-card__delta exec-kpi-card__delta--up">+5.2%</span>
+            <span class="exec-kpi-card__delta">Loading...</span>
           </article>
-          <article class="exec-glass-card exec-kpi-card" id="exec-kpi-customers">
+          <article class="exec-glass-card exec-kpi-card exec-kpi-card--loading" id="exec-kpi-customers" data-kpi="inventory">
             <span class="exec-kpi-card__label">عدد العملاء</span>
             <p class="exec-kpi-card__value-row">
-              <strong class="exec-kpi-card__value">1,284</strong>
+              <strong class="exec-kpi-card__value">Loading...</strong>
               <span class="exec-kpi-card__unit"></span>
             </p>
-            <span class="exec-kpi-card__delta exec-kpi-card__delta--up">+18</span>
+            <span class="exec-kpi-card__delta">Loading...</span>
           </article>
         </div>
 
@@ -408,5 +408,188 @@
   <script src="dashboard-charts.js?v=20260524"></script>
   <script src="executive-overview-ui.js?v=20260524"></script>
   <script src="ai-assistant.js?v=20260524"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      var LOADING_TEXT = 'Loading...';
+      var KPI_CARD_IDS = ['exec-kpi-revenue', 'exec-kpi-profit', 'exec-kpi-daily', 'exec-kpi-customers'];
+
+      function formatAud(amount) {
+        var n = Number(amount);
+        if (!Number.isFinite(n)) return '—';
+        return n.toLocaleString('en-AU', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      }
+
+      function setKpiCardLoading(cardId) {
+        var card = document.getElementById(cardId);
+        if (!card) return;
+        card.classList.add('exec-kpi-card--loading');
+        var val = card.querySelector('.exec-kpi-card__value');
+        var delta = card.querySelector('.exec-kpi-card__delta');
+        if (val) val.textContent = LOADING_TEXT;
+        if (delta) delta.textContent = LOADING_TEXT;
+      }
+
+      function setKpiCard(cardId, payload) {
+        var card = document.getElementById(cardId);
+        if (!card) return;
+        card.classList.remove('exec-kpi-card--loading');
+
+        var val = card.querySelector('.exec-kpi-card__value');
+        var delta = card.querySelector('.exec-kpi-card__delta');
+        var unit = card.querySelector('.exec-kpi-card__unit');
+
+        if (val) val.textContent = payload.value != null ? String(payload.value) : '—';
+        if (unit && payload.unit != null) unit.textContent = payload.unit;
+        if (delta) {
+          delta.textContent = payload.delta != null ? String(payload.delta) : '';
+          delta.classList.toggle('exec-kpi-card__delta--up', !!payload.deltaUp);
+          delta.classList.toggle('exec-kpi-card__delta--down', !!payload.deltaDown);
+        }
+
+        if (payload.error) {
+          card.classList.add('exec-kpi-card--error');
+          card.setAttribute('title', payload.error);
+        } else {
+          card.classList.remove('exec-kpi-card--error');
+          card.removeAttribute('title');
+        }
+      }
+
+      function setAllKpisLoading() {
+        KPI_CARD_IDS.forEach(setKpiCardLoading);
+        var live = document.getElementById('exec-overview-dashboard-live');
+        var desc = document.getElementById('exec-overview-dashboard-desc');
+        if (live) live.textContent = '● Loading…';
+        if (desc) desc.textContent = 'مؤشرات أداء رئيسية — جاري التحميل من Supabase…';
+      }
+
+      async function updateDashboard() {
+        setAllKpisLoading();
+
+        if (!window.DashboardService) {
+          KPI_CARD_IDS.forEach(function (id) {
+            setKpiCard(id, { value: '—', delta: 'DashboardService غير متاح', error: 'لم يُحمَّل dashboard-service.js' });
+          });
+          return;
+        }
+
+        var cfg = window.SUPABASE_CONFIG || {};
+        var countryCode = cfg.defaultCountryCode || 'AU';
+
+        try {
+          var snapshot = await window.DashboardService.getDashboardSnapshot({ countryCode: countryCode });
+
+          if (!snapshot || !snapshot.ok) {
+            var errMsg = (snapshot && snapshot.error) || 'فشل جلب ملخص اللوحة';
+            KPI_CARD_IDS.forEach(function (id) {
+              setKpiCard(id, { value: '—', delta: errMsg, error: errMsg });
+            });
+            return;
+          }
+
+          var revenue = snapshot.revenue || {};
+          var profit = snapshot.profit || {};
+          var tax = snapshot.tax || {};
+          var inventory = snapshot.inventory || {};
+
+          if (revenue.ok) {
+            setKpiCard('exec-kpi-revenue', {
+              value: formatAud(revenue.totalRevenue),
+              unit: revenue.currency || 'AUD',
+              delta: (revenue.salesCount != null ? revenue.salesCount : 0) + ' عملية بيع',
+              deltaUp: true,
+            });
+          } else {
+            setKpiCard('exec-kpi-revenue', {
+              value: '—',
+              delta: revenue.error || 'خطأ في الإيرادات',
+              error: revenue.error,
+            });
+          }
+
+          if (profit.ok) {
+            var margin =
+              profit.totalRevenue > 0
+                ? Math.round((profit.netProfit / profit.totalRevenue) * 1000) / 10
+                : 0;
+            setKpiCard('exec-kpi-profit', {
+              value: formatAud(profit.netProfit),
+              unit: profit.currency || 'AUD',
+              delta:
+                'مصروفات ' +
+                formatAud(profit.totalExpenses) +
+                ' · هامش ' +
+                margin +
+                '%',
+              deltaUp: profit.netProfit >= 0,
+              deltaDown: profit.netProfit < 0,
+            });
+          } else {
+            setKpiCard('exec-kpi-profit', {
+              value: '—',
+              delta: profit.error || 'خطأ في الربح',
+              error: profit.error,
+            });
+          }
+
+          if (revenue.ok) {
+            var salesCount = revenue.salesCount != null ? revenue.salesCount : 0;
+            var avgSale = salesCount > 0 ? revenue.totalRevenue / salesCount : 0;
+            setKpiCard('exec-kpi-daily', {
+              value: formatAud(avgSale),
+              unit: revenue.currency || 'AUD',
+              delta: 'متوسط العملية · ' + salesCount + ' عملية (إجمالي الفترة)',
+            });
+          } else {
+            setKpiCard('exec-kpi-daily', {
+              value: '—',
+              delta: revenue.error || 'خطأ في المبيعات',
+              error: revenue.error,
+            });
+          }
+
+          if (revenue.ok) {
+            setKpiCard('exec-kpi-customers', {
+              value: String(revenue.salesCount != null ? revenue.salesCount : 0),
+              unit: 'عملية',
+              delta: inventory.ok
+                ? 'مخزون: ' + (inventory.total || 0) + ' صنف · تنبيهات ' + ((inventory.lowCount || 0) + (inventory.outOfStockCount || 0))
+                : inventory.error || '',
+              deltaUp: true,
+            });
+          } else {
+            setKpiCard('exec-kpi-customers', {
+              value: '—',
+              delta: revenue.error || 'خطأ في العمليات',
+              error: revenue.error,
+            });
+          }
+
+          var live = document.getElementById('exec-overview-dashboard-live');
+          var desc = document.getElementById('exec-overview-dashboard-desc');
+          var branchId =
+            (profit.branchId || revenue.branchId || (snapshot.profile && snapshot.profile.branchId)) || 'الكل';
+          if (live) live.textContent = '● Live · Supabase';
+          if (desc) {
+            desc.textContent =
+              'مؤشرات من قاعدة البيانات — فرع/نطاق: ' + branchId;
+          }
+        } catch (err) {
+          var message = err && err.message ? err.message : String(err);
+          KPI_CARD_IDS.forEach(function (id) {
+            setKpiCard(id, { value: '—', delta: message, error: message });
+          });
+        }
+      }
+
+      window.updateDashboard = updateDashboard;
+
+      window.onload = function () {
+        updateDashboard();
+      };
+    })();
+  </script>
 </body>
 </html>
