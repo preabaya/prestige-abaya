@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" class="exec-theme">
 <head>
   <meta charset="UTF-8">
   <!-- viewport: عرض الشاشة = عرض الجهاز، بدون تكبير افتراضي، مع دعم النوتش -->
@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
   <!-- GitHub Pages: served from repo root → https://preabaya.github.io/prestige-abaya/ -->
-  <link rel="stylesheet" href="style.css?v=20260524-glass-dashboard">
+  <link rel="stylesheet" href="style.css?v=20260524-exec-overview">
   <!-- Chart.js — رسوم الداشبورد (dashboard-ui.js) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
@@ -27,7 +27,38 @@
 </head>
 <body>
   <div class="app-layout" id="app-layout">
-    <aside class="app-sidebar" aria-label="الشريط الجانبي">
+    <aside class="app-sidebar exec-sidebar" aria-label="الشريط الجانبي">
+      <div class="exec-sidebar__brand">
+        <span class="exec-sidebar__logo" aria-hidden="true">PA</span>
+        <div>
+          <strong class="exec-sidebar__name">Prestige Abaya</strong>
+          <span class="exec-sidebar__tag">Executive</span>
+        </div>
+      </div>
+
+      <nav class="exec-nav" id="exec-nav" aria-label="القائمة التنفيذية">
+        <a href="#exec-section-financial" class="exec-nav__item exec-nav__item--active" data-exec-section="exec-section-financial">
+          <span class="exec-nav__icon" aria-hidden="true">💰</span>
+          <span>Financial</span>
+        </a>
+        <a href="#exec-section-sales" class="exec-nav__item" data-exec-section="exec-section-sales">
+          <span class="exec-nav__icon" aria-hidden="true">📈</span>
+          <span>Sales</span>
+        </a>
+        <a href="#exec-section-operations" class="exec-nav__item" data-exec-section="exec-section-operations">
+          <span class="exec-nav__icon" aria-hidden="true">⚙️</span>
+          <span>Operations</span>
+        </a>
+        <a href="#exec-section-hr" class="exec-nav__item" data-exec-section="exec-section-hr">
+          <span class="exec-nav__icon" aria-hidden="true">👥</span>
+          <span>HR</span>
+        </a>
+        <a href="#exec-section-ai" class="exec-nav__item" data-exec-section="exec-section-ai">
+          <span class="exec-nav__icon" aria-hidden="true">✦</span>
+          <span>AI Assistant</span>
+        </a>
+      </nav>
+
       <div class="app-toolbar" aria-label="شريط الأدوات">
         <aside class="notifications-center notifications-center--toolbar" id="notifications-center" aria-label="مركز التنبيهات">
           <button type="button" class="app-toolbar__btn notifications-center__toggle" id="notifications-center-toggle" aria-expanded="false" aria-controls="notifications-list-wrap" title="التنبيهات">
@@ -62,6 +93,7 @@
         </div>
       </div>
 
+      <p class="exec-sidebar__erp-label">وحدات النظام</p>
       <nav class="site-nav site-nav--sidebar" id="site-nav" aria-label="Main navigation"></nav>
 
       <div class="app-sidebar__fab fab fab--sidebar" id="fab" aria-label="Quick actions">
@@ -76,8 +108,11 @@
     </aside>
 
     <div class="app-main">
-      <header class="site-header site-header--fixed">
+      <header class="site-header site-header--fixed exec-header">
         <div class="site-header__top">
+          <button type="button" class="exec-sidebar-toggle" id="exec-sidebar-toggle" aria-expanded="false" aria-controls="app-layout">
+            <span aria-hidden="true">☰</span>
+          </button>
           <div class="site-header__brand">
             <img id="brand-logo" class="site-header__logo" src="" alt="Prestige Abaya" hidden>
             <div class="site-header__text">
@@ -91,6 +126,61 @@
       <div class="app-scroll" id="app-scroll">
         <div id="root" class="root">
           <div class="dashboard-shell">
+      <section id="executive-overview-dashboard" class="exec-overview-dashboard" aria-label="لوحة التحكم التنفيذية">
+        <header class="exec-overview-dashboard__head" id="exec-section-financial">
+          <div>
+            <p class="exec-overview-dashboard__eyebrow">Executive Overview</p>
+            <h2 class="exec-overview-dashboard__title">نظرة تنفيذية</h2>
+            <p class="exec-overview-dashboard__desc">مؤشرات أداء رئيسية — بيانات تجريبية للعرض</p>
+          </div>
+          <span class="exec-overview-dashboard__live" aria-live="polite">● Live Demo</span>
+        </header>
+
+        <div class="exec-kpi-grid">
+          <article class="exec-glass-card exec-kpi-card" id="exec-kpi-revenue">
+            <span class="exec-kpi-card__label">إجمالي الإيرادات</span>
+            <p class="exec-kpi-card__value-row">
+              <strong class="exec-kpi-card__value">128,450</strong>
+              <span class="exec-kpi-card__unit">AUD</span>
+            </p>
+            <span class="exec-kpi-card__delta exec-kpi-card__delta--up">+12.4%</span>
+          </article>
+          <article class="exec-glass-card exec-kpi-card" id="exec-kpi-profit">
+            <span class="exec-kpi-card__label">صافي الربح</span>
+            <p class="exec-kpi-card__value-row">
+              <strong class="exec-kpi-card__value">42,380</strong>
+              <span class="exec-kpi-card__unit">AUD</span>
+            </p>
+            <span class="exec-kpi-card__delta exec-kpi-card__delta--up">+8.1%</span>
+          </article>
+          <article class="exec-glass-card exec-kpi-card" id="exec-kpi-daily">
+            <span class="exec-kpi-card__label">المبيعات اليومية</span>
+            <p class="exec-kpi-card__value-row">
+              <strong class="exec-kpi-card__value">3,240</strong>
+              <span class="exec-kpi-card__unit">AUD</span>
+            </p>
+            <span class="exec-kpi-card__delta exec-kpi-card__delta--up">+5.2%</span>
+          </article>
+          <article class="exec-glass-card exec-kpi-card" id="exec-kpi-customers">
+            <span class="exec-kpi-card__label">عدد العملاء</span>
+            <p class="exec-kpi-card__value-row">
+              <strong class="exec-kpi-card__value">1,284</strong>
+              <span class="exec-kpi-card__unit"></span>
+            </p>
+            <span class="exec-kpi-card__delta exec-kpi-card__delta--up">+18</span>
+          </article>
+        </div>
+
+        <div class="exec-section-anchors" hidden aria-hidden="true">
+          <span id="exec-section-sales"></span>
+          <span id="exec-section-operations"></span>
+          <span id="exec-section-hr"></span>
+          <span id="exec-section-ai"></span>
+        </div>
+
+        <div class="exec-overview-dashboard__modules" id="executive-overview-host"></div>
+      </section>
+
       <section id="interactive-dashboard" class="interactive-dashboard" hidden aria-label="لوحة التحكم التفاعلية">
         <header class="interactive-dashboard__hero">
           <h2 class="interactive-dashboard__title">لوحة التحكم التفاعلية</h2>
@@ -123,13 +213,6 @@
       </section>
 
       <section class="dashboard-grid dashboard-grid--modules" id="dashboard-grid" aria-label="لوحة الوحدات">
-        <article class="dash-card" id="dash-card-executive">
-          <header class="dash-card__head">
-            <h2 class="dash-card__title">نظرة تنفيذية</h2>
-          </header>
-          <div class="dash-card__body" id="executive-overview-host"></div>
-        </article>
-
         <article class="dash-card" id="dash-card-feedback">
           <header class="dash-card__head">
             <h2 class="dash-card__title">تجربة العملاء</h2>
@@ -295,5 +378,6 @@
   <script src="security-center.js?v=20260524"></script>
   <script src="automation-center.js?v=20260524"></script>
   <script src="dashboard-ui.js?v=20260524-glass"></script>
+  <script src="executive-overview-ui.js?v=20260524"></script>
 </body>
 </html>
